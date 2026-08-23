@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { CompanyForm } from '../../../components/company-form.tsx'
 import { StartRunDialog } from '../../../components/start-run-dialog.tsx'
 import { prisma } from '../../../lib/db.ts'
 
@@ -33,6 +34,20 @@ export default async function CompanyPage({
         Aliases: {company.aliases.join(', ') || '—'} · Competitors:{' '}
         {company.competitors.join(', ') || '—'}
       </p>
+
+      <details className="mt-4">
+        <summary className="cursor-pointer text-sm underline underline-offset-4">
+          Edit name, aliases or competitors
+        </summary>
+        <CompanyForm
+          company={{
+            id: company.id,
+            name: company.name,
+            aliases: company.aliases,
+            competitors: company.competitors,
+          }}
+        />
+      </details>
 
       <section className="mt-8">
         <h2 className="text-lg font-medium">Prompts</h2>
