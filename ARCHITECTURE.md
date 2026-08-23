@@ -39,6 +39,7 @@ page shows it. No fixture, no stub, no hard-coded answer anywhere in that path.
 | Provider SDK | `@anthropic-ai/sdk` / `openai` | 0.120.0 / 7.5.0 |
 | Test runner | Vitest | 4.1.11 |
 | Lint | ESLint, invoked directly (not via a framework wrapper) | 10.9.0 |
+| CI | GitHub Actions - cheap gate per push, live gate on demand | - |
 | Host | Railway - web service + worker service + Postgres, push-to-main | - |
 | Package manager | npm | 10.9.8 |
 
@@ -51,6 +52,19 @@ page shows it. No fixture, no stub, no hard-coded answer anywhere in that path.
 
 The exact OpenAI model id string is confirmed against the live models endpoint
 before it is written into the adapter - see the open question in `SPEC.md`.
+
+### How a prompt is sent (this is a measurement decision, not a tuning knob)
+
+The prompt text goes to the provider **unmodified**. No system prompt. No
+`temperature`, `top_p` or any other sampling parameter. No length instruction. The
+only parameter set beyond the tool declaration is `max_tokens`, and it exists
+solely so that an answer is never truncated - a truncated answer can cut off a
+brand that would then be counted as absent. The concrete value is determined in
+Phase 0 and recorded here.
+
+Steering the model would raise the measured numbers and make them meaningless. An
+instrument that influences its own reading is worse than no instrument, because
+its output looks better.
 
 ### Pinned environment (verified 2026-08-23 on the operator's machine)
 
@@ -85,6 +99,10 @@ large/
   SPEC.md
   ARCHITECTURE.md
   PLAN.md
+  .github/
+    workflows/
+      ci.yml                         # per push: typecheck, lint, test
+      verify-live.yml                # workflow_dispatch: full verify
   prisma/
     schema.prisma
     migrations/
@@ -111,21 +129,21 @@ large/
         runs/
           route.ts                   # POST queue a run
           [runId]/
-            route.ts                 # GET status + result
+            route.ts                 # GET status + result (polled)
     components/
       ui/                            # shadcn/ui primitives, vendored
       company-form.tsx
       prompt-editor.tsx
       start-run-dialog.tsx
-      run-progress.tsx
-      coverage-badge.tsx
+      run-progress.tsx               # polls every 2s until terminal
+      coverage-badge.tsx             # coverage + N, per target
       answer-detail.tsx
       citation-list.tsx
     lib/
       db.ts                          # Prisma client singleton
       env.ts                         # zod schema - throws at startup
-      aggregate.ts                   # derived figures - never persisted
-      hash.ts                        # prompt-set hash
+      aggregate.ts                   # derived figures, per target
+      hash.ts                        # basisHash
       money.ts                       # integer micro-dollars, no floats
     core/
       providers/
@@ -134,22 +152,28 @@ large/
         openai.ts
         index.ts                     # registry, configuration-driven
       parse/
-        mentions.ts                  # alias match, position
+        visible-text.ts              # strip link targets, images, code fences
+        mentions.ts                  # alias match on visible text, position
         citations.ts                 # normalise + error-object detection
       run/
-        execute.ts                   # targets x prompts x repetitions
+        plan.ts                      # which (prompt,target,repetition) remain
+        execute.ts                   # per-provider semaphore, runs the plan
         retry.ts                     # exponential backoff, 3 attempts
     worker/
-      index.ts                       # poll loop, graceful shutdown
+      index.ts                       # poll loop, heartbeat, graceful shutdown
       claim.ts                       # SELECT ... FOR UPDATE SKIP LOCKED
   scripts/
-    verify-live.ts                   # the C-gate: one real end-to-end run
+    verify-live.ts                   # the gate: one real end-to-end run
   tests/
     parse/
+      visible-text.test.ts
       mentions.test.ts
       citations.test.ts
     aggregate.test.ts
     hash.test.ts
+    worker/
+      claim.test.ts                  # two claimers, exactly one winner
+      resume.test.ts                 # stale run resumes, does not restart
     fixtures/                        # real stored provider responses
 ```
 
@@ -171,7 +195,7 @@ never used anywhere in this codebase.
 | updatedAt | timestamptz | NOT NULL |
 
 An empty `competitors` array is valid; the run then measures presence and a
-position of 1 of 1.
+position of 1 of 1. Companies are never deleted through the application.
 
 ### Prompt
 
@@ -182,7 +206,8 @@ position of 1 of 1.
 | text | text | NOT NULL |
 | order | int | NOT NULL, UNIQUE (companyId, order) |
 
-Editable at any time. Editing never affects an existing run - see RunPrompt.
+The list is replaced wholesale on save. Deleting a Prompt is safe because a run
+references `RunPrompt`, a copy, and never this row.
 
 ### Run
 
@@ -192,7 +217,12 @@ Editable at any time. Editing never affects an existing run - see RunPrompt.
 | companyId | uuid | FK Company |
 | status | RunStatus | NOT NULL, default `queued` |
 | repetitions | int | NOT NULL, default 3, CHECK >= 1 |
-| promptSetHash | text | NOT NULL - sha256 over the ordered prompt texts |
+| brandName | text | NOT NULL - snapshot |
+| brandAliases | text[] | NOT NULL - snapshot |
+| brandCompetitors | text[] | NOT NULL - snapshot |
+| basisHash | text | NOT NULL - see below |
+| heartbeatAt | timestamptz | NULL - refreshed by the executing worker |
+| reclaimCount | int | NOT NULL, default 0 |
 | claimedAt | timestamptz | NULL |
 | startedAt | timestamptz | NULL |
 | finishedAt | timestamptz | NULL |
@@ -200,9 +230,17 @@ Editable at any time. Editing never affects an existing run - see RunPrompt.
 | createdAt | timestamptz | NOT NULL |
 
 `RunStatus` = `queued` | `running` | `completed` | `completed_with_errors` |
-`failed`.
+`failed`. Semantics are defined in `SPEC.md` -> Run status; in particular `failed`
+means *no target reached the coverage threshold*, not *something went wrong*.
 
-Index on `(status, createdAt)` - this is the worker's claim query.
+`basisHash` = sha256 over the ordered `RunPrompt` texts, the ordered
+`(provider, modelId)` target list, the normalised `brandAliases` and the
+normalised `brandCompetitors`. N is deliberately excluded: two runs at different N
+ask the same question of the same models about the same brand, and N is displayed
+next to every figure instead.
+
+Index on `(status, heartbeatAt)` - this is the worker's claim query, which matches
+`queued` rows and `running` rows whose heartbeat has gone stale.
 
 A Run **is** the job row. There is no separate queue table.
 
@@ -253,6 +291,11 @@ provider; no other schema change is needed.
 `AnswerStatus` = `ok` | `failed`. A `failed` row is never counted as an answer in
 which the brand was absent (SPEC C5).
 
+The unique constraint on `(runPromptId, runTargetId, repetition)` is what makes
+resumption safe: a reclaimed run computes the missing combinations and inserts
+only those, and a duplicate insert is rejected by the database rather than paid
+for twice.
+
 ### Citation
 
 | Field | Type | Constraints |
@@ -271,7 +314,7 @@ which the brand was absent (SPEC C5).
 | answerId | uuid | FK Answer, ON DELETE CASCADE |
 | brand | text | NOT NULL, UNIQUE (answerId, brand) |
 | isSubject | boolean | NOT NULL - true for the measured brand |
-| position | int | NOT NULL - 1-based rank of first textual occurrence |
+| position | int | NOT NULL - 1-based rank of first occurrence |
 | totalRecognised | int | NOT NULL - recognised brands in that answer |
 
 Relations: Company 1-* Prompt · Company 1-* Run · Run 1-* RunTarget · Run 1-*
@@ -306,6 +349,14 @@ with a web search **error object** rather than a result list. Both providers
 return that as HTTP 200, so an adapter that only catches exceptions would record
 it as a successful answer with zero citations (SPEC C7).
 
+### Matching (`src/core/parse/`)
+
+`visible-text.ts` reduces raw answer text to what a reader sees: markdown link
+targets and image targets are removed while their label text is kept, and fenced
+code blocks are dropped. Every alias and competitor match in `mentions.ts` runs
+against that reduced text and never against the raw string. The full matching rule
+set is normative in `SPEC.md` C8.
+
 ### API contracts
 
 ```
@@ -337,10 +388,20 @@ POST   /api/runs
   errs: 400 schema or empty prompt list, 404 unknown company
 
 GET    /api/runs/:runId
-  res: { run, targets, prompts, aggregates, answers }
-        # aggregates computed at read time, each carrying its coverage
+  res: { run,                          # incl. status, N, basisHash, snapshot
+         targets,
+         progress: { done, total },    # total = prompts x targets x N
+         perTarget: [ { provider, modelId, coverage, reliable,
+                        mentionRate, averagePosition, competitors } ],
+         totals: { inputTokens, outputTokens, searchCount, costMicros },
+         prompts: [ { text, cells: [ { target, state, answers } ] } ] }
+        # every figure computed at read time; `state` is one of
+        # 'ok' | 'no-data'; 'no-data' is never rendered as zero
   errs: 404 unknown run
 ```
+
+Screen 3 polls `GET /api/runs/:runId` every 2 seconds while `run.status` is
+`queued` or `running`, and stops polling once it is terminal.
 
 ## Deployment
 
@@ -365,10 +426,19 @@ That property is the reason this project is not on a serverless host: a run of
 | DATABASE_URL | yes | `lib/env.ts` zod schema, throws at startup |
 | ANTHROPIC_API_KEY | yes | `lib/env.ts` + `scripts/verify-live.ts` |
 | OPENAI_API_KEY | yes | `lib/env.ts` + `scripts/verify-live.ts` |
-| RUN_CONCURRENCY | no (default 4) | zod default, CHECK 1..16 |
+| PROVIDER_CONCURRENCY | no (default 4) | zod default, CHECK 1..16 |
 | COVERAGE_THRESHOLD | no (default 0.8) | zod default, CHECK 0..1 |
 | WORKER_POLL_MS | no (default 2000) | zod default |
+| STALE_RUN_SECONDS | no (default 120) | zod default |
+| MAX_RECLAIMS | no (default 3) | zod default |
 | NODE_ENV | yes | zod enum |
+
+`PROVIDER_CONCURRENCY` is **per provider, per worker process** - a separate
+semaphore for each provider, because rate limits are charged per provider. With
+two providers and one worker that is at most eight calls in flight. Known
+limitation: with W workers the effective limit becomes W x 4, since each process
+counts only itself. A shared limiter is a v2 item and is listed in `PLAN.md` ->
+Deferred.
 
 Secrets never enter the repository. `.env.example` lists every variable with an
 empty value and a one-line comment.
@@ -382,6 +452,15 @@ get** - enumerate and check these when a deploy behaves unexpectedly:
 - health check path and restart policy per service
 - the plan (Hobby vs Pro) and any per-service resource caps
 - the API keys, set per service - the worker needs both; web needs neither
+
+### CI
+
+- `.github/workflows/ci.yml` runs on every push: `npm run typecheck`,
+  `npm run lint`, `npm run test`, with a PostgreSQL service container. It needs no
+  provider secrets and costs nothing per run.
+- `.github/workflows/verify-live.yml` runs on `workflow_dispatch` only: the full
+  `npm run verify`, including `verify:live`, against repository secrets. It spends
+  two real provider calls each time it is invoked, so it is never automatic.
 
 **External-fact convention:** every claim about a third-party service in this pack
 carries a date - "as researched YYYY-MM-DD; re-check, don't trust." Pricing, free
@@ -402,11 +481,20 @@ search** and may be a comparable amount again; that figure is an open question i
   anecdotes presented as measurements) and deferring repetition to v2 (pays every
   structural cost of N without the benefit).
 
+- **The prompt is sent unmodified.** No system prompt, no sampling parameters, no
+  length instruction. Cost: answers are longer, less structured and more expensive
+  to parse. Benefit: the instrument does not influence its own reading.
+
 - **Deterministic alias matching, not an LLM judge.** Reproducible to the
   character, free, and testable against stored fixtures without an API key. Cost:
   v1 cannot discover competitors the operator did not name. Mitigated by storing
   raw answer text, so a v2 judge reprocesses history with zero new provider calls.
   Rejected: judge-first, which has no deterministic baseline to check against.
+
+- **Matching happens on visible text, not raw text.** A brand appearing only in a
+  markdown link target or a citation is not a mention. Cost: one more parsing
+  stage. Without it, position shifts whenever a model links its sources, and a
+  brand mentioned only as a URL counts as recommended.
 
 - **Position means textual order, not intended ranking.** Cheap and unambiguous.
   Cost: a model that says "X is popular, but I recommend Y" scores X ahead of Y.
@@ -423,19 +511,26 @@ search** and may be a comparable amount again; that figure is an open question i
   pool is a replica-count change, an external cron in v2 writes the same row, and
   the web request never waits minutes.
 
+- **Stalled runs are resumed, not restarted.** A heartbeat plus the unique
+  constraint on (prompt, target, repetition) means a crash at 80 percent costs the
+  remaining 20 percent, not another whole run. A reclaim counter stops a run that
+  reliably crashes the process from burning money in a loop. Cost: two columns and
+  two settings.
+
 - **Aggregates are derived, never stored.** A better parser can be applied to the
   entire history by recomputing. Cost: the run page does more work per request,
   which is irrelevant at this data volume.
 
-- **Coverage travels with every figure; 80 percent is the reliability threshold.**
-  A failed call and "not mentioned" must never collapse into the same number - it
-  is the one error in this product that is invisible after the fact. Below the
-  threshold a run is labelled unreliable and kept visible rather than hidden.
+- **Coverage is per target, and travels with every figure alongside N.** A run
+  where one provider degraded still yields a valid measurement from the other; a
+  run-wide coverage number would discard it. A failed call and "not mentioned"
+  must never collapse into the same number - it is the one error in this product
+  that is invisible after the fact.
 
-- **A run is self-describing.** It stores copies of its prompts, its targets and a
-  hash of the prompt set. A differing hash or target list breaks the series rather
-  than extending it. Cost: prompt text is duplicated per run - trivial. Benefit:
-  no run can silently become incomparable to its predecessor.
+- **A run is self-describing, and one `basisHash` covers the whole basis.** It
+  stores copies of its prompts, its targets and its brand definition. A differing
+  hash breaks the series rather than extending it. Cost: the snapshot is duplicated
+  per run - trivial. Benefit: adding an alias cannot silently inflate a trend.
 
 - **`companyId` on every scoped row, with no auth in v1.** Adding authentication
   in v2 is a middleware layer plus row-level security, not a migration through
@@ -445,9 +540,22 @@ search** and may be a comparable amount again; that figure is an open question i
   value. v1 configures two because `SPEC.md` scopes it to two, not because the
   code cannot hold more. Cost of more: strictly linear in run time and price.
 
-- **Token usage and cost captured per answer.** This data is present in the
-  provider response and is unrecoverable afterwards. It is what makes per-customer
-  margin computable once the product is priced.
+- **Token usage, search counts and cost captured per answer.** This data is present
+  in the provider response and is unrecoverable afterwards. It is what makes
+  per-customer margin computable once the product is priced.
+
+- **No delete affordance.** Stored answers are the asset and cannot be regenerated
+  without paying again, and v1 has no authentication protecting a delete button.
+  Cost: an unwanted company stays in the list. `archivedAt` is a v2 item.
+
+- **Progress by polling, not by websockets or SSE.** A run takes minutes, so a
+  two-second delay is invisible, and polling reuses the endpoint that already
+  exists. Cost: a handful of cheap requests per minute while a run is active.
+
+- **CI runs the cheap gate per push and the live gate on demand.** The expensive
+  half needs both API keys and spends real money; making it automatic would tax
+  every commit. Cost: a push can break the live path without CI noticing, which is
+  why `npm run verify` is a per-phase obligation in `CLAUDE.md`.
 
 - **TypeScript 5.9.3, not 7.0.2.** TypeScript 7 is the current `latest` and is the
   native compiler rewrite. It is faster and offers this project nothing else,

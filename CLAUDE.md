@@ -26,42 +26,57 @@ Lead on structure; ask when the spec is silent - do not guess.
 - No new dependencies without asking.
 - Do not change the pinned stack in `ARCHITECTURE.md`.
 - Do not invent features that are not in `SPEC.md`. Flag gaps; do not fill them.
-- Do not add authentication, scheduling, trend charts, exports, a third provider,
-  or any advice feature. Every one of those is explicitly out of scope for v1 and
-  each has a named hook already in place.
+- Do not add authentication, scheduling, trend charts, exports, a delete button, a
+  third provider, or any advice feature. Every one of those is explicitly out of
+  scope for v1 and each already has a named hook.
 
 ## Project rules that are easy to get wrong
 
 These are the mistakes that pass every compiler and every casual review. Check
 each one before claiming a phase done.
 
-1. **A failed call is never "not mentioned".** An `Answer` with status `failed`
-   is excluded from every numerator and every denominator except coverage. If a
-   prompt has zero successful answers, the UI shows "no data", not a zero.
-2. **Coverage travels with every figure.** No percentage, average or count is
-   rendered anywhere without the coverage it was computed from beside it.
-3. **Aggregates are never persisted.** Mention rate, average position, competitor
-   frequency and total cost are computed in `lib/aggregate.ts` at read time. If
-   you find yourself adding a column for one of them, stop.
-4. **Money is integer micro-dollars.** No floats, ever, anywhere near a cost.
-5. **A provider search error is not an empty result.** Both providers return web
+1. **A failed call is never "not mentioned".** An `Answer` with status `failed` is
+   excluded from every numerator and every denominator except coverage. If a
+   prompt has zero successful answers against a target, that cell shows "no data",
+   not a zero.
+2. **Coverage and N travel with every figure.** No percentage, average or count is
+   rendered anywhere without the coverage of its own target and the run's N beside
+   it.
+3. **Coverage is per target, never per run.** One degraded provider must not
+   invalidate the other provider's measurement. A run is `failed` only when *no*
+   target reached the threshold.
+4. **Aggregates are never persisted.** Mention rate, average position, competitor
+   frequency and total cost are computed in `lib/aggregate.ts` at read time. If you
+   find yourself adding a column for one of them, stop.
+5. **Money is integer micro-dollars.** No floats, ever, anywhere near a cost.
+6. **The prompt goes out unmodified.** No system prompt, no `temperature` or
+   `top_p`, no length instruction. `max_tokens` exists only so an answer is never
+   truncated. Steering the model raises the numbers and destroys their meaning.
+7. **Match on visible text, never on raw text.** Strip markdown link targets, image
+   targets and fenced code blocks first. A brand that appears only inside a URL or
+   only in a citation is not a mention, and counting it shifts every position.
+8. **A provider search error is not an empty result.** Both providers return web
    search failures as HTTP 200 with an error object instead of a result list. An
    adapter must return `{ ok: false }` for that case, not a successful answer with
    zero citations. This is the failure mode the whole verification gate exists to
    catch.
-6. **Nothing assumes two providers.** Targets are a list. Never write `modelA` /
+9. **Nothing assumes two providers.** Targets are a list. Never write `modelA` /
    `modelB`, never index a target by position, never hard-code a provider name
    outside `src/core/providers/`.
-7. **Runs are immutable once queued.** Editing a company's prompts must not change
-   any existing run. If a change would reach into `RunPrompt`, `RunTarget` or a
-   stored `Answer`, it is wrong.
-8. **Never delete or overwrite raw answer text.** It is the substrate for the v2
-   judge and the v2 advice engine, and it cannot be regenerated without paying for
-   the calls again.
-9. **Every claim about a third-party service carries a date** in the form
-   "as researched YYYY-MM-DD; re-check, don't trust". Pricing, limits and free
-   tiers rot.
-10. **Secrets never enter the repository.** Every required variable is declared in
+10. **Runs are immutable once queued.** Editing a company's prompts, aliases or
+    competitors must not change any existing run. If a change would reach into
+    `RunPrompt`, `RunTarget`, a run's brand snapshot or a stored `Answer`, it is
+    wrong.
+11. **Resume a stalled run; never restart it.** The unique constraint on
+    (prompt, target, repetition) tells you what is already paid for. Re-running a
+    completed combination spends money for a row that already exists.
+12. **Never delete or overwrite raw answer text.** It is the substrate for the v2
+    judge and the v2 advice engine, and it cannot be regenerated without paying for
+    the calls again.
+13. **Every claim about a third-party service carries a date** in the form
+    "as researched YYYY-MM-DD; re-check, don't trust". Pricing, limits and free
+    tiers rot.
+14. **Secrets never enter the repository.** Every required variable is declared in
     `lib/env.ts` and fails loudly at startup when absent.
 
 ## Stop points
@@ -85,6 +100,11 @@ real end-to-end run through the real queue, worker, adapters and parser. It need
 a running PostgreSQL and both API keys, and it costs two real provider calls each
 time it runs. Use `npm run typecheck` and `npm run test` for the fast loop during
 a phase; run `npm run verify` at the end of one.
+
+CI runs typecheck, lint and test on every push and needs no secrets. The full
+`verify` including the live call runs only when the `verify-live` workflow is
+dispatched by hand. CI passing is therefore not the same as the phase gate
+passing.
 
 Then confirm the phase's EARS criterion in `PLAN.md` actually holds. A red gate
 means not done. Do not self-certify around it.
