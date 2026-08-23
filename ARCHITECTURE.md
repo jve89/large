@@ -50,8 +50,10 @@ page shows it. No fixture, no stub, no hard-coded answer anywhere in that path.
 | Anthropic | `claude-sonnet-5` | `web_search_20260209` |
 | OpenAI | `gpt-5.6-terra` | Responses API `web_search` |
 
-The exact OpenAI model id string is confirmed against the live models endpoint
-before it is written into the adapter - see the open question in `SPEC.md`.
+Both model id strings and the Anthropic web search tool version are confirmed
+against each provider's live models endpoint and current documentation in Phase 0,
+before either is written into an adapter - see the open questions in `SPEC.md`.
+The values above are as researched 2026-08-23; re-check, don't trust.
 
 ### How a prompt is sent (this is a measurement decision, not a tuning knob)
 
@@ -90,6 +92,7 @@ large/
   next.config.ts
   postcss.config.mjs
   eslint.config.mjs
+  tsconfig.worker.json               # emits src/worker + its imports to dist/
   vitest.config.ts
   components.json                    # shadcn/ui config
   .nvmrc
@@ -148,6 +151,7 @@ large/
     core/
       providers/
         types.ts                     # ProviderAdapter interface
+        pricing.ts                   # dated per-token and per-search prices
         anthropic.ts
         openai.ts
         index.ts                     # registry, configuration-driven
@@ -158,7 +162,7 @@ large/
       run/
         plan.ts                      # which (prompt,target,repetition) remain
         execute.ts                   # per-provider semaphore, runs the plan
-        retry.ts                     # exponential backoff, 3 attempts
+        retry.ts                     # backoff; 3 attempts total (1 + 2 retries)
     worker/
       index.ts                       # poll loop, heartbeat, graceful shutdown
       claim.ts                       # SELECT ... FOR UPDATE SKIP LOCKED
@@ -169,11 +173,19 @@ large/
       visible-text.test.ts
       mentions.test.ts
       citations.test.ts
-    aggregate.test.ts
-    hash.test.ts
+    api/
+      companies.test.ts
+      prompts.test.ts
+      runs-queue.test.ts
+    run/
+      retry.test.ts
+      answers.test.ts
     worker/
       claim.test.ts                  # two claimers, exactly one winner
       resume.test.ts                 # stale run resumes, does not restart
+    aggregate.test.ts
+    comparability.test.ts
+    hash.test.ts
     fixtures/                        # real stored provider responses
 ```
 
@@ -230,14 +242,22 @@ references `RunPrompt`, a copy, and never this row.
 | createdAt | timestamptz | NOT NULL |
 
 `RunStatus` = `queued` | `running` | `completed` | `completed_with_errors` |
-`failed`. Semantics are defined in `SPEC.md` -> Run status; in particular `failed`
-means *no target reached the coverage threshold*, not *something went wrong*.
+`failed`. Semantics are defined in `SPEC.md` -> Run status. `failed` has exactly
+two causes: no target reached the coverage threshold, or the reclaim limit was
+exceeded. An ordinary failed call is not one of them - that is
+`completed_with_errors`.
 
-`basisHash` = sha256 over the ordered `RunPrompt` texts, the ordered
-`(provider, modelId)` target list, the normalised `brandAliases` and the
-normalised `brandCompetitors`. N is deliberately excluded: two runs at different N
-ask the same question of the same models about the same brand, and N is displayed
-next to every figure instead.
+The worker writes the terminal status when it finishes or abandons a run, using
+`COVERAGE_THRESHOLD` and the planned attempt count. That transition is delivered
+in Phase 4, not in the phase that renders the figures.
+
+`basisHash` = sha256 over exactly four inputs: the ordered `RunPrompt` texts, the
+ordered `(provider, modelId)` target list, the normalised `brandAliases` and the
+normalised `brandCompetitors`. `brandName` is stored in the snapshot but is
+deliberately **not** hashed - renaming a company does not change what was
+measured, while changing an alias does. N is excluded for the same kind of reason:
+two runs at different N ask the same question of the same models about the same
+brand, and N is displayed next to every figure instead.
 
 Index on `(status, heartbeatAt)` - this is the worker's claim query, which matches
 `queued` rows and `running` rows whose heartbeat has gone stale.
@@ -246,6 +266,11 @@ A Run **is** the job row. There is no separate queue table.
 
 Coverage, mention rate, average position and total cost are **not columns**. They
 are computed from Answer rows at read time (SPEC C9).
+
+Coverage for a target = successful answers for that target divided by its
+**planned** attempts, which is `count(RunPrompt) * Run.repetitions`. The
+denominator never comes from the number of stored rows; otherwise a run abandoned
+early would report full coverage on the handful of calls it managed to make.
 
 ### RunTarget
 
@@ -346,8 +371,14 @@ interface ProviderAdapter {
 
 An adapter returns `ok: false` - it does not throw - when the provider replies
 with a web search **error object** rather than a result list. Both providers
-return that as HTTP 200, so an adapter that only catches exceptions would record
-it as a successful answer with zero citations (SPEC C7).
+return that as HTTP 200 (as researched 2026-08-23; re-check, don't trust), so an
+adapter that only catches exceptions would record it as a successful answer with
+zero citations (SPEC C7).
+
+`pricing.ts` holds the per-token and per-search prices per model id, each row
+carrying the date it was read, and is the only place a price appears. An adapter
+computes `costMicros` from its usage figures and that table; `lib/money.ts` only
+provides the integer arithmetic.
 
 ### Matching (`src/core/parse/`)
 
@@ -369,7 +400,10 @@ POST   /api/companies
   errs: 400 name empty or payload fails schema
 
 GET    /api/companies/:companyId
-  res: { company, prompts, runs }
+  res: { company,
+         prompts: { id, text, order }[],
+         runs:    { id, status, repetitions, basisHash, createdAt,
+                    finishedAt }[] }   # basisHash is what C11 compares on
   errs: 404 unknown company
 
 PATCH  /api/companies/:companyId
@@ -397,6 +431,13 @@ GET    /api/runs/:runId
          prompts: [ { text, cells: [ { target, state, answers } ] } ] }
         # every figure computed at read time; `state` is one of
         # 'ok' | 'no-data'; 'no-data' is never rendered as zero
+        #
+        # answers: { repetition, status, failureReason?, rawText?,
+        #            mentions:   { brand, isSubject, position,
+        #                          totalRecognised }[],
+        #            citations:  { url, title, order }[],
+        #            usage:      { inputTokens, outputTokens, searchCount },
+        #            costMicros, latencyMs, httpAttempts }[]
   errs: 404 unknown run
 ```
 
@@ -410,28 +451,41 @@ Host: **Railway** - ships via push-to-main. Runtime pinned by `.nvmrc` and by
 
 Three services, one repository:
 
-| Service | Start command | Public |
-|---|---|---|
-| web | `next start` | yes |
-| worker | `node --enable-source-maps dist/worker/index.js` | no |
-| postgres | Railway Postgres plugin | no |
+| Service | Build command | Start command | Public |
+|---|---|---|---|
+| web | `npm run build` (`prisma generate && next build`) | `next start` | yes |
+| worker | `npm run build:worker` (`tsc -p tsconfig.worker.json`) | `node --enable-source-maps dist/worker/index.js` | no |
+| postgres | - | Railway Postgres plugin | no |
+
+The worker has its own `tsconfig.worker.json` because the root config is
+Next-oriented and emits nothing. Without it `dist/worker/index.js` never exists
+and the worker service cannot start.
 
 Railway containers have **no execution time limit** - a process runs until it
 finishes, fails, or is stopped (as researched 2026-08-23; re-check, don't trust).
 That property is the reason this project is not on a serverless host: a run of
 120 calls takes minutes.
 
-| Env var | Required | Guarded by |
+`lib/env.ts` validates against the **process role** - `web`, `worker` or `script`
+- because the two services share one schema but not one set of needs.
+
+| Env var | Required for | Guarded by |
 |---|---|---|
-| DATABASE_URL | yes | `lib/env.ts` zod schema, throws at startup |
-| ANTHROPIC_API_KEY | yes | `lib/env.ts` + `scripts/verify-live.ts` |
-| OPENAI_API_KEY | yes | `lib/env.ts` + `scripts/verify-live.ts` |
+| DATABASE_URL | all roles | `lib/env.ts` zod schema, throws at startup |
+| ANTHROPIC_API_KEY | worker, script | `lib/env.ts` (role-gated) + `scripts/verify-live.ts` |
+| OPENAI_API_KEY | worker, script | `lib/env.ts` (role-gated) + `scripts/verify-live.ts` |
 | PROVIDER_CONCURRENCY | no (default 4) | zod default, CHECK 1..16 |
 | COVERAGE_THRESHOLD | no (default 0.8) | zod default, CHECK 0..1 |
 | WORKER_POLL_MS | no (default 2000) | zod default |
 | STALE_RUN_SECONDS | no (default 120) | zod default |
 | MAX_RECLAIMS | no (default 3) | zod default |
-| NODE_ENV | yes | zod enum |
+| NODE_ENV | all roles | zod enum |
+
+**PostgreSQL version guard.** On startup, after the first connection, every role
+asserts `server_version_num` against the pinned major version (17) and exits
+naming both versions if it differs. Nothing else verifies that the Railway plugin
+and the CI service container actually provide the version this pack pins, which
+would otherwise make Postgres the only pinned dependency trusted on faith.
 
 `PROVIDER_CONCURRENCY` is **per provider, per worker process** - a separate
 semaphore for each provider, because rate limits are charged per provider. With
@@ -456,7 +510,8 @@ get** - enumerate and check these when a deploy behaves unexpectedly:
 ### CI
 
 - `.github/workflows/ci.yml` runs on every push: `npm run typecheck`,
-  `npm run lint`, `npm run test`, with a PostgreSQL service container. It needs no
+  `npm run lint`, `npm run test`, with a PostgreSQL service container pinned to
+  the `postgres:17` image so it matches the pinned major version. It needs no
   provider secrets and costs nothing per run.
 - `.github/workflows/verify-live.yml` runs on `workflow_dispatch` only: the full
   `npm run verify`, including `verify:live`, against repository secrets. It spends
@@ -467,11 +522,15 @@ carries a date - "as researched YYYY-MM-DD; re-check, don't trust." Pricing, fre
 tiers and limits rot.
 
 **Cost of one run** - 20 prompts, 2 targets, N=3 gives 120 calls. Token cost at
-the pinned targets is roughly $5-8 per run. Web search is billed **separately per
+the pinned targets is roughly $5-8 per run (estimated from published per-token
+prices, as researched 2026-08-23; re-check, don't trust). Web search is billed **separately per
 search** and may be a comparable amount again; that figure is an open question in
 `SPEC.md` and is not pinned here.
 
-**Remote:** GitHub, created and pushed when Phase 0 first deploys.
+**Remote:** GitHub. The repository and its two provider secrets are created by the
+operator **before** Phase 0's deploy - it is an item on `PLAN.md` -> Blocked on the
+operator and in `SPEC.md` -> Open questions, not something that happens during the
+phase. Phase 0 pushes to it.
 
 ## Key decisions & trade-offs
 
@@ -557,8 +616,8 @@ search** and may be a comparable amount again; that figure is an open question i
   every commit. Cost: a push can break the live path without CI noticing, which is
   why `npm run verify` is a per-phase obligation in `CLAUDE.md`.
 
-- **TypeScript 5.9.3, not 7.0.2.** TypeScript 7 is the current `latest` and is the
-  native compiler rewrite. It is faster and offers this project nothing else,
+- **TypeScript 5.9.3, not 7.0.2.** TypeScript 7 is the current `latest` on npm (as
+  researched 2026-08-23; re-check, don't trust) and is the native compiler rewrite. It is faster and offers this project nothing else,
   while the surrounding tool ecosystem is younger on it. Cost: slower builds.
   Revisit as a version bump once Phase 0 is green - it is not a rewrite.
 
@@ -575,6 +634,19 @@ search** and may be a comparable amount again; that figure is an open question i
   logged-out tool with dynamic data uses, and would cost two dashboards, two
   pipelines, two sets of variables, and a database reached across the internet
   instead of inside one network.
+
+- **Prices live in one dated table, not in the adapters.** `pricing.ts` is the only
+  place a per-token or per-search price appears, and every row carries the date it
+  was read. Cost: one more file to keep current. Without it the price would be
+  scattered through two adapters and silently rot in both.
+
+- **Coverage is measured against the plan, not against what was stored.** A run
+  that dies early would otherwise report perfect coverage on the few calls it made
+  - the most flattering possible reading of the worst possible run.
+
+- **Environment validation is role-aware.** Web, worker and scripts share one
+  schema but not one set of requirements; a shared "everything is required" schema
+  would crash-loop the web service on a host where only the worker holds the keys.
 
 - **Money as integer micro-dollars.** Floating point currency accumulates error
   across 120 rows per run and is never correct at the point someone is invoiced.

@@ -45,20 +45,30 @@ it.** No fixture, no stub, no hard-coded answer anywhere on that path.
 
 Includes the gate command, `.env.example`, both CI workflows, and the first deploy.
 
-Scope: project scaffolding, `lib/env.ts`, the full Prisma schema and first
-migration, both provider adapters at their minimum, the worker poll loop with
+Scope: project scaffolding, `lib/env.ts` with role-aware validation and the
+PostgreSQL major-version assertion, `tsconfig.worker.json` and the `build:worker`
+script, the full Prisma schema and first migration, `pricing.ts`, both provider
+adapters at their minimum, the worker poll loop with
 `SELECT ... FOR UPDATE SKIP LOCKED` and a heartbeat, minimal `visible-text.ts`,
-`mentions.ts` and `citations.ts`, one run page, and `scripts/verify-live.ts`.
+`mentions.ts` and `citations.ts`, one run page, both CI workflows, and
+`scripts/verify-live.ts`.
 
-Also determines and records in `ARCHITECTURE.md` the `max_tokens` value that is
-high enough never to truncate an answer at either provider - an open question in
-`SPEC.md`.
+Also resolves three open questions from `SPEC.md` and records the answers in
+`ARCHITECTURE.md`: the `max_tokens` value that is high enough never to truncate an
+answer at either provider; the confirmed model id strings for both providers and
+the Anthropic web search tool version; and the per-token and per-search prices,
+written into `pricing.ts` with the date they were read. Phase 5 stores a cost per
+answer and cannot do so until that table exists.
 
 - Delivers: C13, C14 (plus the wiring that later phases deepen)
 - Done when:
-  - IF a required environment variable is absent, THEN the application exits at
-    startup naming that variable - verified by `npm run verify` with the variable
-    unset, which must exit non-zero.
+  - IF an environment variable required for the running role is absent, THEN that
+    process exits at startup naming it - verified by `npm run verify` with
+    `DATABASE_URL` unset, which must exit non-zero, and by the web process starting
+    successfully with no provider keys present.
+  - IF the database major version is not the pinned one, THEN startup fails naming
+    both versions.
+  - `npm run build:worker` produces `dist/worker/index.js`.
   - WHEN `npm run verify` is executed with both keys present and PostgreSQL
     running, the system SHALL run typecheck, lint and tests and then complete one
     real end-to-end run of one prompt against both targets at N=1, storing at
@@ -76,7 +86,7 @@ high enough never to truncate an answer at either provider - an open question in
 - Done when: WHEN a company is submitted with a non-empty name, it is persisted
   with its aliases and competitors and retrievable by id; IF the name is empty,
   the request is rejected and nothing is persisted - verified by
-  `npm run test -- companies` and `npm run verify`.
+  `npm run test -- api/companies` and `npm run verify`.
 - Commit: `feat: company registry`
 
 ## Phase 2 - Prompt list
@@ -85,7 +95,7 @@ high enough never to truncate an answer at either provider - an open question in
 - Done when: WHEN a prompt list is saved, every non-empty line becomes one ordered
   prompt for that company and the previous list is replaced in full; IF the list
   exceeds 50 prompts, a warning naming the resulting call count is returned and
-  the save still succeeds - verified by `npm run test -- prompts` and
+  the save still succeeds - verified by `npm run test -- api/prompts` and
   `npm run verify`.
 - Commit: `feat: prompt list`
 
@@ -95,11 +105,12 @@ high enough never to truncate an answer at either provider - an open question in
 - Done when: WHEN a run is started, a run record with status `queued` exists
   carrying an immutable snapshot of the prompt texts, the target list, the brand
   name, the aliases and the competitors, plus the chosen N and the `basisHash`
-  computed over that snapshot, and the request returns without waiting; IF the
+  computed over four of those - prompts, targets, aliases, competitors, but not the
+  brand name - and the request returns without waiting; IF the
   company has no prompts, the request is rejected and no run is created; editing
   the company's prompts, aliases or competitors afterwards leaves that run
-  unchanged - verified by `npm run test -- runs.queue`, `npm run test -- hash`
-  and `npm run verify`.
+  unchanged - verified by `npm run test -- api/runs-queue`,
+  `npm run test -- hash` and `npm run verify`.
 - Commit: `feat: queue a run`
 
 ## Phase 4 - Worker: claim, resume, concurrency, retry
@@ -116,12 +127,20 @@ high enough never to truncate an answer at either provider - an open question in
     answer.
   - IF a run has been reclaimed more than `MAX_RECLAIMS` times, THEN it is set to
     `failed` with that reason and no further provider calls are made for it.
-  - IF a call fails with a rate limit, a timeout or a 5xx, THEN it is retried up
-    to three times with exponential backoff before being recorded as failed.
-  - Verified by `npm run test -- worker.claim` (two concurrent claimers, exactly
-    one winner), `npm run test -- worker.resume` (a stale run with half its
-    answers stored resumes and issues only the missing calls) and
-    `npm run test -- retry`.
+  - IF a call fails with a rate limit, a timeout or a 5xx, THEN at most three
+    attempts are made in total - the initial call plus two retries - with
+    exponential backoff between them, and `Answer.httpAttempts` records how many
+    were spent.
+  - WHEN the worker finishes or abandons a run, it writes the terminal status
+    according to `SPEC.md` -> Run status, using `COVERAGE_THRESHOLD` against the
+    planned attempt count per target: `completed` when every attempt succeeded,
+    `completed_with_errors` when at least one target still reaches the threshold,
+    `failed` when none does or when the reclaim limit was exceeded.
+  - Verified by `npm run test -- worker/claim` (two concurrent claimers, exactly
+    one winner), `npm run test -- worker/resume` (a stale run with half its
+    answers stored resumes and issues only the missing calls),
+    `npm run test -- run/retry`, and a status fixture set covering all three
+    terminal outcomes including a high-coverage run killed by the reclaim limit.
 - Commit: `feat: worker claim, resume and retry`
 
 ## Phase 5 - Answers and citations
@@ -133,8 +152,8 @@ high enough never to truncate an answer at either provider - an open question in
   with a reason and is not counted as an answer lacking the brand; IF a provider
   returns a web search error object rather than a result list, the attempt is
   recorded as failed and not as an answer with zero citations - verified by
-  `npm run test -- answers` and `npm run test -- citations` against stored
-  fixtures of both real and error-shaped provider responses.
+  `npm run test -- run/answers` and `npm run test -- parse/citations` against
+  stored fixtures of both real and error-shaped provider responses.
 - Commit: `feat: answer and citation recording`
 
 ## Phase 6 - Mention parsing
@@ -143,15 +162,17 @@ high enough never to truncate an answer at either provider - an open question in
 - Done when: WHEN an answer is recorded successfully, the recognised brands in its
   visible text are persisted with each one's 1-based position by first occurrence
   and the total number of recognised brands found; matching is case-insensitive
-  and Unicode-normalised, requires a non-alphanumeric boundary on both sides,
-  tolerates extra whitespace inside multi-word aliases, ignores markdown link
-  targets, image targets and fenced code blocks, prefers the longest matching
-  alias, and resolves a name in both lists in favour of the subject brand; a brand
-  occurring only in a citation counts as not mentioned - verified by
-  `npm run test -- visible-text` and `npm run test -- mentions` against fixtures
-  covering alias variants, casing, accents, punctuation, plurals, line-wrapped
-  names, markdown links, code fences, overlapping aliases, absence, and an empty
-  competitor list.
+  and Unicode-normalised, requires a non-alphanumeric boundary **or a string edge**
+  on both sides, tolerates extra whitespace inside multi-word aliases, ignores
+  markdown link targets, image targets and fenced code blocks, prefers the longest
+  matching alias, and resolves a name in both lists in favour of the subject brand;
+  a brand occurring only in a citation counts as not mentioned - verified by
+  `npm run test -- parse/visible-text` and `npm run test -- parse/mentions`
+  against fixtures covering alias variants, casing, accents, punctuation,
+  line-wrapped names, markdown links, code fences, overlapping aliases, absence,
+  an empty competitor list, a brand at the very first and very last character of
+  the answer (both must match), and a plural of a single-word alias (which must
+  **not** match, per C8).
 - Commit: `feat: mention parsing`
 
 ## Phase 7 - Aggregation, coverage and cost
@@ -176,8 +197,9 @@ high enough never to truncate an answer at either provider - an open question in
 - Delivers: C11
 - Done when: IF two runs of one company differ in `basisHash`, THEN they are not
   presented as one series and the change of measurement basis is stated - verified
-  by `npm run test -- comparability` with four runs: identical basis, changed
-  prompt, changed model id, and changed alias list.
+  by `npm run test -- comparability` with five runs: identical basis, changed
+  prompt, changed model id, changed alias list, and changed competitor list - plus
+  a sixth with only the brand name changed, which must **not** break the series.
 - Commit: `feat: comparability guard`
 
 ## Phase 9 - Presentation pass against a real brand

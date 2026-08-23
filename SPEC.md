@@ -32,8 +32,10 @@ next to which competitors, and which sources the model cited.
   LLM answers are non-deterministic; a single attempt is a sample of one.
 - **Attempt / Answer** - the result of one repetition against one target. Carries
   raw text, status, citations, token usage and cost.
-- **Coverage** - successful answers divided by attempted answers, **computed per
-  target**, never for the run as a whole.
+- **Coverage** - successful answers divided by the **planned** attempts for that
+  target, which is the number of prompts times N. Computed per target, never for
+  the run as a whole. The denominator is the plan, not the number of stored rows:
+  a run abandoned after a tenth of its work must not read as fully covered.
 - **Visible text** - the answer text with markdown link targets, image targets and
   fenced code blocks removed. All brand matching happens on visible text only.
 - **Position** - the rank of the brand's first occurrence in the visible text
@@ -43,27 +45,34 @@ next to which competitors, and which sources the model cited.
   the run's competitor snapshot. v1 does not discover unknown brands.
 - **Measurement basis** - the ordered prompt texts, the ordered target list, the
   brand aliases and the competitor list of a run, hashed together as `basisHash`.
-  N is deliberately not part of the basis.
+  The brand **name** is deliberately excluded: renaming a company does not change
+  what was measured, while changing an alias does. N is excluded too - see C10.
 
 ## Capabilities (v1) - each has an ID and an EARS criterion
 
 - **C1 - Company registry**: WHEN the operator submits a company with a non-empty
   name, the system SHALL persist that company together with its brand aliases and
   its competitor names, and make it retrievable by id.
-  IF a company is submitted with an empty name, THEN the system SHALL reject it
-  with a validation error and persist nothing.
+  WHEN the operator edits a company's name, aliases or competitors, the system
+  SHALL persist the change and SHALL leave every existing run untouched.
+  IF a company is submitted or edited with an empty name, THEN the system SHALL
+  reject it with a validation error and persist nothing.
 
 - **C2 - Prompt list**: WHEN the operator saves a prompt list for a company, the
   system SHALL persist each non-empty line as one ordered prompt belonging to that
   company, replacing the previous list in full.
   IF a prompt list contains more than 50 prompts, THEN the system SHALL display a
-  warning stating the resulting call count, and SHALL still allow the save.
+  warning stating the resulting call count **at the default N and the default
+  target list**, naming both, and SHALL still allow the save. The prompt endpoint
+  does not know the N or the targets of any future run, so the figure it shows is
+  explicitly the default case and says so.
 
 - **C3 - Queue a run**: WHEN the operator starts a run for a company, the system
   SHALL create a run record with status `queued` carrying an immutable snapshot of
   the prompt texts, the target list, the brand name, the brand aliases and the
   competitor list, together with the chosen N and the `basisHash` computed over
-  that snapshot - and SHALL return without waiting for the measurement to finish.
+  exactly four of those - the prompt texts, the targets, the aliases and the
+  competitors - and SHALL return without waiting for the measurement to finish.
   IF the company has no prompts, THEN the system SHALL reject the request and
   create no run.
 
@@ -85,8 +94,10 @@ next to which competitors, and which sources the model cited.
   brand was absent.
 
 - **C6 - Retry transient failures**: IF a provider call fails with a rate limit, a
-  timeout or a 5xx, THEN the system SHALL retry it up to three times with
-  exponential backoff before recording it as failed.
+  timeout or a 5xx, THEN the system SHALL make at most three attempts in total -
+  the initial call plus two retries - with exponential backoff between them,
+  before recording it as failed. The number of attempts spent is stored on the
+  answer row.
 
 - **C7 - Extract citations**: WHEN a provider returns web search results, the
   system SHALL persist each cited source as a citation row carrying its URL and
@@ -105,6 +116,9 @@ next to which competitors, and which sources the model cited.
   markdown link targets, image targets and fenced code blocks; SHALL prefer the
   longest matching alias where aliases overlap; and SHALL resolve a name present in
   both the alias list and the competitor list in favour of the subject brand.
+  There is no stemming and no suffix rule: a plural or possessive suffix that is
+  itself alphanumeric breaks the boundary, so "Acmes" does not match the alias
+  "Acme". An operator who wants such a form counted adds it to the alias list.
   IF a brand occurs only in a citation and not in the visible text, THEN it SHALL
   count as not mentioned.
 
@@ -129,9 +143,16 @@ next to which competitors, and which sources the model cited.
   display the total token usage, the total number of web searches and the total
   cost of that run, derived from the per-answer figures.
 
-- **C13 - Fail loudly on missing configuration**: IF a required environment
-  variable is absent, THEN the application SHALL fail at startup with a message
-  naming the missing variable, and SHALL NOT start in a degraded state.
+- **C13 - Fail loudly on missing configuration**: IF an environment variable that
+  is required **for the running process role** is absent, THEN that process SHALL
+  fail at startup with a message naming the missing variable, and SHALL NOT start
+  in a degraded state.
+  The provider API keys are required for the worker process and for `verify:live`,
+  and are not required for the web process, which never calls a provider. A single
+  shared schema that demanded them everywhere would put the web service into a
+  restart loop on a host where only the worker holds the keys.
+  IF the database is reachable but its major version is not the pinned one, THEN
+  the process SHALL fail at startup naming both versions.
 
 - **C14 - Live verification gate**: WHEN `npm run verify` is executed, the system
   SHALL run typecheck, lint and tests, and SHALL then execute one real end-to-end
@@ -201,22 +222,29 @@ or higher, producing at least one citation per successful answer.
 
 - **[Owner: you]** Create an Anthropic Console account (console.anthropic.com) with
   prepaid credits and issue an API key. A Claude Max subscription does not grant
-  API access. Blocks Phase 0.
+  API access (as researched 2026-08-23; re-check, don't trust). Blocks Phase 0.
 - **[Owner: you]** Create an OpenAI platform account (platform.openai.com) with
   prepaid credits and issue an API key. A ChatGPT Plus subscription does not grant
-  API access. Blocks Phase 0.
+  API access (as researched 2026-08-23; re-check, don't trust). Blocks Phase 0.
 - **[Owner: you]** Create a Railway account and decide Hobby versus Pro. Three
-  services (web, worker, Postgres) will not fit inside the Hobby credit; expect
-  Hobby plus usage. Blocks the first deploy.
+  services (web, worker, Postgres) are not expected to fit inside the Hobby credit
+  (as researched 2026-08-23; re-check, don't trust); expect Hobby plus usage.
+  Blocks the first deploy.
+- **[Owner: you]** Create the GitHub repository and add both provider API keys as
+  repository secrets. Blocks the first deploy in Phase 0 and the on-demand
+  `verify-live` workflow.
 - **[Owner: you]** Supply the first real brand: name, aliases, competitor list and
   at least ten buying-moment prompts. Without this the Success criterion above
   cannot be met. Blocks Phase 9.
-- **[Owner: Claude]** Confirm the exact per-search price of the web search tool at
-  both providers in their consoles. The estimate used during the interview
-  ($25-30 per thousand searches, as researched 2026-08-23) is from secondary
-  sources and may be a material share of run cost.
-- **[Owner: Claude]** Confirm the exact OpenAI model id string against the live
-  models endpoint before it is written into a provider adapter.
+- **[Owner: Claude, Phase 0]** Confirm the exact per-token and per-search prices at
+  both providers in their consoles and write them into
+  `src/core/providers/pricing.ts` with the date they were read. The estimate used
+  during the interview ($25-30 per thousand searches, as researched 2026-08-23) is
+  from secondary sources and may be a material share of run cost. Phase 5 stores a
+  cost per answer and cannot do so until this table exists.
+- **[Owner: Claude, Phase 0]** Confirm the exact model id strings for **both**
+  providers against their live models endpoints, and confirm the Anthropic web
+  search tool version, before any of them is written into an adapter.
 - **[Owner: Claude]** Determine the `max_tokens` value that is high enough never to
   truncate an answer at either provider, during Phase 0, and record it in
   `ARCHITECTURE.md`. A truncated answer can cut off a brand and would be counted as
