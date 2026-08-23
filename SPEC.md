@@ -208,8 +208,9 @@ next to which competitors, and which sources the model cited.
 - **Identity with the consumer products.** v1 measures the *APIs* of both
   providers with web search enabled. That approximates what a person sees in the
   ChatGPT or Claude apps; it is not the same thing. Those products run their own
-  system prompt, their own retrieval and sometimes a different model version. The
-  tool promises representativeness, not identity.
+  system prompt, their own retrieval and sometimes a different model version (as
+  researched 2026-08-23; re-check, don't trust). The tool promises
+  representativeness, not identity.
 
 ## Success = done when
 

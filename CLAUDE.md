@@ -36,9 +36,10 @@ These are the mistakes that pass every compiler and every casual review. Check
 each one before claiming a phase done.
 
 1. **A failed call is never "not mentioned".** An `Answer` with status `failed` is
-   excluded from every numerator and every denominator except coverage. If a
-   prompt has zero successful answers against a target, that cell shows "no data",
-   not a zero.
+   excluded from every numerator and from every denominator - coverage included,
+   because coverage's denominator is the planned attempts and not the stored rows
+   (see rule 3). If a prompt has zero successful answers against a target, that
+   cell shows "no data", not a zero.
 2. **Coverage and N travel with every figure.** No percentage, average or count is
    rendered anywhere without the coverage of its own target and the run's N beside
    it.
@@ -59,7 +60,8 @@ each one before claiming a phase done.
    targets and fenced code blocks first. A brand that appears only inside a URL or
    only in a citation is not a mention, and counting it shifts every position.
 8. **A provider search error is not an empty result.** Both providers return web
-   search failures as HTTP 200 with an error object instead of a result list. An
+   search failures as HTTP 200 with an error object instead of a result list (as
+   researched 2026-08-23; re-check, don't trust). An
    adapter must return `{ ok: false }` for that case, not a successful answer with
    zero citations. This is the failure mode the whole verification gate exists to
    catch.

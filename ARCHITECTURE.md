@@ -43,6 +43,11 @@ page shows it. No fixture, no stub, no hard-coded answer anywhere in that path.
 | Host | Railway - web service + worker service + Postgres, push-to-main | - |
 | Package manager | npm | 10.9.8 |
 
+Every version above was read from the npm registry and the local machine on
+2026-08-23; re-check, don't trust. The guard is the committed `package-lock.json`
+plus `npm ci` in both CI workflows and in both Railway build commands - an install
+that cannot reproduce these exact versions fails the build rather than drifting.
+
 ### Measurement targets (v1 configuration - two entries in a list of N)
 
 | Provider | Model id | Web search tool |
@@ -128,7 +133,7 @@ large/
           [companyId]/
             route.ts                 # GET one, PATCH update
             prompts/
-              route.ts               # GET list, PUT replace whole list
+              route.ts               # PUT replace whole list
         runs/
           route.ts                   # POST queue a run
           [runId]/
@@ -144,7 +149,8 @@ large/
       citation-list.tsx
     lib/
       db.ts                          # Prisma client singleton
-      env.ts                         # zod schema - throws at startup
+      defaults.ts                    # DEFAULT_TARGETS, DEFAULT_REPETITIONS
+      env.ts                         # validateEnv(role) - throws at startup
       aggregate.ts                   # derived figures, per target
       hash.ts                        # basisHash
       money.ts                       # integer micro-dollars, no floats
@@ -180,6 +186,7 @@ large/
     run/
       retry.test.ts
       answers.test.ts
+      status.test.ts                 # the three terminal outcomes
     worker/
       claim.test.ts                  # two claimers, exactly one winner
       resume.test.ts                 # stale run resumes, does not restart
@@ -453,9 +460,17 @@ Three services, one repository:
 
 | Service | Build command | Start command | Public |
 |---|---|---|---|
-| web | `npm run build` (`prisma generate && next build`) | `next start` | yes |
-| worker | `npm run build:worker` (`tsc -p tsconfig.worker.json`) | `node --enable-source-maps dist/worker/index.js` | no |
+| web | `npm ci && npm run build` (`prisma generate && next build`) | `prisma migrate deploy && next start` | yes |
+| worker | `npm ci && npm run build:worker` (`tsc -p tsconfig.worker.json`) | `node --enable-source-maps dist/worker/index.js` | no |
 | postgres | - | Railway Postgres plugin | no |
+
+**Migrations run in the web service's start command and nowhere else.** Nothing
+else in this pack applies them, so without that step a deploy reaches a database
+that does not match the schema and Phase 0's gate cannot pass. The worker never
+migrates - two processes racing `migrate deploy` is a corrupted migration table.
+This is safe at one web instance; scaling the web service to more than one
+requires moving the step to a release phase that runs once per deploy, and that
+is listed in `PLAN.md` -> Deferred.
 
 The worker has its own `tsconfig.worker.json` because the root config is
 Next-oriented and emits nothing. Without it `dist/worker/index.js` never exists
@@ -466,8 +481,13 @@ finishes, fails, or is stopped (as researched 2026-08-23; re-check, don't trust)
 That property is the reason this project is not on a serverless host: a run of
 120 calls takes minutes.
 
-`lib/env.ts` validates against the **process role** - `web`, `worker` or `script`
-- because the two services share one schema but not one set of needs.
+`lib/env.ts` exports `validateEnv(role)` and validates against the **process
+role** - `web`, `worker` or `script` - because the services share one schema but
+not one set of needs. The role is **not** an environment variable: each entrypoint
+passes its own role as an argument (`src/app/layout.tsx` and the route handlers
+pass `'web'`, `src/worker/index.ts` passes `'worker'`, `scripts/verify-live.ts`
+passes `'script'`). A variable could be set wrongly on a service; an argument
+cannot.
 
 | Env var | Required for | Guarded by |
 |---|---|---|
@@ -509,13 +529,16 @@ get** - enumerate and check these when a deploy behaves unexpectedly:
 
 ### CI
 
-- `.github/workflows/ci.yml` runs on every push: `npm run typecheck`,
+- `.github/workflows/ci.yml` runs on every push: `npm ci`, `npm run typecheck`,
   `npm run lint`, `npm run test`, with a PostgreSQL service container pinned to
-  the `postgres:17` image so it matches the pinned major version. It needs no
-  provider secrets and costs nothing per run.
+  the `postgres:17` image so it matches the pinned major version, and
+  `DATABASE_URL` pointing at it. It needs no provider secrets.
 - `.github/workflows/verify-live.yml` runs on `workflow_dispatch` only: the full
-  `npm run verify`, including `verify:live`, against repository secrets. It spends
-  two real provider calls each time it is invoked, so it is never automatic.
+  `npm run verify`, including `verify:live`, against the repository's two provider
+  secrets. It runs **the same pinned `postgres:17` service container and the same
+  `DATABASE_URL`** as `ci.yml` - the live gate drives a real queue-and-worker round
+  trip and cannot run without a database. It spends two real provider calls each
+  time it is invoked, so it is never automatic.
 
 **External-fact convention:** every claim about a third-party service in this pack
 carries a date - "as researched YYYY-MM-DD; re-check, don't trust." Pricing, free
@@ -591,9 +614,19 @@ phase. Phase 0 pushes to it.
   hash breaks the series rather than extending it. Cost: the snapshot is duplicated
   per run - trivial. Benefit: adding an alias cannot silently inflate a trend.
 
-- **`companyId` on every scoped row, with no auth in v1.** Adding authentication
-  in v2 is a middleware layer plus row-level security, not a migration through
-  every endpoint. Cost: a v1 discipline with no v1 payoff.
+- **Every row is attributable to a company in at most one join, and there is no
+  auth in v1.** `Prompt` and `Run` carry `companyId` directly; `RunTarget`,
+  `RunPrompt` and `Answer` carry `runId`; `Citation` and `Mention` carry
+  `answerId`. v2 row-level-security policies key off that chain, so authentication
+  arrives as a middleware layer plus policies rather than a migration through every
+  endpoint. Denormalising `companyId` onto the five child tables was considered and
+  rejected: it is five columns that v1 never reads, to save a join that Postgres
+  executes against an existing index.
+  **The accepted v1 exposure, stated plainly:** there is no authentication at all,
+  so anyone holding an application URL can read every company and every run in the
+  system. This is deliberate for a v1 the operator runs himself and shows to a
+  client by link, and it is the single thing that must change before anyone signs
+  up unattended. Cost: the discipline above has no v1 payoff.
 
 - **Nothing assumes two providers.** Targets are a list; the enum grows by one
   value. v1 configures two because `SPEC.md` scopes it to two, not because the

@@ -16,7 +16,7 @@
 | 1 | Company registry | C1 | |
 | 2 | Prompt list | C2 | |
 | 3 | Queue a run | C3 | |
-| 4 | Worker: claim, resume, concurrency, retry | C4, C6, C15 | |
+| 4 | Worker: claim, resume, retry, terminal status | C4, C6, C15 | |
 | 5 | Answers and citations | C5, C7 | |
 | 6 | Mention parsing | C8 | |
 | 7 | Aggregation, coverage and cost | C9, C10, C12 | |
@@ -27,9 +27,11 @@
 ## Blocked on the operator
 
 - **Anthropic Console account with prepaid credits and an API key** - blocks
-  Phase 0. A Claude Max subscription does not grant API access.
+  Phase 0. A Claude Max subscription does not grant API access (as researched
+  2026-08-23; re-check, don't trust).
 - **OpenAI platform account with prepaid credits and an API key** - blocks
-  Phase 0. A ChatGPT Plus subscription does not grant API access.
+  Phase 0. A ChatGPT Plus subscription does not grant API access (as researched
+  2026-08-23; re-check, don't trust).
 - **Railway account, Hobby or Pro** - blocks the first deploy in Phase 0.
 - **GitHub repository created**, with both API keys added as repository secrets -
   blocks the first deploy in Phase 0 and the on-demand live workflow.
@@ -47,7 +49,8 @@ Includes the gate command, `.env.example`, both CI workflows, and the first depl
 
 Scope: project scaffolding, `lib/env.ts` with role-aware validation and the
 PostgreSQL major-version assertion, `tsconfig.worker.json` and the `build:worker`
-script, the full Prisma schema and first migration, `pricing.ts`, both provider
+script, the full Prisma schema and first migration, `lib/defaults.ts`,
+`pricing.ts`, both provider
 adapters at their minimum, the worker poll loop with
 `SELECT ... FOR UPDATE SKIP LOCKED` and a heartbeat, minimal `visible-text.ts`,
 `mentions.ts` and `citations.ts`, one run page, both CI workflows, and
@@ -69,6 +72,8 @@ answer and cannot do so until that table exists.
   - IF the database major version is not the pinned one, THEN startup fails naming
     both versions.
   - `npm run build:worker` produces `dist/worker/index.js`.
+  - The web service's start command applies `prisma migrate deploy` before
+    starting, so the deployed database matches the committed schema.
   - WHEN `npm run verify` is executed with both keys present and PostgreSQL
     running, the system SHALL run typecheck, lint and tests and then complete one
     real end-to-end run of one prompt against both targets at N=1, storing at
@@ -84,9 +89,10 @@ answer and cannot do so until that table exists.
 
 - Delivers: C1
 - Done when: WHEN a company is submitted with a non-empty name, it is persisted
-  with its aliases and competitors and retrievable by id; IF the name is empty,
-  the request is rejected and nothing is persisted - verified by
-  `npm run test -- api/companies` and `npm run verify`.
+  with its aliases and competitors and retrievable by id; WHEN a company's name,
+  aliases or competitors are edited, the change is persisted; IF a company is
+  submitted **or edited** with an empty name, the request is rejected and nothing
+  is persisted - verified by `npm run test -- api/companies` and `npm run verify`.
 - Commit: `feat: company registry`
 
 ## Phase 2 - Prompt list
@@ -94,9 +100,10 @@ answer and cannot do so until that table exists.
 - Delivers: C2
 - Done when: WHEN a prompt list is saved, every non-empty line becomes one ordered
   prompt for that company and the previous list is replaced in full; IF the list
-  exceeds 50 prompts, a warning naming the resulting call count is returned and
-  the save still succeeds - verified by `npm run test -- api/prompts` and
-  `npm run verify`.
+  exceeds 50 prompts, a warning is returned naming the resulting call count **and
+  both figures it was computed from** - `DEFAULT_REPETITIONS` and the length of
+  `DEFAULT_TARGETS` from `lib/defaults.ts` - and the save still succeeds - verified
+  by `npm run test -- api/prompts` and `npm run verify`.
 - Commit: `feat: prompt list`
 
 ## Phase 3 - Queue a run
@@ -113,7 +120,7 @@ answer and cannot do so until that table exists.
   `npm run test -- hash` and `npm run verify`.
 - Commit: `feat: queue a run`
 
-## Phase 4 - Worker: claim, resume, concurrency, retry
+## Phase 4 - Worker: claim, resume, retry, terminal status
 
 - Delivers: C4, C6, C15
 - Done when:
@@ -139,8 +146,9 @@ answer and cannot do so until that table exists.
   - Verified by `npm run test -- worker/claim` (two concurrent claimers, exactly
     one winner), `npm run test -- worker/resume` (a stale run with half its
     answers stored resumes and issues only the missing calls),
-    `npm run test -- run/retry`, and a status fixture set covering all three
-    terminal outcomes including a high-coverage run killed by the reclaim limit.
+    `npm run test -- run/retry`, and `npm run test -- run/status` covering all
+    three terminal outcomes including a high-coverage run killed by the reclaim
+    limit.
 - Commit: `feat: worker claim, resume and retry`
 
 ## Phase 5 - Answers and citations
@@ -184,8 +192,8 @@ answer and cannot do so until that table exists.
   below `COVERAGE_THRESHOLD` that target's figures are labelled unreliable while
   other targets are unaffected and the run stays visible; IF every attempt for one
   prompt against one target failed, that cell reads "no data" and never "not
-  mentioned"; the run's terminal status follows the rules in `SPEC.md` -> Run
-  status; and WHEN a run reaches a terminal status its total token usage, total
+  mentioned"; and WHEN a run reaches a terminal status - which Phase 4 writes -
+  its total token usage, total
   search count and total cost are displayed - verified by
   `npm run test -- aggregate` with fixtures at 100, 85, 79 and 0 percent coverage
   per target including one run where the two targets differ, and by inspecting the
@@ -239,8 +247,10 @@ this product's whole risk is a number being misread.
 - **The advice engine.** Reprocesses stored raw answer text and citation data; it
   needs no new provider calls against the measured models. This is why raw text is
   never deleted.
-- **Accounts, login and row-level security.** `companyId` is already on every
-  scoped row, so this is a middleware layer plus RLS, not a migration.
+- **Accounts, login and row-level security.** Every row is already attributable to
+  a company in at most one join, so this is a middleware layer plus RLS policies
+  keyed off that chain, not a migration. It is also the item that closes the v1
+  exposure recorded in `ARCHITECTURE.md` -> Key decisions.
 - **More providers.** Gemini and Grok for coverage; **Perplexity** specifically
   because citations are its core product. The target list, the provider enum and
   the adapter registry already take N entries.
@@ -257,6 +267,9 @@ this product's whole risk is a number being misread.
   layer writes.
 - **`archivedAt` on companies and runs.** Hides a row from the list without
   destroying stored answers. v1 has no delete affordance at all.
+- **A release phase for migrations.** `prisma migrate deploy` runs in the web
+  service's start command, which is correct at one instance. Scaling the web
+  service past one requires a release step that runs once per deploy instead.
 - **Server-sent events for run progress**, if runs ever grow long enough that
   two-second polling becomes wasteful.
 - **Per-customer cost and margin reporting.** Token usage, search counts and cost
