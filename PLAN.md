@@ -12,9 +12,9 @@
 
 | Order | Phase | Delivers | Status |
 |---|---|---|---|
-| 0 | Skeleton | C13, C14 | next |
-| 1 | Company registry | C1 | |
-| 2 | Prompt list | C2 | |
+| 0 | Skeleton | C13, C14 | done |
+| 1 | Company registry | C1 | done |
+| 2 | Prompt list | C2 | next |
 | 3 | Queue a run | C3 | |
 | 4 | Worker: claim, resume, retry, terminal status | C4, C6, C15 | |
 | 5 | Answers and citations | C5, C7 | |
@@ -26,17 +26,19 @@
 
 ## Blocked on the operator
 
-- **Anthropic Console account with prepaid credits and an API key** - blocks
-  Phase 0. A Claude Max subscription does not grant API access (as researched
-  2026-08-23; re-check, don't trust).
-- **OpenAI platform account with prepaid credits and an API key** - blocks
-  Phase 0. A ChatGPT Plus subscription does not grant API access (as researched
-  2026-08-23; re-check, don't trust).
-- **Railway account, Hobby or Pro** - blocks the first deploy in Phase 0.
-- **GitHub repository created**, with both API keys added as repository secrets -
-  blocks the first deploy in Phase 0 and the on-demand live workflow.
+- ~~Anthropic Console account with prepaid credits and an API key~~ - **done
+  2026-08-23.** $5 credit; key in the local `.env` and in the repository secrets.
+- ~~OpenAI platform account with prepaid credits and an API key~~ - **done
+  2026-08-23.** $5 credit. The key alone was not enough: the first live gate run
+  failed with `429 You have no credits remaining`, which is why "with prepaid
+  credits" is written into this line.
+- ~~Railway account, Hobby or Pro~~ - **done 2026-08-23.** Project `large`, three
+  services, provisioned from the Railway CLI.
+- ~~GitHub repository created, with both API keys added as repository secrets~~ -
+  **done 2026-08-23.** `jve89/large`, private, both secrets set. Railway's GitHub
+  App had to be granted access to the repository by hand before it could build.
 - **A real brand: name, aliases, competitors, and at least ten buying-moment
-  prompts** - blocks Phase 9 and therefore Phase 10.
+  prompts** - blocks Phase 9 and therefore Phase 10. **Still open.**
 
 ## Phase 0 - Skeleton
 
