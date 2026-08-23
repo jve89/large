@@ -44,21 +44,29 @@ export function createAnthropicAdapter(modelId: string, apiKey: string): Provide
 
       let message: Anthropic.Messages.Message
       try {
-        message = await client.messages.create(
-          {
-            model: modelId,
-            max_tokens: MAX_OUTPUT_TOKENS,
-            messages: [{ role: 'user', content: prompt }],
-            tools: [
-              {
-                type: ANTHROPIC_WEB_SEARCH_TOOL,
-                name: 'web_search',
-                allowed_callers: ['direct'],
-              },
-            ],
-          },
-          { signal },
-        )
+        // Streamed, then reassembled. `max_tokens` is deliberately the model's
+        // maximum so an answer is never truncated, and at that ceiling the SDK
+        // refuses a non-streaming request because it could exceed ten minutes.
+        // Streaming costs exactly the same; `finalMessage()` returns the same
+        // assembled Message shape a non-streaming call would have returned, so
+        // nothing below this line has to know the difference.
+        message = await client.messages
+          .stream(
+            {
+              model: modelId,
+              max_tokens: MAX_OUTPUT_TOKENS,
+              messages: [{ role: 'user', content: prompt }],
+              tools: [
+                {
+                  type: ANTHROPIC_WEB_SEARCH_TOOL,
+                  name: 'web_search',
+                  allowed_callers: ['direct'],
+                },
+              ],
+            },
+            { signal },
+          )
+          .finalMessage()
       } catch (error) {
         const status = error instanceof Anthropic.APIError ? error.status : undefined
         return {

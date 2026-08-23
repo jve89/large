@@ -102,6 +102,16 @@ provider truncates anyway, the adapter returns `{ ok: false }` and the attempt i
 stored as `failed`: a cut-off answer entering a numerator as "not mentioned" is
 precisely the error this instrument exists to avoid.
 
+**Consequence: the Anthropic adapter streams.** At a `max_tokens` of 128,000 the
+Anthropic SDK refuses a non-streaming request, because a response that long could
+exceed ten minutes ("Streaming is required for operations that may take longer
+than 10 minutes"). The adapter therefore calls `messages.stream(...)` and awaits
+`finalMessage()`, which reassembles exactly the `Message` a non-streaming call
+would have returned - so the parsing below it is unchanged. Streaming is priced
+identically. The alternative, lowering `max_tokens` until a plain request is
+allowed, was rejected: it trades the "never truncated" guarantee for convenience,
+and truncation is unobservable in the resulting numbers.
+
 Steering the model would raise the measured numbers and make them meaningless. An
 instrument that influences its own reading is worse than no instrument, because
 its output looks better.
