@@ -247,9 +247,10 @@ this product's whole risk is a number being misread.
 - **The advice engine.** Reprocesses stored raw answer text and citation data; it
   needs no new provider calls against the measured models. This is why raw text is
   never deleted.
-- **Accounts, login and row-level security.** Every row is already attributable to
-  a company in at most one join, so this is a middleware layer plus RLS policies
-  keyed off that chain, not a migration. It is also the item that closes the v1
+- **Accounts, login and row-level security.** Every row already reaches its company
+  through a single foreign-key chain (`Citation`/`Mention` -> `Answer` -> `Run` ->
+  `Company`), so this is a middleware layer plus RLS policies keyed off that chain,
+  not a migration. It is also the item that closes the v1
   exposure recorded in `ARCHITECTURE.md` -> Key decisions.
 - **More providers.** Gemini and Grok for coverage; **Perplexity** specifically
   because citations are its core product. The target list, the provider enum and

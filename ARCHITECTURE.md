@@ -34,7 +34,7 @@ page shows it. No fixture, no stub, no hard-coded answer anywhere in that path.
 | Database | PostgreSQL | 17 (local dev 17.6) |
 | ORM | Prisma | 7.9.1 |
 | Validation | zod | 4.4.3 |
-| Auth | **none in v1** - `companyId` on every scoped row; middleware in v2 | - |
+| Auth | **none in v1** - every row reaches its company through one FK chain; middleware + RLS in v2 | - |
 | Runner | separate Node process, same repo, same Prisma client | - |
 | Provider SDK | `@anthropic-ai/sdk` / `openai` | 0.120.0 / 7.5.0 |
 | Test runner | Vitest | 4.1.11 |
@@ -614,12 +614,12 @@ phase. Phase 0 pushes to it.
   hash breaks the series rather than extending it. Cost: the snapshot is duplicated
   per run - trivial. Benefit: adding an alias cannot silently inflate a trend.
 
-- **Every row is attributable to a company in at most one join, and there is no
-  auth in v1.** `Prompt` and `Run` carry `companyId` directly; `RunTarget`,
-  `RunPrompt` and `Answer` carry `runId`; `Citation` and `Mention` carry
-  `answerId`. v2 row-level-security policies key off that chain, so authentication
-  arrives as a middleware layer plus policies rather than a migration through every
-  endpoint. Denormalising `companyId` onto the five child tables was considered and
+- **Every row reaches its company through a single foreign-key chain, and there is
+  no auth in v1.** `Prompt` and `Run` carry `companyId` directly; `RunTarget`,
+  `RunPrompt` and `Answer` carry `runId`; `Citation` and `Mention` carry `answerId`
+  - so the chain is `Citation`/`Mention` -> `Answer` -> `Run` -> `Company`. v2
+  row-level-security policies key off that chain, so authentication arrives as a
+  middleware layer plus policies rather than a migration through every endpoint. Denormalising `companyId` onto the five child tables was considered and
   rejected: it is five columns that v1 never reads, to save a join that Postgres
   executes against an existing index.
   **The accepted v1 exposure, stated plainly:** there is no authentication at all,
