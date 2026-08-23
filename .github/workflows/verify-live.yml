@@ -1,7 +1,7 @@
 # The full gate, including one real end-to-end run (SPEC C14).
 #
 # workflow_dispatch only. It spends two real provider calls every time it is
-# invoked, so it is never automatic. It runs the same pinned postgres:17 service
+# invoked, so it is never automatic. It runs the same pinned postgres:18 service
 # container and the same DATABASE_URL as ci.yml, because the live gate drives a
 # real queue-and-worker round trip and cannot run without a database.
 name: verify-live
@@ -15,7 +15,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

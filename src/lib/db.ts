@@ -14,7 +14,7 @@ import { PrismaClient } from '@prisma/client'
  * actually provide it, which would otherwise make PostgreSQL the only pinned
  * dependency trusted on faith.
  */
-export const PINNED_POSTGRES_MAJOR = 17
+export const PINNED_POSTGRES_MAJOR = 18
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL

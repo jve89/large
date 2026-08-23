@@ -18,7 +18,7 @@ jobs:
       postgres:
         # Pinned to the same major this project asserts at startup, and the same
         # image used for local development.
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

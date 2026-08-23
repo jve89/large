@@ -31,7 +31,7 @@ page shows it. No fixture, no stub, no hard-coded answer anywhere in that path.
 | Styling | Tailwind CSS (CSS-first config, no JS config file) | 4.3.3 |
 | Components | shadcn/ui | CLI-generated, vendored into the repo |
 | Backend | Next.js Route Handlers - no separate API server | - |
-| Database | PostgreSQL | 17 (local dev 17.6) |
+| Database | PostgreSQL | 18 |
 | ORM | Prisma (+ `@prisma/adapter-pg`, same version) | 7.9.1 |
 | Validation | zod | 4.4.3 |
 | Auth | **none in v1** - every row reaches its company through one FK chain; middleware + RLS in v2 | - |
@@ -125,9 +125,21 @@ is present and is deliberately not used.
 **PostgreSQL, corrected in Phase 0.** `psql` 17.6 on this machine is the libpq
 **client**; the only server installed was Homebrew `postgresql@14`, which the
 startup version guard correctly refuses. The development server is therefore the
-Docker image **`postgres:17`** - the same image both CI workflows run, so the
+Docker image **`postgres:18`** - the same image both CI workflows run, so the
 local gate and the CI gate sit on an identical database. The command is recorded
 beside `DATABASE_URL` in `.env.example`.
+
+**The pinned major moved from 17 to 18, also in Phase 0.** Railway's managed
+Postgres service provisions PostgreSQL 18, and the startup guard correctly refused
+to run against it. Two facts decided the direction. First, the original "17" rested
+on a misread version number - `psql` 17.6 was the client, not a server - so it was
+never a considered choice. Second, the guard's purpose is that local, CI and
+production run the version this project was tested against; that is served by any
+major, provided all three agree. Pinning 18 keeps Railway's own maintained Postgres
+service, with its backup, point-in-time-recovery and high-availability tooling,
+rather than a hand-pinned image whose upgrades we would then own. Local Docker, both
+CI workflows and `PINNED_POSTGRES_MAJOR` in `src/lib/db.ts` were moved together;
+they are only ever correct as a set.
 
 ### Donor
 
@@ -553,7 +565,7 @@ cannot.
 | NODE_ENV | all roles | zod enum |
 
 **PostgreSQL version guard.** On startup, after the first connection, every role
-asserts `server_version_num` against the pinned major version (17) and exits
+asserts `server_version_num` against the pinned major version (18) and exits
 naming both versions if it differs. Nothing else verifies that the Railway plugin
 and the CI service container actually provide the version this pack pins, which
 would otherwise make Postgres the only pinned dependency trusted on faith.
@@ -582,11 +594,11 @@ get** - enumerate and check these when a deploy behaves unexpectedly:
 
 - `.github/workflows/ci.yml` runs on every push: `npm ci`, `npm run typecheck`,
   `npm run lint`, `npm run test`, with a PostgreSQL service container pinned to
-  the `postgres:17` image so it matches the pinned major version, and
+  the `postgres:18` image so it matches the pinned major version, and
   `DATABASE_URL` pointing at it. It needs no provider secrets.
 - `.github/workflows/verify-live.yml` runs on `workflow_dispatch` only: the full
   `npm run verify`, including `verify:live`, against the repository's two provider
-  secrets. It runs **the same pinned `postgres:17` service container and the same
+  secrets. It runs **the same pinned `postgres:18` service container and the same
   `DATABASE_URL`** as `ci.yml` - the live gate drives a real queue-and-worker round
   trip and cannot run without a database. It spends two real provider calls each
   time it is invoked, so it is never automatic.
