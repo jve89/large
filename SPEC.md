@@ -240,8 +240,9 @@ or higher, producing at least one citation per successful answer.
 - **[Owner: Claude, Phase 0]** Confirm the exact per-token and per-search prices at
   both providers in their consoles and write them into
   `src/core/providers/pricing.ts` with the date they were read. The estimate used
-  during the interview ($25-30 per thousand searches, as researched 2026-08-23) is
-  from secondary sources and may be a material share of run cost. Phase 5 stores a
+  during the interview ($25-30 per thousand searches, as researched 2026-08-23;
+  re-check, don't trust) is from secondary sources and may be a material share of
+  run cost. Phase 5 stores a
   cost per answer and cannot do so until this table exists.
 - **[Owner: Claude, Phase 0]** Confirm the exact model id strings for **both**
   providers against their live models endpoints, and confirm the Anthropic web

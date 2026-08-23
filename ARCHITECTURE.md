@@ -619,9 +619,10 @@ phase. Phase 0 pushes to it.
   `RunPrompt` and `Answer` carry `runId`; `Citation` and `Mention` carry `answerId`
   - so the chain is `Citation`/`Mention` -> `Answer` -> `Run` -> `Company`. v2
   row-level-security policies key off that chain, so authentication arrives as a
-  middleware layer plus policies rather than a migration through every endpoint. Denormalising `companyId` onto the five child tables was considered and
-  rejected: it is five columns that v1 never reads, to save a join that Postgres
-  executes against an existing index.
+  middleware layer plus policies rather than a migration through every endpoint.
+  Denormalising `companyId` onto the five child tables was considered and rejected:
+  it is five columns that v1 never reads, to save a lookup that Postgres already
+  resolves against an existing index.
   **The accepted v1 exposure, stated plainly:** there is no authentication at all,
   so anyone holding an application URL can read every company and every run in the
   system. This is deliberate for a v1 the operator runs himself and shows to a

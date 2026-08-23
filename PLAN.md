@@ -266,6 +266,9 @@ this product's whole risk is a number being misread.
   measurement basis, so the series exists; only the chart is missing.
 - **Scheduled and recurring runs.** A cron writes the same `queued` row the web
   layer writes.
+- **Exports.** A run's figures and its citation list as CSV or PDF, for a client
+  who wants the numbers outside the app. Everything it needs is already derivable
+  from stored rows; v1 deliberately ships no export at all.
 - **`archivedAt` on companies and runs.** Hides a row from the list without
   destroying stored answers. v1 has no delete affordance at all.
 - **A release phase for migrations.** `prisma migrate deploy` runs in the web
