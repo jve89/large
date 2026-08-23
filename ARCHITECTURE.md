@@ -119,8 +119,9 @@ its output looks better.
 ### Pinned environment (verified 2026-08-23 on the operator's machine)
 
 macOS 26.6.2 arm64 - Node 22.23.1 (nvm present) - npm 10.9.8 - Docker 28.4.0 -
-git 2.50.1 - gh 2.95.0. Railway CLI and Vercel CLI are not installed. bun 1.3.14
-is present and is deliberately not used.
+git 2.50.1 - gh 2.95.0 - Railway CLI 5.43.1 (installed during Phase 0 to
+provision the three services from the terminal). Vercel CLI is not installed.
+bun 1.3.14 is present and is deliberately not used.
 
 **PostgreSQL, corrected in Phase 0.** `psql` 17.6 on this machine is the libpq
 **client**; the only server installed was Homebrew `postgresql@14`, which the
