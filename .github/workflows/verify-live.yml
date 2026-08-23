@@ -1,0 +1,49 @@
+# The full gate, including one real end-to-end run (SPEC C14).
+#
+# workflow_dispatch only. It spends two real provider calls every time it is
+# invoked, so it is never automatic. It runs the same pinned postgres:17 service
+# container and the same DATABASE_URL as ci.yml, because the live gate drives a
+# real queue-and-worker round trip and cannot run without a database.
+name: verify-live
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: large
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/large?schema=public
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma migrate deploy
+
+      - run: npm run verify

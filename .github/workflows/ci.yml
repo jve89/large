@@ -1,0 +1,56 @@
+# The cheap gate: runs on every push and needs no secrets.
+#
+# CI passing is NOT the same as the phase gate passing. The phase gate is
+# `npm run verify`, which additionally performs one real end-to-end run through
+# the real queue, worker, adapters and parser, and costs two real provider calls.
+# That half runs only in verify-live.yml, by hand.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Pinned to the same major this project asserts at startup, and the same
+        # image used for local development.
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: large
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/large?schema=public
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # npm ci, not npm install: an install that cannot reproduce the exact
+      # versions in package-lock.json must fail the build rather than drift.
+      - run: npm ci
+
+      - run: npx prisma migrate deploy
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm run test

@@ -1,0 +1,165 @@
+// Large AI — the measurement store.
+//
+// Two constraints in this file carry the design and must not be relaxed:
+//   * Answer @@unique([runPromptId, runTargetId, repetition]) — what makes a
+//     stalled run resumable. A reclaimed run computes the combinations that have
+//     no stored answer and inserts only those; a duplicate is rejected by the
+//     database rather than paid for a second time (SPEC C15).
+//   * Run @@index([status, heartbeatAt]) — the worker's claim query, which matches
+//     `queued` rows and `running` rows whose heartbeat has gone stale.
+//
+// No aggregate is a column here. Mention rate, average position, competitor
+// frequency, coverage and total cost are computed from Answer rows at read time
+// (SPEC C9). Money is integer micro-dollars; no float ever goes near a cost.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RunStatus {
+  queued
+  running
+  completed
+  completed_with_errors
+  failed
+}
+
+enum Provider {
+  anthropic
+  openai
+}
+
+enum AnswerStatus {
+  ok
+  failed
+}
+
+model Company {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  aliases     String[] @default([])
+  competitors String[] @default([])
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  prompts Prompt[]
+  runs    Run[]
+}
+
+model Prompt {
+  id        String @id @default(uuid()) @db.Uuid
+  companyId String @db.Uuid
+  text      String
+  order     Int
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, order])
+}
+
+model Run {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  status           RunStatus @default(queued)
+  repetitions      Int       @default(3)
+  brandName        String
+  brandAliases     String[]  @default([])
+  brandCompetitors String[]  @default([])
+  basisHash        String
+  heartbeatAt      DateTime? @db.Timestamptz(6)
+  reclaimCount     Int       @default(0)
+  claimedAt        DateTime? @db.Timestamptz(6)
+  startedAt        DateTime? @db.Timestamptz(6)
+  finishedAt       DateTime? @db.Timestamptz(6)
+  failureReason    String?
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+
+  company Company     @relation(fields: [companyId], references: [id])
+  targets RunTarget[]
+  prompts RunPrompt[]
+  answers Answer[]
+
+  @@index([status, heartbeatAt])
+  @@index([companyId])
+}
+
+model RunTarget {
+  id       String   @id @default(uuid()) @db.Uuid
+  runId    String   @db.Uuid
+  provider Provider
+  modelId  String
+
+  run     Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  answers Answer[]
+
+  @@unique([runId, provider, modelId])
+}
+
+model RunPrompt {
+  id    String @id @default(uuid()) @db.Uuid
+  runId String @db.Uuid
+  text  String
+  order Int
+
+  run     Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  answers Answer[]
+
+  @@unique([runId, order])
+}
+
+model Answer {
+  id            String       @id @default(uuid()) @db.Uuid
+  runId         String       @db.Uuid
+  runPromptId   String       @db.Uuid
+  runTargetId   String       @db.Uuid
+  repetition    Int
+  status        AnswerStatus
+  rawText       String?
+  failureReason String?
+  httpAttempts  Int          @default(1)
+  inputTokens   Int?
+  outputTokens  Int?
+  searchCount   Int?
+  costMicros    BigInt?
+  latencyMs     Int?
+  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
+
+  run       Run        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  runPrompt RunPrompt  @relation(fields: [runPromptId], references: [id], onDelete: Cascade)
+  runTarget RunTarget  @relation(fields: [runTargetId], references: [id], onDelete: Cascade)
+  citations Citation[]
+  mentions  Mention[]
+
+  @@unique([runPromptId, runTargetId, repetition])
+  @@index([runId])
+  @@index([runTargetId])
+}
+
+model Citation {
+  id       String  @id @default(uuid()) @db.Uuid
+  answerId String  @db.Uuid
+  url      String
+  title    String?
+  order    Int
+
+  answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@index([answerId])
+}
+
+model Mention {
+  id              String  @id @default(uuid()) @db.Uuid
+  answerId        String  @db.Uuid
+  brand           String
+  isSubject       Boolean
+  position        Int
+  totalRecognised Int
+
+  answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@unique([answerId, brand])
+}

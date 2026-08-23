@@ -32,7 +32,7 @@ page shows it. No fixture, no stub, no hard-coded answer anywhere in that path.
 | Components | shadcn/ui | CLI-generated, vendored into the repo |
 | Backend | Next.js Route Handlers - no separate API server | - |
 | Database | PostgreSQL | 17 (local dev 17.6) |
-| ORM | Prisma | 7.9.1 |
+| ORM | Prisma (+ `@prisma/adapter-pg`, same version) | 7.9.1 |
 | Validation | zod | 4.4.3 |
 | Auth | **none in v1** - every row reaches its company through one FK chain; middleware + RLS in v2 | - |
 | Runner | separate Node process, same repo, same Prisma client | - |
@@ -60,14 +60,47 @@ against each provider's live models endpoint and current documentation in Phase 
 before either is written into an adapter - see the open questions in `SPEC.md`.
 The values above are as researched 2026-08-23; re-check, don't trust.
 
+**Confirmed live on 2026-08-23** (re-check, don't trust). `GET /v1/models` at
+Anthropic lists `claude-sonnet-5`, and `GET /v1/models/claude-sonnet-5` reports
+`max_tokens=128000` and `max_input_tokens=1000000` - so the 128,000 recorded above
+comes from the API itself, not from a documentation page. `GET /v1/models` at
+OpenAI lists `gpt-5.6-terra`. The Anthropic web search tool versions currently
+offered are `web_search_20250305`, `web_search_20260209` (pinned) and
+`web_search_20260318`.
+
+**Web search configuration, resolved in Phase 0.** `web_search_20260209` defaults
+to `allowed_callers: ["code_execution_20260120"]`, which is *dynamic filtering*:
+Claude writes and runs code that filters search results before they reach its
+context. The adapter sets **`allowed_callers: ["direct"]`** instead. OpenAI has no
+equivalent stage, so leaving the default on would put an extra model-driven step
+inside the instrument on one provider only - the two targets would no longer be
+measured the same way, and run-to-run variance would rise. This is tool
+configuration, not prompt steering; the prompt itself still goes out unmodified.
+
+**How a failed search is recognised.** Anthropic returns it as HTTP 200 with
+`content: { "type": "web_search_tool_result_error", "error_code": ... }` in place
+of the result list; the codes are `too_many_requests`, `invalid_tool_input`,
+`max_uses_exceeded`, `query_too_long`, `request_too_large` and `unavailable`. A
+search that succeeds but matches nothing returns an **empty result list, not an
+error** - the two must never collapse. OpenAI reports it as a `web_search_call`
+item whose `status` is not `completed`. Both are `{ ok: false }` (as researched
+2026-08-23; re-check, don't trust).
+
 ### How a prompt is sent (this is a measurement decision, not a tuning knob)
 
 The prompt text goes to the provider **unmodified**. No system prompt. No
 `temperature`, `top_p` or any other sampling parameter. No length instruction. The
 only parameter set beyond the tool declaration is `max_tokens`, and it exists
 solely so that an answer is never truncated - a truncated answer can cut off a
-brand that would then be counted as absent. The concrete value is determined in
-Phase 0 and recorded here.
+brand that would then be counted as absent.
+
+**The value is 128,000**, resolved in Phase 0. That is the documented maximum
+output for both pinned models (as researched 2026-08-23; re-check, don't trust).
+A cap costs nothing, because billing is per token generated and not per token
+allowed, so the maximum is the safe value rather than an expensive one. If a
+provider truncates anyway, the adapter returns `{ ok: false }` and the attempt is
+stored as `failed`: a cut-off answer entering a numerator as "not mentioned" is
+precisely the error this instrument exists to avoid.
 
 Steering the model would raise the measured numbers and make them meaningless. An
 instrument that influences its own reading is worse than no instrument, because
@@ -75,9 +108,16 @@ its output looks better.
 
 ### Pinned environment (verified 2026-08-23 on the operator's machine)
 
-macOS 26.6.2 arm64 - Node 22.23.1 (nvm present) - npm 10.9.8 - PostgreSQL 17.6
-local - Docker 28.4.0 - git 2.50.1 - gh 2.95.0. Railway CLI and Vercel CLI are
-not installed. bun 1.3.14 is present and is deliberately not used.
+macOS 26.6.2 arm64 - Node 22.23.1 (nvm present) - npm 10.9.8 - Docker 28.4.0 -
+git 2.50.1 - gh 2.95.0. Railway CLI and Vercel CLI are not installed. bun 1.3.14
+is present and is deliberately not used.
+
+**PostgreSQL, corrected in Phase 0.** `psql` 17.6 on this machine is the libpq
+**client**; the only server installed was Homebrew `postgresql@14`, which the
+startup version guard correctly refuses. The development server is therefore the
+Docker image **`postgres:17`** - the same image both CI workflows run, so the
+local gate and the CI gate sit on an identical database. The command is recorded
+beside `DATABASE_URL` in `.env.example`.
 
 ### Donor
 
@@ -94,11 +134,12 @@ The `verify` script convention comes from `../drone-approval-support` and
 large/
   package.json
   tsconfig.json
+  prisma.config.ts                   # Prisma 7: datasource url + seed command
   next.config.ts
   postcss.config.mjs
   eslint.config.mjs
   tsconfig.worker.json               # emits src/worker + its imports to dist/
-  vitest.config.ts
+  vitest.config.mts
   components.json                    # shadcn/ui config
   .nvmrc
   .env.example
@@ -546,9 +587,14 @@ tiers and limits rot.
 
 **Cost of one run** - 20 prompts, 2 targets, N=3 gives 120 calls. Token cost at
 the pinned targets is roughly $5-8 per run (estimated from published per-token
-prices, as researched 2026-08-23; re-check, don't trust). Web search is billed **separately per
-search** and may be a comparable amount again; that figure is an open question in
-`SPEC.md` and is not pinned here.
+prices, as researched 2026-08-23; re-check, don't trust). Web search is billed
+**separately per search**.
+
+**Resolved in Phase 0:** both providers charge **$10 per 1,000 searches** (as
+researched 2026-08-23; re-check, don't trust), not the $25-30 estimated during the
+interview. Search is therefore a smaller share of run cost than budgeted. An
+errored search is not billed. Exact per-token and per-search figures live in
+`src/core/providers/pricing.ts`, each row dated.
 
 **Remote:** GitHub. The repository and its two provider secrets are created by the
 operator **before** Phase 0's deploy - it is an item on `PLAN.md` -> Blocked on the
