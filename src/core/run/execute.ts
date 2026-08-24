@@ -4,7 +4,7 @@
  * Concurrency is limited **per provider, per process**, because rate limits are
  * charged per provider. Known limitation: with W workers the effective limit
  * becomes W times this, since each process counts only itself. A shared limiter is
- * a v2 item (PLAN.md -> Deferred).
+ * a v2 item (PLAN.md -> Roadmap beyond v1 -> Engineering items).
  */
 import type { PrismaClient, Provider, RunStatus } from '@prisma/client'
 import { findMentions } from '../parse/mentions.ts'

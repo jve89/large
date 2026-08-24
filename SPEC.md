@@ -7,16 +7,120 @@ prominently its brand appears in the answers that large language models give to
 the questions its buyers actually ask - and which sources those models cite when
 they answer. v1 measures. It does not advise.
 
+## Vision - where this goes
+
+v1 is the ground floor of a larger building. This section describes the
+building, so that no session has to guess.
+
+**The end product.** A self-service platform where any business - any trade,
+any city, any language - can establish how visible it is in the answers large
+language models give to the questions its buyers actually ask, see why the
+businesses that *are* named get named, and find out what is missing from its
+own presence. The nearest analogue is a search-visibility suite such as
+Semrush, built for language models instead of for search engines.
+
+**Who pays, and for what.** The customer pays for the analyses they run. Every
+measurement costs real money at the provider, so pricing follows usage rather
+than a flat unlimited fee: a small free scan, then paid full analyses, then
+tiers carrying a quota. Analyses are never run speculatively in the hope that a
+customer turns up. That a paid run also enriches the shared dataset is a
+by-product, never a reason to spend.
+
+**The user changes; the instrument does not.** v1 has exactly one user - the
+operator - and no accounts. That is a stage, not an endpoint. It exists so the
+measurement can be proved correct before anyone else depends on it. Accounts,
+quotas and payment turn this instrument into a product; they do not change what
+it measures.
+
+### What this has to be better at
+
+The category is not empty. Semrush, Profound, Peec AI, ZipTie and others sell
+LLM visibility tracking between roughly $69 and $499 per month, and
+local-specific entrants such as Ayzeo already offer visibility tracking plus a
+prioritised checklist for small businesses (as researched 2026-08-24; re-check,
+don't trust). Being "for local businesses" is a segment choice, not a
+difference.
+
+They are converging on one shape: a visibility score, a competitor list, a
+recommendations panel. They are also drawing one criticism - that they measure
+prompts they invented rather than what people ask, that personalisation makes
+their numbers irreproducible, that their methodology is undisclosed, and that
+their trend lines are drawn through noise.
+
+Three things separate this product, in increasing order of how long each takes
+to copy.
+
+**1. Criteria are harvested, not assumed.** When a model recommends a business
+it frequently states its own selection criteria - price transparency, a
+verifiable registration number, opening hours, review volume. Those criteria
+differ per category: a plumber is judged on trust and price, a restaurant on
+menu and reviews, a firm of solicitors on accreditation. A fixed checklist
+cannot follow that; a harvested one reads it out of the answers already stored.
+
+**2. Every figure is traceable, and the instrument says when it does not know.**
+Each number links to the evidence beneath it: the actual answers, their raw
+text, and every recognised name found in them with its position. Coverage and N
+sit beside every
+figure. A target below the coverage threshold is labelled unreliable instead of
+being shown as a measurement. A run whose measurement basis changed says so
+rather than extending a series. The prompt library is not a secret.
+This is commercially uncomfortable and that is the point: a competitor who has
+sold a confident single score cannot start qualifying it later.
+
+**3. The causal dataset.** Measure, change something, measure again, on an
+identical basis, across thousands of businesses. Nobody in this category can
+yet say which interventions actually move a recommendation; they say "results
+typically appear within 30-60 days" (as researched 2026-08-24; re-check, don't
+trust) and offer no evidence. Immutable
+hashed runs, retained raw text and per-answer cost make that evidence
+collectible here. It cannot be bought, only accumulated.
+
+### Why local service businesses first
+
+Not because the product is only for them. Because they are the population in
+which the third layer becomes provable fastest: their recommendation comes from
+retrieval rather than from what the model already knows, so a change to their
+own site can plausibly move it within weeks; they can change that site on a
+Tuesday; and there are very many of them. A global soft-drink brand cannot run
+that experiment. A plumber can.
+
+### How to use this section
+
+This section authorises no work. Its purpose is to make one question answerable
+at any point in the build:
+
+**Does this decision make a later layer impossible?**
+
+A v1 choice that is merely inconvenient for a later layer is fine, and several
+are deliberate. A v1 choice that forecloses one is a stop-and-ask under
+`CLAUDE.md` -> Stop points. The existing hooks - the N-entry target list, the
+adapter registry, the single foreign-key chain to Company, retained raw answer
+text, immutable hashed runs - exist for exactly this reason and are not to be
+removed as unused.
+
+### What would falsify this
+
+If the stability check in `PLAN.md` -> Phase 9 shows that results vary too much
+to be believed at any workable N, then layer 3 cannot exist and this section
+needs rewriting rather than extending. That check is therefore not a
+presentation detail; it is the test of the thesis.
+
 ## Primary user
 
-**The operator** (Johan). He onboards a client company, agrees the buying-moment
-prompts with that client, starts a measurement run, and reads the result back to
-the client. He is the only person who enters data.
+**v1 has exactly one user: the operator** (Johan). He onboards a client company,
+agrees the buying-moment prompts with that client, starts a measurement run, and
+reads the result back to the client. He is the only person who enters data.
+
+That is a stage, not the endpoint. The single-operator shape exists so the
+measurement can be proved correct before anyone else depends on it. Accounts,
+quotas and payment are the first stage above it - `PLAN.md` -> Roadmap beyond v1
+- and no v1 decision may make that stage impossible.
 
 **The client** is a secondary reader. In v1 there are no accounts and no login:
 the client is given the URL of a run and can read it. Anyone holding an
-application URL can navigate to any company. This is a deliberate v1 limitation,
-not an oversight - see `ARCHITECTURE.md` -> Key decisions.
+application URL can navigate to any company. This is a deliberate v1 limitation
+with a named exit, not an oversight: `ARCHITECTURE.md` -> Key decisions states
+the exposure plainly, and the accounts stage is what closes it.
 
 ## Core action
 
@@ -43,6 +147,12 @@ next to which competitors, and which sources the model cited.
   the model's intended ranking.
 - **Recognised brand** - the subject brand (via its aliases) or a competitor from
   the run's competitor snapshot. v1 does not discover unknown brands.
+- **Cited domain** - the host of a stored citation's URL, lower-cased, with a
+  leading `www.` removed. C7 guarantees every stored citation URL is absolute and
+  http or https, so every stored citation has exactly one domain.
+  A domain is counted **per answer**: an answer citing two pages of one site, or
+  the same page twice, has drawn on that domain once. The unit of observation is
+  the answer, never the citation row - see C16.
 - **Measurement basis** - the ordered prompt texts, the ordered target list, the
   brand aliases and the competitor list of a run, hashed together as `basisHash`.
   The brand **name** is deliberately excluded: renaming a company does not change
@@ -101,7 +211,13 @@ next to which competitors, and which sources the model cited.
 
 - **C7 - Extract citations**: WHEN a provider returns web search results, the
   system SHALL persist each cited source as a citation row carrying its URL and
-  title, linked to the answer it came from.
+  title, linked to the answer it came from, in the order the provider first
+  reported it.
+  A stored citation URL SHALL be absolute and SHALL use the http or https scheme;
+  a cited source whose URL is neither SHALL NOT be stored.
+  The citations of one answer SHALL be de-duplicated: two citations of the same
+  URL, differing at most by a URL fragment, SHALL be stored once. A citation list
+  must not repeat a source the model drew on once.
   IF the provider returns a web search error object instead of a result list, THEN
   the system SHALL record that attempt as failed and SHALL NOT record it as an
   answer containing zero citations.
@@ -123,8 +239,8 @@ next to which competitors, and which sources the model cited.
   count as not mentioned.
 
 - **C9 - Aggregate on read**: The system SHALL compute mention rate, average
-  position and competitor frequency from the stored answer rows at read time, and
-  SHALL NOT store any aggregate as a persisted field.
+  position, competitor frequency and cited domain frequency from the stored answer
+  rows at read time, and SHALL NOT store any aggregate as a persisted field.
 
 - **C10 - Coverage and N travel with every figure**: WHEN the system displays any
   aggregate figure, it SHALL display the coverage of that figure's target and the
@@ -173,6 +289,44 @@ next to which competitors, and which sources the model cited.
   THEN the system SHALL set it to `failed` with that reason and SHALL stop
   spending provider calls on it.
 
+- **C16 - Cited domain frequency**: WHEN the system displays a run's result, it
+  SHALL compute for each target, at read time from that target's **successful**
+  answers, **in how many of those answers each cited domain appears**, and SHALL
+  display those domains ordered by descending count - ties broken by domain
+  ascending, so that the order of equal counts is reproducible - with that
+  target's coverage and the run's N beside them, per C10.
+  The count is a number of answers and never a number of citation rows: a domain
+  cited three times in one answer counts once, because a model that footnotes one
+  source repeatedly has drawn on it once. Counting rows would let a heavily
+  footnoting model inflate its favourite source.
+  The system SHALL derive this from the stored citation rows on every read and
+  SHALL NOT persist it, or any part of it, as an aggregate column, per C9.
+  IF an answer has status `failed`, THEN its citations SHALL contribute nothing to
+  this figure, per C5 - a failed call is never "cited nothing".
+  IF a target has no successful answers, THEN the system SHALL display "no data"
+  for that target's domains and SHALL NOT display an empty list, which would read
+  as "the model cited no sources".
+  C16 counts domains; it deliberately does **not** mark which of them is the
+  client's own site. That needs a website field on `Company` that the data model
+  does not have - see "Explicitly NOT in scope" below.
+
+- **C17 - Every figure is traceable to its evidence**: WHEN the system displays an
+  aggregate figure for a target, it SHALL make the answers that figure was
+  computed from reachable from where the figure is displayed, without the reader
+  constructing a URL by hand.
+  Each reachable answer SHALL carry its raw text, its citations in stored order,
+  and every recognised name found in it with that name's 1-based position and the
+  total number of recognised brands in that answer.
+  IF an answer has status `failed`, THEN it SHALL be reachable alongside the
+  successful ones carrying its failure reason, so that a cell reading "no data"
+  can be explained rather than merely labelled.
+  The system SHALL NOT display an aggregate figure whose underlying answers are
+  unreachable.
+  Every other capability constrains how a figure is computed; this one requires
+  that a reader can check it. It is what stands behind Vision -> "What this has to
+  be better at", point 2, and it is the reason the raw text is retained rather
+  than only parsed.
+
 ## Run status
 
 - `queued` - created, not yet claimed.
@@ -185,74 +339,158 @@ next to which competitors, and which sources the model cited.
 
 ## Explicitly NOT in scope
 
-- **The advice engine** ("use these words", "publish here"). This is v2 and cannot
-  be designed honestly before the measurement data exists.
+Each entry states what is excluded, why, and the condition under which it returns.
+"Returns" is a condition, never a date, and never a licence to start early.
+
+- **The advice engine** ("use these words", "publish here").
+  *Why:* it cannot be designed honestly before the measurement data exists, and
+  advice invented ahead of evidence is precisely what this product exists to
+  replace.
+  *Returns:* when the causal dataset of Vision layer 3 exists. That means two
+  things together, and this is the single statement of the condition that
+  `PLAN.md` references rather than restates: every stage above it in `PLAN.md` ->
+  Roadmap beyond v1 is running, **and** enough measure-change-measure cycles on
+  identical bases have accumulated across many businesses to say which
+  interventions actually moved a recommendation. Raw answer text is never deleted
+  so that this stage inherits the whole history.
+
 - **User accounts, login, and payments.** v1 has no authentication of any kind.
+  *Why:* v1 has one user and no unattended sign-up, so an auth layer would be
+  structure with nobody behind it, built before the measurement it protects is
+  proved.
+  *Returns:* the moment anyone other than the operator can reach the application
+  without him. That is also the moment the exposure recorded in `ARCHITECTURE.md`
+  -> Key decisions stops being acceptable. The single foreign-key chain to Company
+  exists so this arrives as middleware plus policies, not as a migration.
+
 - **More than two providers.** The schema and the adapter layer are built for N
-  providers; the v1 configuration contains two. See Deferred in `PLAN.md`.
+  providers; the v1 configuration contains two.
+  *Why:* two targets are enough to prove that nothing assumes a fixed number, and
+  each additional target multiplies the cost of every run linearly.
+  *Returns:* when a customer's buyers actually use a third assistant, or when
+  Perplexity's citation data is wanted for its own sake. The target list, the
+  provider enum and the adapter registry already take N entries.
+
 - **Historical trend charts.** Runs are stored immutably and comparably, so the
   series exists - v1 simply does not draw it.
+  *Why:* a trend line through two runs of a non-deterministic instrument is noise
+  drawn confidently, which is the exact criticism the category has earned.
+  *Returns:* when Phase 9's stability check has established an N at which
+  run-to-run variation is smaller than the movement being drawn, and only across
+  runs the comparability guard confirms share one `basisHash`.
+
 - **Scheduled or automatic runs.** Every run is started by hand.
+  *Why:* every run spends real money at the provider, and nothing may spend it
+  speculatively.
+  *Returns:* with the quota stage, which is what makes an automatic run something
+  a customer has already paid for. A cron then writes the same `queued` row the
+  web layer writes; no new trigger mechanism is needed.
+
 - **Discovery of unknown competitors.** v1 recognises only brands the operator
-  entered. Raw answer text is retained so that a later judge pass can find the
-  rest by reprocessing, without new provider calls.
+  entered.
+  *Why:* the deterministic parser has to exist first, because it is the baseline
+  an LLM judge is scored against; judge-first has nothing to check itself against.
+  *Returns:* when there is enough stored answer text to score a judge against the
+  parser. Raw answer text is retained so that pass reprocesses the entire history
+  without new provider calls.
+
 - **Deleting companies or runs.** Prompts are removed by saving a shorter list;
-  companies and runs have no delete affordance. The stored answers are the asset,
-  there is no authentication protecting a delete button, and a mistaken company
-  costs one unused row.
+  companies and runs have no delete affordance.
+  *Why:* the stored answers are the asset and cannot be regenerated without paying
+  for the calls again, there is no authentication protecting a delete button, and
+  a mistaken company costs one unused row.
+  *Returns:* as `archivedAt`, with the accounts stage - hiding a row from a list
+  without destroying answers. A hard delete does not return at all.
+
 - **Steering the model.** No system prompt, no temperature or top_p, no length
   instruction. An instrument that influences its own reading is worse than no
   instrument, because its output looks better.
+  *Why:* see the sentence above; it is the whole reason the product's numbers are
+  worth anything.
+  *Returns:* never. This is the one entry with no exit condition. A prompt that
+  needs to change is a new measurement basis, which the `basisHash` already
+  handles, not a setting to be added.
+
 - **Multiple languages or countries.**
+  *Why:* one language and one country is enough to prove the instrument, and each
+  addition multiplies both the prompt library and the competitor sets that have to
+  be curated by hand.
+  *Returns:* with automatic prompt generation. A per-country, per-category prompt
+  library is not something an operator writes by hand, so the generation stage is
+  the precondition rather than a convenience.
+
 - **White-label reporting, exports, dashboards, run-to-run comparison screens.**
+  *Why:* each is a second presentation of figures that already exist, and none of
+  them tests whether the figures are right, which is v1's only job.
+  *Returns:* exports when a customer wants the numbers outside the app -
+  everything they need is already derivable from stored rows. Comparison screens
+  return on the same condition as trend charts.
+
+- **Marking which cited domain belongs to the client.** C16 counts cited domains;
+  it does not say which of them is the client's own site.
+  *Why:* it needs a website field on `Company` that the data model does not have,
+  and a data model change is a stop-and-ask under `CLAUDE.md` -> Stop points.
+  *Returns:* with the presence-audit stage, which takes the customer's own site as
+  an input anyway and therefore has to carry that field regardless.
+
 - **Identity with the consumer products.** v1 measures the *APIs* of both
   providers with web search enabled. That approximates what a person sees in the
   ChatGPT or Claude apps; it is not the same thing. Those products run their own
   system prompt, their own retrieval and sometimes a different model version (as
   researched 2026-08-23; re-check, don't trust). The tool promises
   representativeness, not identity.
+  *Why:* the consumer stacks are not exposed as an API, and imitating them by
+  adding a system prompt would be steering the model.
+  *Returns:* not as a feature. If a provider ever exposes its consumer stack
+  through an API, that is one more entry in the target list, measured on the same
+  terms as every other target.
 
 ## Success = done when
 
-`npm run verify` exits 0 against the deployed configuration, all fifteen
+`npm run verify` exits 0 against the deployed configuration, all seventeen
 capabilities pass their EARS criteria, and one real run of a real brand with at
 least ten real prompts has completed with every target at coverage of 80 percent
 or higher, producing at least one citation per successful answer.
 
 ## Open questions - each line names its owner
 
-- **[Owner: you]** Create an Anthropic Console account (console.anthropic.com) with
-  prepaid credits and issue an API key. A Claude Max subscription does not grant
-  API access (as researched 2026-08-23; re-check, don't trust). Blocks Phase 0.
-- **[Owner: you]** Create an OpenAI platform account (platform.openai.com) with
-  prepaid credits and issue an API key. A ChatGPT Plus subscription does not grant
-  API access (as researched 2026-08-23; re-check, don't trust). Blocks Phase 0.
-- **[Owner: you]** Create a Railway account and decide Hobby versus Pro. Three
-  services (web, worker, Postgres) are not expected to fit inside the Hobby credit
-  (as researched 2026-08-23; re-check, don't trust); expect Hobby plus usage.
-  Blocks the first deploy.
-- **[Owner: you]** Create the GitHub repository and add both provider API keys as
-  repository secrets. Blocks the first deploy in Phase 0 and the on-demand
-  `verify-live` workflow.
+- ~~**[Owner: you]** Create an Anthropic Console account (console.anthropic.com)
+  with prepaid credits and issue an API key.~~ **Resolved 2026-08-23.** A Claude
+  Max subscription does not grant API access (as researched 2026-08-23; re-check,
+  don't trust), which is why the account is a separate line.
+- ~~**[Owner: you]** Create an OpenAI platform account (platform.openai.com) with
+  prepaid credits and issue an API key.~~ **Resolved 2026-08-23.** A ChatGPT Plus
+  subscription does not grant API access (as researched 2026-08-23; re-check,
+  don't trust). The key alone was not enough - the first live gate run failed with
+  `429 You have no credits remaining`.
+- ~~**[Owner: you]** Create a Railway account and decide Hobby versus Pro.~~
+  **Resolved 2026-08-23.** Three services (web, worker, Postgres) are not expected
+  to fit inside the Hobby credit (as researched 2026-08-23; re-check, don't
+  trust); expect Hobby plus usage.
+- ~~**[Owner: you]** Create the GitHub repository and add both provider API keys
+  as repository secrets.~~ **Resolved 2026-08-23.** `jve89/large`, private.
 - **[Owner: you]** Supply the first real brand: name, aliases, competitor list and
   at least ten buying-moment prompts. Without this the Success criterion above
-  cannot be met. Blocks Phase 9.
-- **[Owner: Claude, Phase 0]** Confirm the exact per-token and per-search prices at
-  both providers in their consoles and write them into
-  `src/core/providers/pricing.ts` with the date they were read. The estimate used
-  during the interview ($25-30 per thousand searches, as researched 2026-08-23;
-  re-check, don't trust) is from secondary sources and may be a material share of
-  run cost. Phase 5 stores a
-  cost per answer and cannot do so until this table exists.
-- **[Owner: Claude, Phase 0]** Confirm the exact model id strings for **both**
+  cannot be met. Blocks Phase 9. **Still open.**
+- ~~**[Owner: Claude, Phase 0]** Confirm the exact per-token and per-search prices
+  at both providers.~~ **Resolved in Phase 0.** Both providers charge **$10 per
+  1,000 searches** (as researched 2026-08-23; re-check, don't trust) - the
+  estimate used during the interview, $25-30 per thousand searches, was wrong and
+  too high. The confirmed figures live in `src/core/providers/pricing.ts`, each
+  row dated.
+- ~~**[Owner: Claude, Phase 0]** Confirm the exact model id strings for **both**
   providers against their live models endpoints, and confirm the Anthropic web
-  search tool version, before any of them is written into an adapter.
-- **[Owner: Claude]** Determine the `max_tokens` value that is high enough never to
-  truncate an answer at either provider, during Phase 0, and record it in
-  `ARCHITECTURE.md`. A truncated answer can cut off a brand and would be counted as
-  not mentioned.
+  search tool version.~~ **Resolved in Phase 0**, recorded in `ARCHITECTURE.md` ->
+  Measurement targets.
+- ~~**[Owner: Claude]** Determine the `max_tokens` value that is high enough never
+  to truncate an answer at either provider.~~ **Resolved in Phase 0: 128,000**,
+  read from Anthropic's own models endpoint rather than from documentation, and
+  recorded in `ARCHITECTURE.md`. A truncated answer can cut off a brand and would
+  be counted as not mentioned.
 - **[Owner: Claude]** Establish empirically, during `PLAN.md` Phase 9, whether N=3
   produces figures stable enough to be believed. Phase 0 runs one prompt at N=1 and
   cannot answer this. If two runs a day apart on an identical basis differ by more
   than one step of N, then N must rise, and this document and `ARCHITECTURE.md` are
-  updated, before Phase 10 begins.
+  updated, before Phase 10 begins. **Still open**, and per Vision -> "What would
+  falsify this" it is also the test of the product thesis, not only of a display
+  detail.

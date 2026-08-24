@@ -94,8 +94,10 @@ only parameter set beyond the tool declaration is `max_tokens`, and it exists
 solely so that an answer is never truncated - a truncated answer can cut off a
 brand that would then be counted as absent.
 
-**The value is 128,000**, resolved in Phase 0. That is the documented maximum
-output for both pinned models (as researched 2026-08-23; re-check, don't trust).
+**The value is 128,000**, resolved in Phase 0. That is the maximum output for
+both pinned models; for Anthropic the figure comes from the API itself -
+`GET /v1/models/claude-sonnet-5` reports `max_tokens=128000` - and not from a
+documentation page (as researched 2026-08-23; re-check, don't trust).
 A cap costs nothing, because billing is per token generated and not per token
 allowed, so the maximum is the safe value rather than an expensive one. If a
 provider truncates anyway, the adapter returns `{ ok: false }` and the attempt is
@@ -215,7 +217,8 @@ large/
       db.ts                          # Prisma client singleton
       defaults.ts                    # DEFAULT_TARGETS, DEFAULT_REPETITIONS
       env.ts                         # validateEnv(role) - throws at startup
-      aggregate.ts                   # derived figures, per target
+      aggregate.ts                   # derived figures, per target - incl.
+                                     #   cited-domain frequency (SPEC C16)
       hash.ts                        # basisHash
       money.ts                       # integer micro-dollars, no floats
     core/
@@ -255,6 +258,8 @@ large/
       claim.test.ts                  # two claimers, exactly one winner
       resume.test.ts                 # stale run resumes, does not restart
     aggregate.test.ts
+    cited-domains.test.ts            # SPEC C16, per target
+    traceability.test.ts             # SPEC C17, figure -> its answers
     comparability.test.ts
     hash.test.ts
     fixtures/                        # real stored provider responses
@@ -335,8 +340,9 @@ Index on `(status, heartbeatAt)` - this is the worker's claim query, which match
 
 A Run **is** the job row. There is no separate queue table.
 
-Coverage, mention rate, average position and total cost are **not columns**. They
-are computed from Answer rows at read time (SPEC C9).
+Coverage, mention rate, average position, cited-domain frequency and total cost
+are **not columns**. They are computed from Answer rows - and, for domains, from
+their Citation rows - at read time (SPEC C9, C16).
 
 Coverage for a target = successful answers for that target divided by its
 **planned** attempts, which is `count(RunPrompt) * Run.repetitions`. The
@@ -497,11 +503,21 @@ GET    /api/runs/:runId
          targets,
          progress: { done, total },    # total = prompts x targets x N
          perTarget: [ { provider, modelId, coverage, reliable,
-                        mentionRate, averagePosition, competitors } ],
+                        mentionRate, averagePosition, competitors,
+                        citedDomains } ],   # C16: [{ domain, count }],
+                                            # successful answers only; count is
+                                            # the number of ANSWERS the domain
+                                            # appears in, never citation rows;
+                                            # count desc then domain asc;
+                                            # null - not [] - when the target
+                                            # has no successful answer. [] means
+                                            # answers existed and cited nothing.
          totals: { inputTokens, outputTokens, searchCount, costMicros },
          prompts: [ { text, cells: [ { target, state, answers } ] } ] }
         # every figure computed at read time; `state` is one of
-        # 'ok' | 'no-data'; 'no-data' is never rendered as zero
+        # 'ok' | 'no-data'; 'no-data' is never rendered as zero.
+        # The `answers` array below is what SPEC C17 requires: it is
+        # the evidence every displayed figure must reach.
         #
         # answers: { repetition, status, failureReason?, rawText?,
         #            mentions:   { brand, isSubject, position,
@@ -534,7 +550,8 @@ that does not match the schema and Phase 0's gate cannot pass. The worker never
 migrates - two processes racing `migrate deploy` is a corrupted migration table.
 This is safe at one web instance; scaling the web service to more than one
 requires moving the step to a release phase that runs once per deploy, and that
-is listed in `PLAN.md` -> Deferred.
+is listed in `PLAN.md` -> Roadmap beyond v1 -> Engineering items, triggered by
+exactly that.
 
 The worker has its own `tsconfig.worker.json` because the root config is
 Next-oriented and emits nothing. Without it `dist/worker/index.js` never exists
@@ -575,8 +592,8 @@ would otherwise make Postgres the only pinned dependency trusted on faith.
 semaphore for each provider, because rate limits are charged per provider. With
 two providers and one worker that is at most eight calls in flight. Known
 limitation: with W workers the effective limit becomes W x 4, since each process
-counts only itself. A shared limiter is a v2 item and is listed in `PLAN.md` ->
-Deferred.
+counts only itself. A shared limiter is listed in `PLAN.md` -> Roadmap beyond v1
+-> Engineering items, triggered by starting the second worker.
 
 Secrets never enter the repository. `.env.example` lists every variable with an
 empty value and a one-line comment.
@@ -697,6 +714,12 @@ phase. Phase 0 pushes to it.
   system. This is deliberate for a v1 the operator runs himself and shows to a
   client by link, and it is the single thing that must change before anyone signs
   up unattended. Cost: the discipline above has no v1 payoff.
+  **This shape is heading toward multi-tenant** - `SPEC.md` -> Vision describes a
+  self-service platform, and `PLAN.md` -> Roadmap beyond v1 makes accounts,
+  quotas and payment the first layer above v1. That is the reason the chain is
+  kept intact rather than treated as incidental: it is what lets that layer
+  arrive as middleware plus policies. Nothing else in v1 anticipates multiple
+  tenants, and nothing in v1 should - but nothing in v1 may foreclose it either.
 
 - **Nothing assumes two providers.** Targets are a list; the enum grows by one
   value. v1 configures two because `SPEC.md` scopes it to two, not because the
@@ -704,7 +727,8 @@ phase. Phase 0 pushes to it.
 
 - **Token usage, search counts and cost captured per answer.** This data is present
   in the provider response and is unrecoverable afterwards. It is what makes
-  per-customer margin computable once the product is priced.
+  per-customer margin computable once the product is priced - `PLAN.md` -> Roadmap
+  beyond v1, product layer 2, which usage-based pricing depends on.
 
 - **No delete affordance.** Stored answers are the asset and cannot be regenerated
   without paying again, and v1 has no authentication protecting a delete button.

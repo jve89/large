@@ -6,23 +6,36 @@
 - A phase that fails twice is too big - split it here and do the halves.
 - Commit after every green phase.
 - Numbers are labels. Expect reordering; never renumber - code and commits cite
-  the numbers.
+  the numbers. The **Order** column below is the position in the queue; the
+  **Phase** column carries the permanent number. New work takes a new number and
+  is inserted at the position where it belongs.
+- Claude maintains the Status column and the "Blocked on the operator" list, in
+  the same commit as the phase's work (`CLAUDE.md` -> Stop points).
 
 ## Order - the table is the instruction
 
 | Order | Phase | Delivers | Status |
 |---|---|---|---|
-| 0 | Skeleton | C13, C14 | done |
-| 1 | Company registry | C1 | done |
-| 2 | Prompt list | C2 | next |
-| 3 | Queue a run | C3 | |
-| 4 | Worker: claim, resume, retry, terminal status | C4, C6, C15 | |
-| 5 | Answers and citations | C5, C7 | |
-| 6 | Mention parsing | C8 | |
-| 7 | Aggregation, coverage and cost | C9, C10, C12 | |
-| 8 | Comparability guard | C11 | |
-| 9 | Presentation pass against a real brand | C10, C11 | |
-| 10 | Ship | SPEC "Success = done when" | |
+| 1 | 0 - Skeleton | C13, C14 | done |
+| 2 | 1 - Company registry | C1 | done |
+| 3 | 2 - Prompt list | C2 | next |
+| 4 | 3 - Queue a run | C3 | |
+| 5 | 4 - Worker: claim, resume, retry, terminal status | C4, C6, C15 | |
+| 6 | 5 - Answers and citations | C5, C7 | |
+| 7 | 6 - Mention parsing | C8 | |
+| 8 | 7 - Aggregation, coverage and cost | C9, C10, C12 | |
+| 9 | 11 - Cited domain frequency | C16 | |
+| 10 | 12 - Traceability to evidence | C17 | |
+| 11 | 8 - Comparability guard | C11 | |
+| 12 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | |
+| 13 | 10 - Ship | SPEC "Success = done when" | |
+
+Phases 11 and 12 are new work and therefore take new numbers, but both belong
+after Phase 7. Phase 11 is a read-time aggregate over stored citation rows, so it
+cannot precede the phase that stores them (Phase 5) nor the aggregation module it
+lives in (Phase 7). Phase 12 makes every displayed figure reachable back to the
+answers it came from, so it cannot precede the figures themselves (Phases 7 and
+11) or the rows beneath them (Phases 5 and 6).
 
 ## Blocked on the operator
 
@@ -92,9 +105,10 @@ answer and cannot do so until that table exists.
 - Delivers: C1
 - Done when: WHEN a company is submitted with a non-empty name, it is persisted
   with its aliases and competitors and retrievable by id; WHEN a company's name,
-  aliases or competitors are edited, the change is persisted; IF a company is
-  submitted **or edited** with an empty name, the request is rejected and nothing
-  is persisted - verified by `npm run test -- api/companies` and `npm run verify`.
+  aliases or competitors are edited, the change is persisted and every existing
+  run is left untouched; IF a company is submitted **or edited** with an empty
+  name, the request is rejected and nothing is persisted - verified by
+  `npm run test -- api/companies` and `npm run verify`.
 - Commit: `feat: company registry`
 
 ## Phase 2 - Prompt list
@@ -202,6 +216,73 @@ answer and cannot do so until that table exists.
   run page.
 - Commit: `feat: aggregation, coverage and cost`
 
+## Phase 11 - Cited domain frequency
+
+The Objective promises "which sources those models cite when they answer".
+Phase 5 stores them and the run page shows them per answer; a run of 20 prompts
+x 2 targets x N=3 therefore hands the reader 120 separate URL lists. This phase
+turns that raw data into an answer to the question.
+
+- Delivers: C16
+- Done when:
+  - WHEN a run is read, each target carries its cited domains with a count,
+    computed at read time in `lib/aggregate.ts` from that target's answers with
+    status `ok` only, ordered by descending count with ties broken by domain
+    ascending so the order is reproducible.
+  - A domain is the host of the stored citation URL, lower-cased with a leading
+    `www.` removed. **The count is a number of answers, not a number of citation
+    rows:** an answer citing two pages of one site, or the same page twice, adds
+    one to that domain. Counting rows would let a heavily footnoting model inflate
+    its favourite source.
+  - Every displayed domain list carries that target's coverage and the run's N,
+    per C10, and is labelled unreliable when the target is below
+    `COVERAGE_THRESHOLD`.
+  - IF a target has no successful answers, its domain list reads "no data" and is
+    never rendered as an empty list.
+  - No column is added to the schema for any part of this figure, per C9 - checked
+    by there being no migration in this phase.
+  - Verified by `npm run test -- cited-domains` with fixtures covering: the same
+    host cited with and without `www.`; **two different pages of one site inside
+    one answer, which must count once**; the same domain across two answers, which
+    must count twice; a `failed` answer carrying citations, constructed so that
+    counting them would change the resulting order (it must not); a target with
+    zero successful answers, which reads "no data"; **a target whose successful
+    answers carry no citations at all, which reads as an empty list and must not
+    read "no data"** - the model genuinely cited nothing, and that is an
+    observation rather than an absence of one; two domains on an equal count,
+    which must come back in ascending domain order; and two targets in one run
+    whose lists differ. Plus by inspecting the run page.
+- Commit: `feat: cited domain frequency`
+
+## Phase 12 - Traceability to evidence
+
+`SPEC.md` -> Vision names this the second of three differentiators, and until now
+nothing in the pack enforced it: every other capability constrains how a figure is
+computed, none required that a reader can check it. This phase makes the evidence
+reachable from the figure.
+
+- Delivers: C17
+- Done when:
+  - WHEN a target's aggregate figures are displayed, every answer they were
+    computed from is reachable from that page, without the reader editing a URL by
+    hand.
+  - Each reachable answer carries its raw text, its citations in stored order, and
+    every recognised name found in it with that name's 1-based position and the
+    total recognised in that answer.
+  - A `failed` answer is reachable alongside the successful ones and carries its
+    failure reason, so a cell reading "no data" can be explained rather than only
+    labelled.
+  - No aggregate figure is displayed whose underlying answers are unreachable.
+  - Verified by `npm run test -- traceability` with fixtures covering: an `ok`
+    answer with both mentions and citations; a `failed` answer whose reason must
+    be reachable; a cell where every repetition failed, which reads "no data" and
+    whose failure reasons must still be reachable; a target below
+    `COVERAGE_THRESHOLD`, whose figures are labelled unreliable and whose answers
+    must remain reachable; and an answer with no recognised brand, which must be
+    reachable and must not be confused with a failure. Plus by inspecting the run
+    page.
+- Commit: `feat: traceability to evidence`
+
 ## Phase 8 - Comparability guard
 
 - Delivers: C11
@@ -218,19 +299,26 @@ The first phase that uses real client data rather than fixtures. Screens 1 to 3
 are made readable against figures that actually came out of the system, because
 this product's whole risk is a number being misread.
 
-- Delivers: C10 and C11, re-verified against real output
+- Delivers: C10, C11, C12, C16 and C17, re-verified against real output
 - Done when:
   - A run of the operator-supplied real brand with at least ten real prompts has
     completed with every target at coverage of 80 percent or higher, and at least
     one citation on every successful answer.
   - Every figure on screens 1 to 3 is readable without ambiguity: no percentage
-    appears without its coverage and its N, no failed cell reads as a zero, and a
-    run whose basis changed says so.
+    appears without its coverage and its N, no failed cell reads as a zero, a
+    cited-domain list of a target with no successful answers reads "no data", the
+    run's total token usage, search count and cost are present and legible (C12),
+    and a run whose basis changed says so.
+  - Every figure on screen 3 reaches its evidence in one step (C17), checked
+    against real answers rather than fixtures - this is the differentiator, so it
+    is checked on real output or it is not checked.
   - **Stability check:** the same run is repeated at least a day later on an
     identical basis. IF the two results differ by more than one step of N, THEN N
     is raised and `ARCHITECTURE.md` and `SPEC.md` are updated before Phase 10
     begins. This resolves the open question in `SPEC.md` about whether N=3 is
-    believable.
+    believable, and per `SPEC.md` -> Vision -> "What would falsify this" it is
+    also the test of the product thesis: a result that varies too much at any
+    workable N means the causal dataset cannot exist.
   - Verified by `npm run verify` plus the two real runs on the deployed instance.
 - Commit: `feat: presentation pass`
 
@@ -238,47 +326,121 @@ this product's whole risk is a number being misread.
 
 - Delivers: SPEC's "Success = done when"
 - Done when: `npm run verify` exits 0 against the deployed configuration; all
-  fifteen capabilities pass their EARS criteria; the real-brand run from Phase 9
+  seventeen capabilities pass their EARS criteria; the real-brand run from Phase 9
   is reachable at the deployed URL; every environment variable is set on every
   service that needs it; both provider integrations have been exercised live end
   to end; and the "Blocked on the operator" list above is empty.
 - Commit: `chore: launch`
 
-## Deferred (v2, not now)
+## Roadmap beyond v1
 
-- **The advice engine.** Reprocesses stored raw answer text and citation data; it
-  needs no new provider calls against the measured models. This is why raw text is
-  never deleted.
-- **Accounts, login and row-level security.** Every row already reaches its company
-  through a single foreign-key chain (`Citation`/`Mention` -> `Answer` -> `Run` ->
-  `Company`), so this is a middleware layer plus RLS policies keyed off that chain,
-  not a migration. It is also the item that closes the v1
-  exposure recorded in `ARCHITECTURE.md` -> Key decisions.
-- **More providers.** Gemini and Grok for coverage; **Perplexity** specifically
-  because citations are its core product. The target list, the provider enum and
-  the adapter registry already take N entries.
-- **A shared rate limiter across workers.** `PROVIDER_CONCURRENCY` is per process,
-  so running W workers multiplies the effective provider limit by W. Whoever turns
-  on the second worker must add a shared counter (Postgres or Redis) at the same
-  time, or both providers will start refusing calls.
-- **An LLM judge for unknown competitor discovery.** Runs over stored answers, so
-  it can be applied to the entire history retroactively - and it can be scored
-  against the deterministic parser, which is why the deterministic one comes first.
-- **Historical trend charts.** Runs are already immutable and hashed on their full
-  measurement basis, so the series exists; only the chart is missing.
-- **Scheduled and recurring runs.** A cron writes the same `queued` row the web
-  layer writes.
-- **Exports.** A run's figures and its citation list as CSV or PDF, for a client
-  who wants the numbers outside the app. Everything it needs is already derivable
-  from stored rows; v1 deliberately ships no export at all.
-- **`archivedAt` on companies and runs.** Hides a row from the list without
-  destroying stored answers. v1 has no delete affordance at all.
-- **A release phase for migrations.** `prisma migrate deploy` runs in the web
-  service's start command, which is correct at one instance. Scaling the web
-  service past one requires a release step that runs once per deploy instead.
-- **Server-sent events for run progress**, if runs ever grow long enough that
-  two-second polling becomes wasteful.
-- **Per-customer cost and margin reporting.** Token usage, search counts and cost
-  are captured per answer from Phase 5 onward.
-- **Automatic prompt generation from a company description.** The operator does
-  this by hand in v1; that manual work is the training data for automating it.
+This replaces what used to be a flat "Deferred" list. It is in two parts.
+**Product stages** are ordered: each one unlocks the next, and each names what
+must exist before it can start. They are called stages, not layers, because
+`SPEC.md` -> Vision already numbers three *layers* and they are not these -
+Vision's layer 3, the causal dataset, is delivered by stage 6 here.
+**Engineering items** are not ordered at all; each names the condition that
+triggers it. Nothing here is authorised by being
+written down - `SPEC.md` -> Vision -> "How to use this section" says the same.
+
+### Product stages, in order
+
+**1. Accounts, quotas and payment.**
+*Unlocks:* anyone other than the operator using the product at all, and with it
+every stage below. It is also the item that closes the v1 exposure recorded in
+`ARCHITECTURE.md` -> Key decisions - no authentication, so anyone holding a URL
+can read every company and every run.
+*Requires first:* v1 shipped (Phase 10). The single-operator stage exists so the
+measurement is proved correct before anyone depends on it; adding accounts to an
+instrument that is still wrong just gives the wrong numbers more readers. The
+data model is already ready: every row reaches its company through one
+foreign-key chain (`Citation`/`Mention` -> `Answer` -> `Run` -> `Company`), so
+this is a middleware layer plus RLS policies keyed off that chain, not a
+migration.
+
+**2. Per-customer cost and margin reporting.**
+*Unlocks:* usage-based pricing that is defensible rather than guessed. `SPEC.md`
+-> Vision prices analyses because each one spends real money at the provider;
+that pricing cannot be set, and a free scan cannot be sized, without knowing what
+a run actually costs per customer.
+*Requires first:* stage 1, for the notion of a customer. The measurement itself
+is already there - token usage, search counts and cost are captured per answer
+from Phase 5 onward, and cost is integer micro-dollars, so the arithmetic is
+exact at the point someone is invoiced.
+
+**3. Automatic prompt generation from business, city and category.**
+*Unlocks:* self-service. There is no self-service without it, because no plumber
+will sit down and write twenty buying-moment prompts. It is also the precondition
+for more languages and countries, since a per-country prompt library is not
+something anyone writes by hand.
+*Requires first:* stages 1 and 2, and the hand-written prompt lists from v1 - the
+operator agreeing prompts with each client by hand is the training and evaluation
+data for automating it, which is why v1 does that work manually rather than
+skipping it. C11 must already be enforced: a generated prompt list is a different
+measurement basis by definition, and a generator that quietly changed a customer's
+basis between runs would draw a trend through two different instruments.
+
+**4. An audit of the customer's own presence against the harvested criteria.**
+*Unlocks:* the bridge from measuring to acting - the "find out what is missing
+from its own presence" half of the Vision, and the first thing a customer can do
+something with on a Tuesday.
+*Requires first:* the harvested criteria, which come from a judge pass over
+stored raw answer text (see Engineering items), and a website field on `Company`
+that the v1 data model deliberately does not have - the same field that would let
+C16 mark which cited domain is the client's own. Both are data model changes and
+therefore stop-and-ask.
+
+**5. More providers, more languages and more countries.**
+*Unlocks:* the "any trade, any city, any language" claim in the Vision, and the
+population size that stage 6 needs.
+*Requires first:* stage 3, for the prompt library; the shared rate limiter, since
+more targets is what finally makes a second worker worth running; and per-country
+competitor sets. The target list, the provider enum and the adapter registry
+already take N entries, so a new provider is a new file and a list entry.
+Gemini and Grok for coverage; **Perplexity** specifically because citations are
+its core product.
+
+**6. The advice engine, built on the causal dataset.**
+*Unlocks:* the stage that cannot be bought, only accumulated - saying which
+interventions actually move a recommendation, with evidence.
+*Requires first:* the condition stated once in `SPEC.md` -> Explicitly NOT in
+scope -> The advice engine, which this line does not restate. It additionally
+requires Phase 9's stability check to have come out favourably: per `SPEC.md` ->
+Vision -> "What would falsify this", if results vary too much to be believed at
+any workable N then this stage cannot exist and the Vision section is rewritten
+rather than extended. It reprocesses stored raw answer text and citation data and
+needs no new provider calls against the measured models - which is why raw text
+is never deleted.
+
+### Engineering items, each with its trigger
+
+- **A shared rate limiter across workers.** *Triggered by:* starting a second
+  worker process. `PROVIDER_CONCURRENCY` is per process, so running W workers
+  multiplies the effective provider limit by W. Whoever turns on the second worker
+  adds a shared counter (Postgres or Redis) in the same change, or both providers
+  start refusing calls.
+- **A release phase for migrations.** *Triggered by:* scaling the web service past
+  one instance. `prisma migrate deploy` runs in the web service's start command,
+  which is correct at exactly one instance and a corrupted migration table at two.
+- **An LLM judge for unknown competitor discovery, and criteria harvesting.**
+  *Triggered by:* having enough stored answer text to score a judge against the
+  deterministic parser - which is why the deterministic one comes first. It runs
+  over stored answers, so it applies to the entire history retroactively with no
+  new provider calls. This is also the engine behind the harvested criteria that
+  product stage 4 needs.
+- **Historical trend charts.** *Triggered by:* Phase 9's stability check
+  establishing an N at which run-to-run variation is smaller than the movement the
+  chart would draw. Runs are already immutable and hashed on their full
+  measurement basis, so the series exists; only the chart is missing, and drawing
+  it before that condition holds is the category's own worst habit.
+- **Scheduled and recurring runs.** *Triggered by:* the quota stage existing, so
+  that an automatic run is something a customer has already paid for. A cron then
+  writes the same `queued` row the web layer writes.
+- **Exports.** *Triggered by:* a customer asking for the numbers outside the app.
+  A run's figures and its citation list as CSV or PDF; everything needed is
+  already derivable from stored rows.
+- **`archivedAt` on companies and runs.** *Triggered by:* customers creating rows
+  the operator did not, which is the accounts stage. Hides a row from a list
+  without destroying stored answers; it is not a delete.
+- **Server-sent events for run progress.** *Triggered by:* runs growing long
+  enough that two-second polling becomes wasteful.

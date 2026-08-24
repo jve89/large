@@ -11,6 +11,8 @@ Lead on structure; ask when the spec is silent - do not guess.
   `nvm use` (Node 22.23.1, see `.nvmrc`), then `node -v` to confirm. An install on
   the wrong runtime writes the wrong lockfile.
 - Read `SPEC.md`, `ARCHITECTURE.md` and `PLAN.md` at the start of every session.
+  `SPEC.md` -> Vision says where this is going; it authorises no work, and it is
+  what a phase decision is checked against.
 - Take the current phase from PLAN's order table. Work on that phase only.
 - Never edit a file you have not read this session. Ask for it first.
 - Never write code while any consistency conflict is unresolved.
@@ -50,8 +52,9 @@ each one before claiming a phase done.
    threshold, or the reclaim limit was exceeded. An ordinary failed call is
    neither - that is `completed_with_errors`.
 4. **Aggregates are never persisted.** Mention rate, average position, competitor
-   frequency and total cost are computed in `lib/aggregate.ts` at read time. If you
-   find yourself adding a column for one of them, stop.
+   frequency, cited domain frequency and total cost are computed in
+   `lib/aggregate.ts` at read time. If you find yourself adding a column for one of
+   them, stop.
 5. **Money is integer micro-dollars.** No floats, ever, anywhere near a cost.
 6. **The prompt goes out unmodified.** No system prompt, no `temperature` or
    `top_p`, no length instruction. `max_tokens` exists only so an answer is never
@@ -94,11 +97,21 @@ each one before claiming a phase done.
 
 ## Stop points
 
-- Stop after each phase. Report what changed and what is untested, and remind the
-  operator to update the Status column in PLAN's order table.
+- Stop after each phase. Report what changed and what is untested.
+- **You** update `PLAN.md` when a phase goes green: set that phase's Status to
+  `done` and the next one to `next`, and strike through any blocker the phase
+  resolved. Do it in the same commit as the phase's work. This is not the
+  operator's job. A stale table is not cosmetic - `PLAN.md` says "the table is the
+  instruction", so a fresh session reading it restarts a completed phase.
 - Do not start the next phase until told to.
 - Stop and ask if a phase appears to require a change to the pinned stack, the
   data model, or anything in `SPEC.md`'s "Explicitly NOT in scope".
+- Stop and ask if a decision would make a later layer of `SPEC.md` -> Vision
+  impossible. Merely inconvenient for a later layer is fine and several v1
+  choices are deliberately that; foreclosing one is not. The named hooks - the
+  N-entry target list, the adapter registry, the single foreign-key chain to
+  Company, retained raw answer text, immutable hashed runs - exist for that
+  reason and are not to be removed as unused.
 
 ## Verification
 
