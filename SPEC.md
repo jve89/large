@@ -216,6 +216,7 @@ next to which competitors, and which sources the model cited.
   |---|---|---|---|
   | 1 | before 2026-08-25 | Not stamped. Visible text removed markdown link targets, image targets and fenced code blocks, and nothing else. | The constant did not exist. Runs from this period carry a hash over four inputs and so differ from every later run by construction. |
   | 2 | 2026-08-25 | Visible text also removes URLs, autolinks, reference-link definitions and email addresses; and a markdown link whose visible text is itself a bare domain loses both halves. | Two changes, one bump, because both alter what counts as a mention. A brand inside an address was being counted, and a client's own domain contains its own name, so the subject was recorded as mentioned in answers that never named it and every position after it shifted. Link text that is a bare domain is an attribution rather than prose, and the markdown says which it is. |
+  | 2 (documents) | 2026-08-25 | No semantics change. C3, `PLAN.md` -> Phase 3 and `ARCHITECTURE.md` were brought into line with version 2, having still said the hash covered four inputs. | Recorded because the gap is the point, not the edit: the code and Definitions moved to five inputs while the **normative** criterion still specified four, so the pack instructed a future session to undo the fix. Found by the consistency check, not by a test - no test can read a specification. |
   | 3 | 2026-08-25 | A domain-shaped link label is removed only when it is that link's **own address**, compared by host after stripping `www.` and allowing a deeper target host. An address-shaped label pointing elsewhere is kept. | Version 2 merged two error classes. `[acme.nl](https://acme.nl)` is an attribution and dropping it is a conservative measurement choice; `[Node.js](https://nodejs.org)` is a brand that merely contains a dot, and dropping it was a parsing artifact with no compensating benefit. Taken the same day as version 2 rather than after Phase 9's count, because each bump invalidates every series recorded under the version before it and production held one run. |
 
 ## Capabilities (v1) - each has an ID and an EARS criterion
@@ -267,8 +268,16 @@ next to which competitors, and which sources the model cited.
   SHALL create a run record with status `queued` carrying an immutable snapshot of
   the prompt texts, the target list, the brand name, the brand aliases and the
   competitor list, together with the chosen N and the `basisHash` computed over
-  exactly four of those - the prompt texts, the targets, the aliases and the
-  competitors - and SHALL return without waiting for the measurement to finish.
+  **exactly five inputs** - the prompt texts, the targets, the aliases, the
+  competitors and the measurement semantics version - and SHALL return without
+  waiting for the measurement to finish. The brand name is snapshotted and
+  deliberately not hashed; see Definitions -> Measurement basis, which is the
+  normative statement of what the hash covers.
+  *Corrected 2026-08-25.* This clause said "exactly four" for a day after the fifth
+  input shipped, which was the most dangerous stale sentence in the pack: it is the
+  normative criterion, so a session implementing it as written would have removed
+  the semantics version from the hash and silently defeated C11, while
+  `tests/hash.test.ts` already asserted the opposite.
   IF the company has no prompts, THEN the system SHALL reject the request and
   create no run.
   IF any target in the request has no price on record, THEN the system SHALL

@@ -134,8 +134,9 @@ answer and cannot do so until that table exists.
 - Done when: WHEN a run is started, a run record with status `queued` exists
   carrying an immutable snapshot of the prompt texts, the target list, the brand
   name, the aliases and the competitors, plus the chosen N and the `basisHash`
-  computed over four of those - prompts, targets, aliases, competitors, but not the
-  brand name - and the request returns without waiting; IF the
+  computed over five inputs - prompts, targets, aliases, competitors and the
+  measurement semantics version, but **not** the brand name - and the request
+  returns without waiting; IF the
   company has no prompts, the request is rejected and no run is created; editing
   the company's prompts, aliases or competitors afterwards leaves that run
   unchanged - verified by `npm run test -- api/runs-queue`,

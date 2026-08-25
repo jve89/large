@@ -355,9 +355,12 @@ The worker writes the terminal status when it finishes or abandons a run, using
 `COVERAGE_THRESHOLD` and the planned attempt count. That transition is delivered
 in Phase 4, not in the phase that renders the figures.
 
-`basisHash` = sha256 over exactly four inputs: the ordered `RunPrompt` texts, the
-ordered `(provider, modelId)` target list, the normalised `brandAliases` and the
-normalised `brandCompetitors`. `brandName` is stored in the snapshot but is
+`basisHash` = sha256 over exactly five inputs: the ordered `RunPrompt` texts, the
+ordered `(provider, modelId)` target list, the normalised `brandAliases`, the
+normalised `brandCompetitors`, and `MEASUREMENT_SEMANTICS_VERSION` from
+`src/core/parse/semantics.ts`. The first four are what an operator can edit; the
+fifth is what the code means by a mention, so that a parser change is a change of
+basis rather than an invisible one. `brandName` is stored in the snapshot but is
 deliberately **not** hashed - renaming a company does not change what was
 measured, while changing an alias does. N is excluded for the same kind of reason:
 two runs at different N ask the same question of the same models about the same
