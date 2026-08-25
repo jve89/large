@@ -23,8 +23,8 @@
 | 5 | 4 - Worker: claim, resume, retry, terminal status | C4, C6, C15 | done |
 | 6 | 5 - Answers and citations | C5, C7 | done |
 | 7 | 6 - Mention parsing | C8 | done |
-| 8 | 7 - Aggregation, coverage and cost | C9, C10, C12 | next |
-| 9 | 11 - Cited domain frequency | C16 | |
+| 8 | 7 - Aggregation, coverage and cost | C9, C10, C12 | done |
+| 9 | 11 - Cited domain frequency | C16 | next |
 | 10 | 12 - Traceability to evidence | C17 | |
 | 11 | 8 - Comparability guard | C11 | |
 | 12 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | |
@@ -259,6 +259,14 @@ answer and cannot do so until that table exists.
   per target including one run where the two targets differ, and by inspecting the
   run page.
 - Commit: `feat: aggregation, coverage and cost`
+- **Recorded 2026-08-25.** Two things this phase established that later phases
+  inherit. C10 is enforced in two places because it can fail in two - `Figure<T>`
+  makes a value unreachable without its coverage and N, and
+  `tests/ui/run-page.test.ts` asserts the page prints them; strip the qualifier
+  from the renderer and every arithmetic test stays green while the page tests go
+  red. And the read was measured rather than assumed at the 300-call ceiling: 5 to
+  7 SQL queries, 26 ms, with `aggregateRun` itself at 0.3 ms - constant in queries,
+  growing only in bytes. See `ARCHITECTURE.md` -> Key decisions.
 
 ## Phase 11 - Cited domain frequency
 
@@ -326,6 +334,12 @@ reachable from the figure.
     reachable and must not be confused with a failure. Plus by inspecting the run
     page.
 - Commit: `feat: traceability to evidence`
+- **Sizing note, from Phase 7's measurement.** At the 300-call ceiling the run
+  page's payload is about 1.1 MB, of which roughly 900 KB is raw answer text
+  inlined into the attempt list. The aggregate costs nothing; the evidence is what
+  grows. C17 requires every answer to be *reachable* in one step, not rendered all
+  at once, and this phase is where that distinction should be made rather than
+  inherited from Phase 0's list.
 
 ## Phase 8 - Comparability guard
 
@@ -528,9 +542,14 @@ is never deleted.
   exercises a real 5xx, timeout or rate limit. The retry policy that sits on top
   of `retryable` is tested; the classification feeding it is not.
 - **Component tests for the UI.** *Triggered by:* the second person able to change
-  a component, or the first UI regression that reaches a client. There is no DOM
-  test environment in the repo, so `prompt-editor.tsx`, `start-run-dialog.tsx` and
-  the run page are covered only by the hand browser pass each phase performs. That
+  a component, or the first UI regression that reaches a client. **Narrowed
+  2026-08-25:** the run **page** is now covered - `tests/ui/run-page.test.ts`
+  renders the real server component with `react-dom/server`, already a dependency,
+  and vitest's own mocking for `useRouter`; no DOM environment and no stack change
+  were needed. What remains uncovered is the **client** components -
+  `prompt-editor.tsx`, `start-run-dialog.tsx` and `run-progress.tsx` - whose
+  behaviour is interaction rather than markup, and they are still covered only by
+  the hand browser pass each phase performs. That
   is adequate while one operator writes and checks every screen and stops being
   adequate the moment it is not. Adding it means a jsdom environment and a
   component-testing library, which is a stack change and therefore a stop-and-ask.

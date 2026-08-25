@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/db.ts'
 import { validateEnv } from '../../../../lib/env.ts'
 import { plannedAttemptsPerTarget } from '../../../../core/run/plan.ts'
+import { aggregateRun, totalsForWire } from '../../../../lib/aggregate.ts'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,9 +19,9 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ runId: string }> },
 ): Promise<NextResponse> {
-  validateEnv('web')
-
   const { runId } = await context.params
+
+  const env = validateEnv('web')
 
   const run = await prisma.run.findUnique({
     where: { id: runId },
@@ -28,6 +29,18 @@ export async function GET(
       targets: true,
       prompts: { orderBy: { order: 'asc' } },
       _count: { select: { answers: true } },
+      answers: {
+        select: {
+          runTargetId: true,
+          runPromptId: true,
+          status: true,
+          inputTokens: true,
+          outputTokens: true,
+          searchCount: true,
+          costMicros: true,
+          mentions: { select: { brand: true, isSubject: true, position: true } },
+        },
+      },
     },
   })
 
@@ -39,6 +52,15 @@ export async function GET(
   // denominator of coverage, is the plan and never the number of stored rows.
   const perTarget = plannedAttemptsPerTarget(run.prompts.length, run.repetitions)
   const total = perTarget * run.targets.length
+
+  const aggregate = aggregateRun({
+    repetitions: run.repetitions,
+    coverageThreshold: env.COVERAGE_THRESHOLD,
+    targets: run.targets,
+    promptIds: run.prompts.map((prompt) => prompt.id),
+    competitors: run.brandCompetitors,
+    answers: run.answers,
+  })
 
   return NextResponse.json({
     run: {
@@ -57,5 +79,8 @@ export async function GET(
       modelId: target.modelId,
     })),
     progress: { done: run._count.answers, total },
+    // `totals.costMicros` is a BigInt and `JSON.stringify` throws on one, which
+    // TypeScript does not catch. See RunTotalsWire for the representation and why.
+    aggregate: { ...aggregate, totals: totalsForWire(aggregate.totals) },
   })
 }

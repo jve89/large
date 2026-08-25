@@ -314,11 +314,15 @@ describe('citations are stored per answer, in the provider order', () => {
  * a BigInt.** A value that round-trips perfectly through Prisma and asserts
  * cleanly in a test will throw inside a route handler the moment it is serialised.
  *
- * Today no API route returns `costMicros` - `GET /api/runs/:runId` returns status
- * and progress only, and the run page renders server-side without JSON. So the
- * crossing does not exist yet; C12 in Phase 7 is what creates it. These tests pin
- * both halves: that the hazard is real, and that the endpoint which will carry the
- * figure is currently clean.
+ * Phase 7 created the crossing, exactly where this said it would: C12's run totals
+ * put `costMicros` into `GET /api/runs/:runId`, and the last test here went red on
+ * the first attempt with `TypeError: Do not know how to serialize a BigInt`.
+ * `npm run typecheck` passed at the same moment - `JSON.stringify` accepts
+ * `unknown`, so the type system cannot see this - which is the whole argument for
+ * having left a test here a phase early.
+ *
+ * These now pin all three halves: that the hazard is real, that the endpoint
+ * carries the figure, and that it carries it as an exact decimal string.
  */
 describe('BigInt at the API boundary', () => {
   it('demonstrates the hazard: JSON.stringify throws on a BigInt', () => {
@@ -352,11 +356,19 @@ describe('BigInt at the API boundary', () => {
     expect(response.status).toBe(200)
 
     // Reading the body is what would throw if a BigInt had leaked into it.
-    const body = (await response.json()) as { progress: { done: number; total: number } }
+    const body = (await response.json()) as {
+      progress: { done: number; total: number }
+      aggregate: { totals: { costMicros: string; costUsd: string } }
+    }
     expect(body.progress.done).toBe(2)
-
-    // Phase 7 adds totals here (C12). When it does, it must convert - a raw
-    // BigInt in this payload turns a working endpoint into a 500.
     expect(JSON.stringify(body)).toBeTypeOf('string')
+
+    // Phase 7 made the crossing real (C12). The wire form is a decimal string:
+    // exact at any magnitude, where a JSON number is a double and would fail
+    // silently at a size nobody is watching. See RunTotalsWire.
+    expect(body.aggregate.totals.costMicros).toBe('246912')
+    expect(typeof body.aggregate.totals.costMicros).toBe('string')
+    expect(BigInt(body.aggregate.totals.costMicros)).toBe(123_456n * 2n)
+    expect(body.aggregate.totals.costUsd).toBe('$0.25')
   })
 })

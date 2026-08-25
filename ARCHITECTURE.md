@@ -933,6 +933,44 @@ phase. Phase 0 pushes to it.
   link-text-domain rule - which exercised the mechanism on the day it was
   introduced rather than leaving its first real use untested.
 
+- **Aggregates are a pure function over loaded rows, and the read is constant in
+  queries.** `lib/aggregate.ts` takes answer rows and returns figures; it touches no
+  database and stores nothing (C9). Each caller loads what it needs, so the page -
+  which already loads answers for its attempt list - pays no extra query for its
+  figures.
+  Measured at the cost ceiling of 300 calls (50 prompts x 2 targets x N=3, with 600
+  mentions and 1,800 citations), on 2026-08-25: the API's shape is **5 SQL queries
+  in 26 ms**, the page's is **7 in 26 ms**, and `aggregateRun` itself is **0.3 ms**.
+  Query count is constant rather than per-row, because Prisma issues one query per
+  relation level, so the read does not degrade as a run grows.
+  What does grow is bytes. The page's payload at that size is **1.1 MB**, and
+  roughly 900 KB of it is raw answer text inlined into the attempt list - the
+  aggregate is free and the evidence is not. That list predates this phase, and
+  Phase 12 is where reaching evidence should stop meaning rendering all of it at
+  once.
+
+- **The figure type carries its own qualifiers, and the page is tested for
+  printing them.** C10 - coverage and N beside every figure - is enforced twice
+  because it can fail in two different places. `Figure<T>` makes the value
+  unreachable without its coverage and the run's N, so a renderer cannot
+  accidentally not have them; `tests/ui/run-page.test.ts` renders the real server
+  component and asserts that every element carrying `data-figure` prints both, so a
+  renderer cannot have them and not print them. Strip the qualifier span from
+  `FigureValue` and all 25 arithmetic tests stay green while the page tests go red -
+  which is the point, and is CLAUDE.md rule 18 aimed at the presentation layer.
+  A figure's absence is a discriminated result rather than a nullable number:
+  `no-data` (nothing succeeded) and `not-applicable` (measured, and the brand was
+  never named) are different findings that a bare `null` - or worse, a `0` - would
+  flatten into one.
+
+- **Server components are testable without a DOM environment.** Rendering the run
+  page in a test needed only `react-dom/server`, already a dependency, plus
+  vitest's own mocking for the `useRouter` call inside the progress poller. No
+  jsdom, no component-testing library, no stack change. `PLAN.md`'s "component
+  tests for the UI" item therefore still stands for **client** components -
+  `prompt-editor.tsx`, `start-run-dialog.tsx`, `run-progress.tsx` - and is closed
+  for the run page, which is where the product's core display obligation lives.
+
 - **Every timestamp in the staleness comparison comes from the database's clock.**
   `claimRun` decides a run is dead by comparing `heartbeatAt` against PostgreSQL's
   `now()`, so `heartbeat` writes `now()` too rather than the worker's `new Date()`.

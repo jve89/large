@@ -599,6 +599,19 @@ or higher, producing at least one citation per successful answer.
   bought back by the Measurement semantics log in Definitions above; naming the
   version on the page is a display refinement the dashboard phase can add if it
   wants to say it there.
+- **[Owner: Claude, before Phase 9]** Give "the prompt library is not a secret" an
+  owner. Found by auditing Vision -> "What this has to be better at" -> point 2
+  against the capability list during Phase 7: every other promise in that paragraph
+  is enforced by a capability - evidence beneath each number is C17, coverage and N
+  beside every figure is C10, labelling a below-threshold target unreliable is
+  C10's second clause, a changed basis saying so is C11 - and this one is enforced
+  by nobody. C2 persists a prompt list; nothing requires a run's prompts to be
+  visible beside its results, so removing them would break no EARS criterion.
+  Phase 7 displays them, per prompt, because a cell has to name its prompt to be
+  readable - but that is an implementation choosing to, not an obligation. This is
+  the same shape as the gaps that produced C16 and C17. A capability is proposed
+  and deliberately **not** added, because adding one is a change to this document.
+  **Open.**
 - **[Owner: you]** Supply the first real brand: name, aliases, competitor list and
   at least ten buying-moment prompts. Without this the Success criterion above
   cannot be met. Blocks Phase 9. **Still open.**
