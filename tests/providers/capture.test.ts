@@ -16,7 +16,14 @@
  * is already the whole of the evidence and is stored as the answer's
  * `failureReason`.
  */
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -78,10 +85,24 @@ describe('capture mode writes raw responses when enabled', () => {
     expect(written.response).toEqual({ type: 'message', content: [] })
   })
 
-  it('never throws when the directory cannot be written', () => {
+  it('never throws when the directory cannot be created', () => {
     // A capture failure must not turn a paid-for answer into a failed attempt.
-    process.env.PROVIDER_CAPTURE_DIR = '/proc/nonexistent-and-unwritable'
+    //
+    // The unwritable path is built by putting a *file* where a directory would
+    // have to be, so mkdir fails with ENOTDIR immediately and identically on every
+    // platform. An earlier version of this test used a path under /proc, which
+    // fails instantly on macOS and **blocks indefinitely on Linux** - it hung CI
+    // for eighteen minutes with no output at all.
+    const parent = mkdtempSync(path.join(tmpdir(), 'large-capture-blocked-'))
+    dirs.push(parent)
+    const notADirectory = path.join(parent, 'i-am-a-file')
+    writeFileSync(notADirectory, 'not a directory')
+    process.env.PROVIDER_CAPTURE_DIR = path.join(notADirectory, 'nested')
+
     expect(() => captureProviderResponse('openai', 'gpt-5.6-terra', { a: 1 })).not.toThrow()
+    expect(() =>
+      logFailureEvidence('openai', 'gpt-5.6-terra', 'reason', { a: 1 }),
+    ).not.toThrow()
   })
 })
 

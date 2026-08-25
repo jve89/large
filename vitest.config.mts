@@ -22,5 +22,12 @@ export default defineConfig({
     // Route handlers share one Prisma client and one database; running files in
     // parallel would let one test's cleanup delete another's fixtures.
     fileParallelism: false,
+    // A hanging suite is worse than a failing one. A test that blocked forever -
+    // an fs call that returns instantly on macOS and never returns on Linux, say -
+    // once stalled CI for eighteen minutes with no output at all, which is
+    // indistinguishable from a slow runner until someone goes looking. These turn
+    // any such hang into a named, located failure.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 })
