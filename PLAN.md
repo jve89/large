@@ -23,7 +23,7 @@
 | 5 | 4 - Worker: claim, resume, retry, terminal status | C4, C6, C15 | done |
 | 6 | 5 - Answers and citations | C5, C7 | done |
 | 7 | 6 - Mention parsing | C8 | done |
-| 8 | 7 - Aggregation, coverage and cost | C9, C10, C12 | done |
+| 8 | 7 - Aggregation, coverage and cost | C9, C10, C12, C18 | done |
 | 9 | 11 - Cited domain frequency | C16 | next |
 | 10 | 12 - Traceability to evidence | C17 | |
 | 11 | 8 - Comparability guard | C11 | |
@@ -245,7 +245,7 @@ answer and cannot do so until that table exists.
 
 ## Phase 7 - Aggregation, coverage and cost
 
-- Delivers: C9, C10, C12
+- Delivers: C9, C10, C12, C18
 - Done when: mention rate, average position and competitor frequency are computed
   at read time per target with no aggregate stored as a column; every displayed
   figure carries its target's coverage and the run's N; IF a target's coverage is
@@ -267,6 +267,20 @@ answer and cannot do so until that table exists.
   red. And the read was measured rather than assumed at the 300-call ceiling: 5 to
   7 SQL queries, 26 ms, with `aggregateRun` itself at 0.3 ms - constant in queries,
   growing only in bytes. See `ARCHITECTURE.md` -> Key decisions.
+- **C18 added afterwards, 2026-08-25, and satisfied by this phase's commit.** The
+  capability was written after Phase 7 shipped, when the check against the
+  Objective and the Vision found "the prompt library is not a secret" enforced by
+  nobody. It takes no new phase, because the work exists: the run page renders a
+  per-prompt breakdown for each target and prints each prompt's text from the run's
+  own snapshot, reachable in one click and without constructing a URL. That is the
+  same handling C1, C13 and C14 got in the pack rewrite - map the capability onto
+  the phase that already delivered it rather than invent one.
+  **One caveat, recorded rather than papered over:** the prompt texts are rendered
+  inside each target's breakdown, so a run with zero targets would display none.
+  No such run can be created - `POST /api/runs` requires at least one target and
+  `queueRun`'s only other caller passes the default list - so the gap is
+  unreachable rather than absent, and it is written here so a future change to
+  either of those does not silently break C18.
 
 ## Phase 11 - Cited domain frequency
 
@@ -305,6 +319,27 @@ turns that raw data into an answer to the question.
     which must come back in ascending domain order; and two targets in one run
     whose lists differ. Plus by inspecting the run page.
 - Commit: `feat: cited domain frequency`
+- **Closing sequence addition: one degraded browser pass.** Do this pass as part of
+  this phase's close, not as work of its own. Run it with an **invalid credential
+  for one provider only**. The working provider costs its usual few cents; the
+  broken one costs nothing, because a 401 never reaches a billable call. What comes
+  out is exactly the scenario the degraded clauses describe - one target at 0
+  percent labelled unreliable, its cells reading "no data" rather than zero, the
+  other target unaffected, the run still visible - with a real provider on the
+  other end of the failure rather than a row someone constructed.
+  It exists because **Phase 9 is structurally incapable of producing it**: that
+  gate requires 80 percent coverage per target to pass, so it cannot exercise the
+  code that handles coverage below the threshold. Without this pass those clauses
+  stay fixture-backed through Ship.
+- **What that pass does not cover, and what would.** A 401 is a transport failure.
+  It does not exercise the **web-search error object** - the HTTP 200 carrying an
+  error instead of a result list, which CLAUDE.md rule 8 exists for and which is
+  the failure the whole verification gate was built to catch. That path stays
+  proved against `documented` fixtures until a real one is seen. Its trigger is
+  already written down: see "Upgrade the error fixtures from `documented` to
+  `observed`" under Engineering items, and `logFailureEvidence`, which writes the
+  raw body of every response-shaped failure to the worker log precisely so that
+  trigger can be acted on. The limitation now has a trigger rather than a hope.
 
 ## Phase 12 - Traceability to evidence
 
@@ -398,7 +433,7 @@ this product's whole risk is a number being misread.
 
 - Delivers: SPEC's "Success = done when"
 - Done when: `npm run verify` exits 0 against the deployed configuration; all
-  seventeen capabilities pass their EARS criteria; the real-brand run from Phase 9
+  eighteen capabilities pass their EARS criteria; the real-brand run from Phase 9
   is reachable at the deployed URL; every environment variable is set on every
   service that needs it; both provider integrations have been exercised live end
   to end; and the "Blocked on the operator" list above is empty.
@@ -410,7 +445,7 @@ This replaces what used to be a flat "Deferred" list. It is in two parts.
 **Product stages** are ordered: each one unlocks the next, and each names what
 must exist before it can start. They are called stages, not layers, because
 `SPEC.md` -> Vision already numbers three *layers* and they are not these -
-Vision's layer 3, the causal dataset, is delivered by stage 6 here.
+Vision's layer 3, the causal dataset, is delivered by stage 7 here.
 **Engineering items** are not ordered at all; each names the condition that
 triggers it. Nothing here is authorised by being
 written down - `SPEC.md` -> Vision -> "How to use this section" says the same.
@@ -440,7 +475,31 @@ is already there - token usage, search counts and cost are captured per answer
 from Phase 5 onward, and cost is integer micro-dollars, so the arithmetic is
 exact at the point someone is invoiced.
 
-**3. Automatic prompt generation from business, city and category.**
+**3. Scheduled, recurring re-measurement.**
+*Unlocks:* the subscription. It is the mechanism that turns a one-off analysis
+into a recurring one, and it is why this category charges monthly at all: the
+measurement keeps running because the answer keeps changing. This product has a
+stronger claim to that than the incumbents do, because it can **demonstrate** the
+staleness rather than assert it - cited domains are already stored per answer
+(C16) and runs are already immutable and hashed, so the churn in what a model
+draws on is measurable from this system's own history. The operator's working
+figure is that 40-60 percent of the sources models cite turn over month to month
+(operator's figure, supplied 2026-08-25; **not independently verified** -
+re-check, don't trust). Establishing it from stored data is part of the point of
+this stage rather than a premise of it.
+*Requires first:* stage 1, because an automatic run spends real money and must be
+something a customer has already paid for - which is the same condition
+`SPEC.md` -> Explicitly NOT in scope -> "Scheduled or automatic runs" already
+names; and stage 2, because a subscription price has to be set against what a
+recurring run actually costs. It also requires **C11**: a measurement repeated
+across a changed basis is not a trend, it is two instruments, and a scheduler that
+quietly re-ran a customer on a drifted basis would draw exactly the line this
+product exists to refuse. C11 is Phase 8 and therefore lands before Ship, so
+nothing here is blocked. Mechanically the stage is small - a cron writes the same
+`queued` row the web layer writes, and no new trigger mechanism is needed - which
+is precisely why it survived as a chore nobody would allocate a phase to.
+
+**4. Automatic prompt generation from business, city and category.**
 *Unlocks:* self-service. There is no self-service without it, because no plumber
 will sit down and write twenty buying-moment prompts. It is also the precondition
 for more languages and countries, since a per-country prompt library is not
@@ -452,7 +511,7 @@ skipping it. C11 must already be enforced: a generated prompt list is a differen
 measurement basis by definition, and a generator that quietly changed a customer's
 basis between runs would draw a trend through two different instruments.
 
-**4. An audit of the customer's own presence against the harvested criteria.**
+**5. An audit of the customer's own presence against the harvested criteria.**
 *Unlocks:* the bridge from measuring to acting - the "find out what is missing
 from its own presence" half of the Vision, and the first thing a customer can do
 something with on a Tuesday.
@@ -462,17 +521,17 @@ that the v1 data model deliberately does not have - the same field that would le
 C16 mark which cited domain is the client's own. Both are data model changes and
 therefore stop-and-ask.
 
-**5. More providers, more languages and more countries.**
+**6. More providers, more languages and more countries.**
 *Unlocks:* the "any trade, any city, any language" claim in the Vision, and the
-population size that stage 6 needs.
-*Requires first:* stage 3, for the prompt library; the shared rate limiter, since
+population size that stage 7 needs.
+*Requires first:* stage 4, for the prompt library; the shared rate limiter, since
 more targets is what finally makes a second worker worth running; and per-country
 competitor sets. The target list, the provider enum and the adapter registry
 already take N entries, so a new provider is a new file and a list entry.
 Gemini and Grok for coverage; **Perplexity** specifically because citations are
 its core product.
 
-**6. The advice engine, built on the causal dataset.**
+**7. The advice engine, built on the causal dataset.**
 *Unlocks:* the stage that cannot be bought, only accumulated - saying which
 interventions actually move a recommendation, with evidence.
 *Requires first:* the condition stated once in `SPEC.md` -> Explicitly NOT in
@@ -566,15 +625,12 @@ is never deleted.
   deterministic parser - which is why the deterministic one comes first. It runs
   over stored answers, so it applies to the entire history retroactively with no
   new provider calls. This is also the engine behind the harvested criteria that
-  product stage 4 needs.
+  product stage 5 needs.
 - **Historical trend charts.** *Triggered by:* Phase 9's stability check
   establishing an N at which run-to-run variation is smaller than the movement the
   chart would draw. Runs are already immutable and hashed on their full
   measurement basis, so the series exists; only the chart is missing, and drawing
   it before that condition holds is the category's own worst habit.
-- **Scheduled and recurring runs.** *Triggered by:* the quota stage existing, so
-  that an automatic run is something a customer has already paid for. A cron then
-  writes the same `queued` row the web layer writes.
 - **Exports.** *Triggered by:* a customer asking for the numbers outside the app.
   A run's figures and its citation list as CSV or PDF; everything needed is
   already derivable from stored rows.

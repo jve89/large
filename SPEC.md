@@ -448,6 +448,23 @@ next to which competitors, and which sources the model cited.
   be better at", point 2, and it is the reason the raw text is retained rather
   than only parsed.
 
+- **C18 - The prompt library is not a secret**: WHEN the system displays a run's
+  results, it SHALL display the text of every prompt in that run's snapshot,
+  reachable from that page without the reader constructing a URL by hand.
+  The prompts are the questions the figures answer. A mention rate computed from
+  questions a reader cannot see is not checkable however much evidence sits under
+  it, so this is the same obligation as C17 applied one level up: C17 makes a
+  figure reachable to the answers beneath it, and this makes it reachable to the
+  question above it. Vision -> "What this has to be better at", point 2 ends with
+  the sentence this capability carries, and the criticism it answers is that this
+  category measures prompts it invented and does not say which.
+  It is the run's **snapshot** rather than the company's current list, because the
+  snapshot is what was measured; C3 already freezes it and rule 10 keeps it frozen.
+  *Added 2026-08-25, after Phase 7 shipped.* Every other promise in that Vision
+  paragraph had a capability behind it - C17, C10, C10 again, C11 - and this one
+  had none, so removing the display would have broken no criterion. It is satisfied
+  by Phase 7's commit rather than by new work; see `PLAN.md` -> Phase 7.
+
 ## Run status
 
 - `queued` - created, not yet claimed.
@@ -503,9 +520,13 @@ Each entry states what is excluded, why, and the condition under which it return
 - **Scheduled or automatic runs.** Every run is started by hand.
   *Why:* every run spends real money at the provider, and nothing may spend it
   speculatively.
-  *Returns:* with the quota stage, which is what makes an automatic run something
-  a customer has already paid for. A cron then writes the same `queued` row the
-  web layer writes; no new trigger mechanism is needed.
+  *Returns:* as product stage 3 in `PLAN.md` -> Roadmap beyond v1, which is where
+  it was moved on 2026-08-25 from the unordered engineering items. It requires the
+  quota stage first, because that is what makes an automatic run something a
+  customer has already paid for. A cron then writes the same `queued` row the web
+  layer writes; no new trigger mechanism is needed. It is on the product path
+  rather than in the chore list because recurring re-measurement is what turns a
+  one-off analysis into a subscription.
 
 - **Discovery of unknown competitors.** v1 recognises only brands the operator
   entered.
@@ -566,9 +587,66 @@ Each entry states what is excluded, why, and the condition under which it return
   through an API, that is one more entry in the target list, measured on the same
   terms as every other target.
 
+The four entries below were added 2026-08-25. They were in neither the roadmap nor
+this list, which made them undecided rather than deferred - recording them commits
+us to nothing, and leaving them unrecorded would have lost the fact that they were
+considered at all.
+
+- **Alerting when a target stops naming a brand it previously named.** No
+  notifications of any kind.
+  *Why:* an alert asserts that something changed, and this system cannot yet tell a
+  change from noise - establishing that is exactly what Phase 9's stability check
+  is for. Alerting on run-to-run variation at an unproven N is the
+  trend-line-through-noise criticism with a notification attached to it, and it is
+  worse than the chart because it interrupts someone. It also has nothing to
+  compare against until measurement repeats on a schedule.
+  *Returns:* when scheduled re-measurement exists (`PLAN.md` product stage 3)
+  **and** Phase 9's stability check has established an N at which run-to-run
+  variation is smaller than the movement being alerted on - the same condition as
+  trend charts, because it is the same claim made more urgently. C11 has to hold
+  too: a brand "dropping out" across a changed measurement basis has not dropped
+  out of anything.
+
+- **More than one user per customer.** No teams, no roles, no per-seat
+  permissions; the accounts stage is scoped to one login per customer.
+  *Why:* v1 has no authentication at all, and the accounts stage is deliberately
+  the smallest thing that lets someone other than the operator use the product.
+  Roles are a second data model layered on one that does not exist yet, and a
+  permission model designed before there is a customer to observe is a guess.
+  *Returns:* after the accounts stage, when a customer actually needs it - which in
+  this segment means a multi-branch business or an agency rather than a plumber.
+  The single foreign-key chain to Company is the seam it would hang off, and it is
+  already there.
+
+- **A customer-facing API.** Runs are started and read through the application
+  only.
+  *Why:* an API is a published contract, and the shapes it would publish -
+  coverage, mention rate, competitor frequency, cited domains - are still moving
+  phase by phase. Publishing them now would freeze the least settled part of the
+  measurement at the least settled moment. It also multiplies the surface the
+  accounts stage has to authenticate, before that stage exists.
+  *Returns:* when a customer has a use for the numbers outside the app that
+  **exports do not serve**, and not before the figure shapes have stopped moving -
+  the earliest honest point being after Phase 9 has re-verified every one of them
+  against real output. Exports return earlier and on a weaker condition, because a
+  file is not a contract.
+
+- **Agency or reseller access.** One agency managing many client companies under
+  one login, and white-labelled resale of the measurement.
+  *Why:* it is the multi-tenant case one level above the accounts stage, and every
+  part of it - seats, per-client quotas, branding, billing that rolls up - depends
+  on accounts and quotas existing first. Designing a hierarchy over a
+  single-operator instrument means designing it twice. The white-label half is
+  already excluded above, on its own grounds.
+  *Returns:* after the accounts and cost-reporting stages, **if** the segment turns
+  out to buy this way. Local service businesses are reached through agencies more
+  often than directly, so this is plausible rather than speculative - but that is a
+  commercial finding to be made, not an engineering condition to be met, and
+  nothing here authorises starting it.
+
 ## Success = done when
 
-`npm run verify` exits 0 against the deployed configuration, all seventeen
+`npm run verify` exits 0 against the deployed configuration, all eighteen
 capabilities pass their EARS criteria, and one real run of a real brand with at
 least ten real prompts has completed with every target at coverage of 80 percent
 or higher, producing at least one citation per successful answer.
@@ -609,19 +687,16 @@ or higher, producing at least one citation per successful answer.
   bought back by the Measurement semantics log in Definitions above; naming the
   version on the page is a display refinement the dashboard phase can add if it
   wants to say it there.
-- **[Owner: Claude, before Phase 9]** Give "the prompt library is not a secret" an
-  owner. Found by auditing Vision -> "What this has to be better at" -> point 2
-  against the capability list during Phase 7: every other promise in that paragraph
-  is enforced by a capability - evidence beneath each number is C17, coverage and N
-  beside every figure is C10, labelling a below-threshold target unreliable is
-  C10's second clause, a changed basis saying so is C11 - and this one is enforced
-  by nobody. C2 persists a prompt list; nothing requires a run's prompts to be
-  visible beside its results, so removing them would break no EARS criterion.
-  Phase 7 displays them, per prompt, because a cell has to name its prompt to be
-  readable - but that is an implementation choosing to, not an obligation. This is
-  the same shape as the gaps that produced C16 and C17. A capability is proposed
-  and deliberately **not** added, because adding one is a change to this document.
-  **Open.**
+- ~~**[Owner: Claude, before Phase 9]** Give "the prompt library is not a secret"
+  an owner.~~ **Resolved 2026-08-25 as C18.** Found by auditing Vision -> "What
+  this has to be better at" -> point 2 against the capability list during Phase 7:
+  every other promise in that paragraph had a capability behind it and this one had
+  none, so removing the display would have broken no criterion. C18 gives it one,
+  and the work already existed - Phase 7 renders each prompt's text in the
+  per-prompt breakdown, so the capability is mapped onto that phase rather than
+  given a new one. This was the third gap that check has found, after C16 and C17,
+  which is why it is now run every phase against the Objective and the Vision
+  rather than only across the documents.
 - **[Owner: you]** Supply the first real brand: name, aliases, competitor list and
   at least ten buying-moment prompts. Without this the Success criterion above
   cannot be met. Blocks Phase 9. **Still open.**

@@ -136,6 +136,20 @@ each one before claiming a phase done.
     costs eleven seconds. `verify:live` is the exception and stays at phase
     boundaries, because that one costs money.
 
+21. **When the spec says one thing must always accompany another, make it a type,
+    and keep a seam test for the half the type cannot reach.** A convention that
+    two things travel together survives exactly as long as everyone remembers it; a
+    type carries the obligation into every call site that did not think about it.
+    C10 - coverage and N beside every figure - is the worked example: `Figure<T>`
+    puts the value behind a wrapper holding both, so a renderer cannot obtain the
+    number without having them, and `tests/ui/run-page.test.ts` asserts the page
+    actually prints them, because no type can require that. Both halves are needed
+    and they fail differently: strip the qualifier from the renderer and the 25
+    arithmetic tests stay green while the page tests go red.
+    This is rule 18 applied to a pairing rather than to a side effect, and it is
+    narrow on purpose - it is for obligations of the form "X is never displayed,
+    stored or returned without Y", not for typing things in general.
+
 ## Stop points
 
 - Stop after each phase. Report what changed and what is untested.
