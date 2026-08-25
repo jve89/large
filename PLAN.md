@@ -335,6 +335,13 @@ this product's whole risk is a number being misread.
   - Every figure on screen 3 reaches its evidence in one step (C17), checked
     against real answers rather than fixtures - this is the differentiator, so it
     is checked on real output or it is not checked.
+  - **Per-call cost is re-derived and its spread recorded.** The figure in
+    `lib/defaults.ts` is provisional - it moved eleven percent between samples of
+    six and fourteen answers - and it has an uncharacterised driver: how many web
+    searches a question provokes, which plausibly differs between a buying-moment
+    prompt and a factual one. This is the first phase with a real sample. Record
+    the mean **and the spread**, per target, because that number becomes the basis
+    of pricing at roadmap stage 2 and its variance matters as much as its value.
   - **Stability check:** the same run is repeated at least a day later on an
     identical basis. IF the two results differ by more than one step of N, THEN N
     is raised and `ARCHITECTURE.md` and `SPEC.md` are updated before Phase 10
@@ -444,7 +451,22 @@ is never deleted.
   either - the endpoint accepts both, so this is a dashboard gap and not a worker
   or API one. Consequence today: there is no way to click through a cheap N=1 run,
   which made Phase 4's browser pass cost $0.43 rather than the $0.02 estimated.
-- **A graceful worker shutdown. The trigger has fired; the decision is open.**
+- **A graceful worker shutdown - draining in-flight attempts.** *Triggered by:* the
+  billed-and-unstored calls becoming material. The **correctness** half of this
+  item was done on 2026-08-25 and is no longer deferred: an interrupted run is now
+  left `running` for the reclaim path instead of being failed outright, and an
+  aborted attempt is no longer written into the measurement. What remains is the
+  efficiency half - letting in-flight attempts finish before the process exits, so
+  that up to eight calls per interrupted deploy are not bought twice - together
+  with the question of whether a reclaim following a **clean** shutdown should
+  count against `MAX_RECLAIMS` at all. The limit exists to stop a run that keeps
+  killing workers, and a deploy is not that; the answer is expected to be no, and
+  it needs a column or a status to tell the two apart, which is a data model change
+  and therefore a stop-and-ask when the phase is scheduled.
+  The history of the entry is kept in `ARCHITECTURE.md` -> Key decisions, because
+  what this item said before that date was the opposite of what the code did.
+
+- ~~**A graceful worker shutdown. The trigger has fired; the decision is open.**~~
   *Triggered by:* deploys interrupting runs. This item used to say the cost was
   two accepted inefficiencies - eight in-flight calls billed but unstored per
   deploy, and one `MAX_RECLAIMS` consumed - and that "the reclaim path resumes the

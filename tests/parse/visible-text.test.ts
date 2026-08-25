@@ -46,4 +46,52 @@ describe('toVisibleText', () => {
   it('returns an empty string for empty input', () => {
     expect(toVisibleText('')).toBe('')
   })
+
+  it('keeps a link label that carries the brand, because a reader sees it', () => {
+    // The mirror of the rule above, and the reason this stage removes targets
+    // rather than whole links: a brand in the label is a mention.
+    expect(toVisibleText('Try [Acme Cloud](https://example.com/x) today.')).toBe(
+      'Try Acme Cloud today.',
+    )
+  })
+
+  it('drops a fence that is indented inside a list item', () => {
+    const raw = ['1. First:', '', '   ```', '   Acme', '   ```', '', '2. Second.'].join('\n')
+    const visible = toVisibleText(raw)
+    expect(visible).toContain('First:')
+    expect(visible).toContain('Second.')
+    expect(visible).not.toContain('Acme')
+  })
+
+  it('drops a link that lives inside a fence, fence and all', () => {
+    const raw = ['Before.', '```', '[Acme](https://acme.example.com)', '```', 'After.'].join('\n')
+    const visible = toVisibleText(raw)
+    expect(visible).not.toContain('Acme')
+    expect(visible).toContain('After.')
+  })
+
+  it('does not let a closing fence be re-read as a new unterminated one', () => {
+    // The regression the two separate fence rules exist for: folding them into one
+    // rule silently deleted everything after the first closed block.
+    const raw = ['Intro.', '```', 'code', '```', 'Acme is discussed here.'].join('\n')
+    expect(toVisibleText(raw)).toContain('Acme is discussed here.')
+  })
+
+  it('keeps inline code spans, because C8 removes fenced blocks and only those', () => {
+    // Deliberate: a single-backtick span is inline prose a reader reads. Pinned so
+    // that widening the rule is a decision rather than a drift.
+    expect(toVisibleText('The `Acme` option is default.')).toContain('Acme')
+  })
+
+  it('keeps text either side of several fences in one answer', () => {
+    const raw = ['A.', '```', 'x', '```', 'B.', '```', 'y', '```', 'C.'].join('\n')
+    const visible = toVisibleText(raw)
+    for (const kept of ['A.', 'B.', 'C.']) expect(visible).toContain(kept)
+    for (const gone of ['x', 'y']) expect(visible).not.toMatch(new RegExp(`^\\s*${gone}\\s*$`, 'm'))
+  })
+
+  it('leaves ordinary prose exactly as it found it', () => {
+    const prose = 'Acme, Globex and Initech all serve Leeds; ask for a quote.'
+    expect(toVisibleText(prose)).toBe(prose)
+  })
 })

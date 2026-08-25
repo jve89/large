@@ -52,6 +52,12 @@ export interface WorkerDeps {
 export interface ProcessedRun {
   readonly runId: string
   readonly status: string
+  /**
+   * True when the worker stopped because it was told to, not because the run
+   * finished. An interrupted run keeps `status: 'running'` and its last heartbeat,
+   * and is left for the reclaim path.
+   */
+  readonly interrupted?: boolean
 }
 
 /**
@@ -63,8 +69,17 @@ export async function processNextRun(deps: WorkerDeps): Promise<ProcessedRun | n
   if (!claimed) return null
 
   // A run that reliably crashes its worker must not burn money in a loop.
+  //
+  // The wording is deliberate. This ending is an infrastructure outcome and it
+  // must not read as one about the models: a reader who sees "no target reached
+  // the coverage threshold" is being told something about the measurement, and
+  // that would be false here. Nothing was measured badly; the run kept losing its
+  // worker.
   if (exceededReclaimLimit(claimed.reclaimCount, deps.maxReclaims)) {
-    const reason = `reclaimed ${claimed.reclaimCount} times, above the limit of ${deps.maxReclaims}`
+    const reason =
+      `interrupted repeatedly: reclaimed ${claimed.reclaimCount} times, above the ` +
+      `limit of ${deps.maxReclaims}. This is a failure to complete the run, not a ` +
+      'measurement of the targets.'
     await finishRun(deps.prisma, claimed.id, 'failed', reason)
     return { runId: claimed.id, status: 'failed' }
   }
@@ -120,6 +135,17 @@ export async function processNextRun(deps: WorkerDeps): Promise<ProcessedRun | n
     // written, so the two cannot race.
     clearInterval(beat)
     await pendingBeat
+
+    // A worker that was told to stop has not finished the run, and must not say it
+    // did. `executeRun` returns normally on shutdown - skipping attempts that were
+    // never started is not an error - so without this check the terminal status
+    // gets written from whatever fraction of the work happened to be done, and a
+    // healthy run interrupted by a deploy ends `failed` with a reason that claims
+    // the targets were measured and found wanting. The run is left `running` with
+    // its last heartbeat instead, which is what the reclaim path is built for.
+    if (deps.signal?.aborted) {
+      return { runId: run.id, status: 'running', interrupted: true }
+    }
 
     const reason =
       status === 'failed'
@@ -186,7 +212,11 @@ async function main(): Promise<void> {
     try {
       const processed = await processNextRun(deps)
       if (processed) {
-        console.log(`[worker] run ${processed.runId} finished as ${processed.status}`)
+        console.log(
+          processed.interrupted
+            ? `[worker] run ${processed.runId} interrupted by shutdown; left running for reclaim`
+            : `[worker] run ${processed.runId} finished as ${processed.status}`,
+        )
         continue
       }
     } catch (error) {

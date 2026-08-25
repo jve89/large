@@ -42,7 +42,8 @@ export const DEFAULT_REPETITIONS = 3
 export const MAX_REPETITIONS = 50
 
 /**
- * The measured average cost of one provider call, in integer micro-dollars.
+ * A fallback average cost of one provider call, in integer micro-dollars, used
+ * only when nothing has been stored to measure instead.
  *
  * **This is an observation, not a price** - which is why it is here and not in
  * `src/core/providers/pricing.ts`. CLAUDE.md rule 12 governs per-token and
@@ -60,8 +61,20 @@ export const MAX_REPETITIONS = 50
  *
  * It supersedes the 71,540 figure this file previously carried, which came from
  * only six calls in Phase 4's browser pass.
+ *
+ * **Treat 80,000 as provisional.** Fourteen answers is not a sample, and the
+ * figure has a driver that has not been characterised: how many web searches a
+ * question provokes. "Who is the best plumber in Amsterdam" plausibly triggers
+ * more searches than a factual question, which would mean this product's unit cost
+ * varies with the kind of question a customer asks - and that matters for pricing
+ * later, where the spread matters as much as the mean. Phase 9 re-derives it
+ * against a real sample and records the spread, not only the mean.
+ *
+ * Nothing shown to an operator uses this constant while stored answers exist:
+ * `src/core/run/estimate.ts` computes the figure from them, precisely so that no
+ * displayed dollar amount is a literal that can rot.
  */
-export const ESTIMATED_MICROS_PER_CALL = 80_000n
+export const FALLBACK_MICROS_PER_CALL = 80_000n
 
 /**
  * The largest number of provider calls a single run may plan.
@@ -74,8 +87,13 @@ export const ESTIMATED_MICROS_PER_CALL = 80_000n
  * of those limits plans 10,000 calls - about **$800** from one request that
  * violates nothing.
  *
- * 300 calls is about **$24** at `ESTIMATED_MICROS_PER_CALL`. What that allows,
- * against the current two targets:
+ * 300 calls was about **$24** at the average measured on 2026-08-25. That figure
+ * is illustration only and is not what the refusal message prints: the message
+ * derives its estimate from stored answers (`src/core/run/estimate.ts`), because a
+ * per-call cost written down as a literal goes stale, and stale low. The bound
+ * itself is on the call count, which is exact.
+ *
+ * What 300 allows, against the current two targets:
  *
  *   - a real client run of 20 prompts at the default N=3 - 120 calls, ~$10;
  *   - Phase 9's ten-prompt real-brand run at N=3 - 60 calls, ~$5;
@@ -91,6 +109,11 @@ export const ESTIMATED_MICROS_PER_CALL = 80_000n
  * unusual run is refused and raised deliberately rather than discovered on a
  * statement.
  *
+ * The unit is calls rather than dollars for a second reason: calls scale with the
+ * target list, which is on the roadmap to grow. A third provider makes every run
+ * 1.5x - a 20-prompt analysis goes from 120 calls to 180 - and 300 absorbs that
+ * without starting to refuse ordinary work.
+ *
  * Raising it is one edit here. Do that in preference to weakening the check.
  */
 export const MAX_PLANNED_CALLS = 300
@@ -98,14 +121,20 @@ export const MAX_PLANNED_CALLS = 300
 /**
  * The largest prompt list a run may be queued against.
  *
- * Like `MAX_REPETITIONS` this is a **cost guardrail, not a spec rule**, and since
- * `MAX_PLANNED_CALLS` exists it is the weaker of the two: it bounds the length of
- * one list, not the bill. It stays because it is the bound whose violation has an
- * obvious remedy - "shorten the list" - and because a 100-prompt list is a
- * careless paste rather than a measurement whatever the N.
+ * **This is a list-shape limit and no longer a cost one. Read that literally.**
+ * `MAX_PLANNED_CALLS` subsumes it entirely for cost: at the current two targets
+ * this bound binds only at N=1, because 100 prompts at N=2 is already 400 calls
+ * and refused by the ceiling before this check could matter.
  *
- * 100 is chosen as twice C2's warning threshold of 50: a genuinely long list still
- * saves and still runs, carrying the warning C2 requires.
+ * It stays for the one thing the ceiling cannot say: a list of more than a hundred
+ * prompts is a paste accident rather than a measurement, whatever it would have
+ * cost, and "shorten the list" is a remedy the caller can act on where "lower one
+ * of three factors" is not. That is its whole purpose, and it is written down here
+ * because a limit nobody can explain in six months is how a check that cannot fail
+ * survives - this project has paid for two of those already.
+ *
+ * 100 is twice C2's warning threshold of 50: a genuinely long list still saves and
+ * still runs, carrying the warning C2 requires.
  *
  * Enforced at **queue** time rather than at save time, deliberately: C2 says a
  * list over 50 "SHALL still allow the save", so refusing to store a long list

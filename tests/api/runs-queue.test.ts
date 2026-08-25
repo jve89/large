@@ -27,6 +27,8 @@ import {
   MAX_PROMPTS,
   MAX_REPETITIONS,
 } from '../../src/lib/defaults.ts'
+import { estimateMicrosPerCall } from '../../src/core/run/estimate.ts'
+import { formatMicrosAsUsd } from '../../src/lib/money.ts'
 import { prisma } from '../../src/lib/db.ts'
 
 const PREFIX = `test-c3-${process.pid}-`
@@ -724,5 +726,65 @@ describe('POST /api/runs - the cost bound', () => {
     })
     const run = await loadRun(runId)
     expect(run.targets).toHaveLength(1)
+  })
+
+  it('derives the dollar estimate from stored answers rather than a constant', async () => {
+    // The point of this test is that the figure moves. Per-call cost changed by
+    // eleven percent between this project's first two measurements; a literal in
+    // the code or the message would have gone stale, and stale low, which is the
+    // direction that hides exposure. The refusable bound stays the call count.
+    const prompts = MAX_PLANNED_CALLS / (TARGETS * DEFAULT_REPETITIONS) + 1
+    const companyId = await createFixture('derived-estimate', { prompts: lines(prompts) })
+    const plannedCalls = prompts * TARGETS * DEFAULT_REPETITIONS
+
+    const before = await estimateMicrosPerCall(prisma)
+    const firstMessage = ((await (await queue({ companyId, repetitions: DEFAULT_REPETITIONS })).json()) as {
+      error: string
+    }).error
+    expect(firstMessage).toContain(formatMicrosAsUsd(BigInt(plannedCalls) * before.micros))
+
+    // Now make the stored history dramatically more expensive.
+    const host = await prisma.run.create({
+      data: {
+        companyId,
+        status: 'completed',
+        repetitions: 1,
+        brandName: `${PREFIX}estimate-host`,
+        basisHash: `estimate-${Math.random().toString(36).slice(2)}`,
+        prompts: { create: [{ text: 'x', order: 0 }] },
+        targets: { create: [{ provider: 'anthropic', modelId: 'claude-sonnet-5' }] },
+      },
+      include: { prompts: true, targets: true },
+    })
+    await prisma.answer.createMany({
+      data: Array.from({ length: 250 }, (_, i) => ({
+        runId: host.id,
+        runPromptId: host.prompts[0]!.id,
+        runTargetId: host.targets[0]!.id,
+        repetition: i + 1,
+        status: 'ok' as const,
+        rawText: 'expensive',
+        costMicros: 5_000_000n,
+      })),
+    })
+
+    try {
+      const after = await estimateMicrosPerCall(prisma)
+      expect(after.micros).toBeGreaterThan(before.micros)
+
+      const secondMessage = ((await (await queue({ companyId, repetitions: DEFAULT_REPETITIONS })).json()) as {
+        error: string
+      }).error
+
+      expect(secondMessage).toContain(formatMicrosAsUsd(BigInt(plannedCalls) * after.micros))
+      expect(secondMessage).not.toContain(formatMicrosAsUsd(BigInt(plannedCalls) * before.micros))
+      // ...and it says what it is, so nobody reads it as a quote.
+      expect(secondMessage).toContain('estimate, not a quote')
+      expect(secondMessage).toContain('most recent stored answers')
+      // The refusal itself is unchanged: the bound is the exact call count.
+      expect(secondMessage).toContain(`limit of ${MAX_PLANNED_CALLS} calls`)
+    } finally {
+      await prisma.run.delete({ where: { id: host.id } })
+    }
   })
 })

@@ -112,6 +112,21 @@ async function persistAttempt(
 
   try {
     if (!outcome.result.ok) {
+      // A worker that is shutting down must not write its own interruption into
+      // the measurement. An aborted call is an infrastructure event, and storing
+      // it as a `failed` answer would be permanent: the resume path skips every
+      // combination that has a stored answer, so this attempt would never be made
+      // again, and the run would carry a failure that says nothing about either
+      // provider. Dropping the row leaves the combination outstanding, which is
+      // exactly what the reclaim path is for.
+      //
+      // The test is the signal rather than the reason string, because an abort
+      // surfaces as an ordinary non-retryable SDK error and is not reliably
+      // distinguishable from one. The cost of that breadth is one re-issued call
+      // where a genuine failure happened to land inside the shutdown window; the
+      // cost of the opposite mistake is a false measurement kept forever.
+      if (deps.signal?.aborted) return
+
       // A failed attempt is stored as a `failed` row with a reason. It is never
       // stored as an answer in which the brand happened to be absent, and it is
       // excluded from every numerator and denominator (CLAUDE.md rule 1).
@@ -120,6 +135,11 @@ async function persistAttempt(
       })
       return
     }
+
+    // A successful result is stored even when the worker is shutting down. The
+    // response had already arrived, so the provider has already billed for it;
+    // discarding it here would buy the same answer twice, once now and once on
+    // resume. This is the one thing an aborting worker must still write.
 
     const result = outcome.result
     const mentions = findMentions(result.text, {
@@ -212,7 +232,15 @@ export async function executeRun(run: RunnableRun, deps: ExecuteDeps): Promise<R
       await semaphoreFor(target.provider)(async () => {
         if (deps.signal?.aborted) return
         const adapter = deps.adapterFor({ provider: target.provider, modelId: target.modelId })
-        await persistAttempt(deps, run, attempt, adapter, text)
+        try {
+          await persistAttempt(deps, run, attempt, adapter, text)
+        } catch (error) {
+          // Aborting the backoff sleep between retries throws, and on shutdown
+          // that is the expected way out rather than a fault. Swallow it only
+          // while the signal is set; anything else is still a real error.
+          if (!deps.signal?.aborted) throw error
+          return
+        }
         await deps.heartbeat?.()
       })
     }),

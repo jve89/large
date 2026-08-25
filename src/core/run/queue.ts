@@ -14,13 +14,10 @@
  * imitation passing is the failure mode the gate exists to catch.
  */
 import type { PrismaClient, RunStatus } from '@prisma/client'
-import {
-  ESTIMATED_MICROS_PER_CALL,
-  MAX_PLANNED_CALLS,
-  MAX_PROMPTS,
-} from '../../lib/defaults.ts'
+import { MAX_PLANNED_CALLS, MAX_PROMPTS } from '../../lib/defaults.ts'
 import { basisHash } from '../../lib/hash.ts'
 import { formatMicrosAsUsd } from '../../lib/money.ts'
+import { describeEstimate, estimateMicrosPerCall } from './estimate.ts'
 import { priceFor } from '../providers/pricing.ts'
 import { targetKey, type Target } from '../providers/types.ts'
 
@@ -174,19 +171,24 @@ export async function queueRun(input: QueueRunInput): Promise<QueueRunResult> {
     // provider call can be made for it.
     const plannedCalls = company.prompts.length * targets.length * repetitions
     if (plannedCalls > MAX_PLANNED_CALLS) {
-      const estimate = formatMicrosAsUsd(BigInt(plannedCalls) * ESTIMATED_MICROS_PER_CALL)
-      const ceiling = formatMicrosAsUsd(BigInt(MAX_PLANNED_CALLS) * ESTIMATED_MICROS_PER_CALL)
+      // The dollars are derived, never a literal. Per-call cost moved eleven
+      // percent between this project's first two measurements and will move again
+      // with search counts; a constant here would be wrong within a month and
+      // wrong low, which is the direction that hides exposure.
+      const perCall = await estimateMicrosPerCall(tx)
+      const estimate = formatMicrosAsUsd(BigInt(plannedCalls) * perCall.micros)
+      const ceiling = formatMicrosAsUsd(BigInt(MAX_PLANNED_CALLS) * perCall.micros)
       return {
         ok: false,
         reason: 'too-many-calls',
         message:
           `This run would make ${plannedCalls} provider calls - ` +
           `${company.prompts.length} prompts x ${targets.length} targets x N=${repetitions} - ` +
-          `costing roughly ${estimate}, above the limit of ${MAX_PLANNED_CALLS} calls ` +
-          `(roughly ${ceiling}). Lower N, shorten the prompt list, measure fewer ` +
-          'targets, or raise MAX_PLANNED_CALLS in lib/defaults.ts if the cost is ' +
-          'intended. The estimate is an average of real calls already made and is ' +
-          'not a quote.',
+          `above the limit of ${MAX_PLANNED_CALLS} calls. That is an estimated ` +
+          `${estimate} against an estimated ${ceiling} at the limit, from ` +
+          `${describeEstimate(perCall)}; an estimate, not a quote. Lower N, shorten ` +
+          'the prompt list, measure fewer targets, or raise MAX_PLANNED_CALLS in ' +
+          'lib/defaults.ts if the cost is intended.',
       } as const
     }
 

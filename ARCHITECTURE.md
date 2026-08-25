@@ -858,41 +858,64 @@ phase. Phase 0 pushes to it.
   traffic and not a provider price, which is why it is in `lib/defaults.ts` and not
   in `pricing.ts` (rule 12).
 
-- **A deploy interrupting a run is NOT handled. This entry is a defect report,
-  and the decision on it is open.** *Corrected 2026-08-25 - what this entry
-  previously said was wrong, and wrong in the direction of comfort.*
-  It said: on SIGTERM the run "is left `running` with whatever heartbeat it last
-  wrote, and `finishRun` is never reached", so the reclaim path resumes it, and
-  the only costs were up-to-eight billed-and-unstored calls plus one of
-  `MAX_RECLAIMS` per interrupted deploy.
-  None of that is what the code does. Driven at the seam - `processNextRun`, real
-  database, an adapter that aborts the way both SDKs do - the observed behaviour
-  is: every in-flight attempt is stored as a `failed` Answer row with the reason
-  `Request was aborted.`; `executeRun` then returns normally, because skipping the
-  attempts that have not started is not an error; `processNextRun` writes the
-  terminal status; and the run ends `failed`, reason `no target reached the
-  coverage threshold of 0.8`, with `finishedAt` set, `heartbeatAt` null and
-  `reclaimCount` 0.
-  Three consequences follow, and each is worse than the cost that was accepted in
-  their place. The run is **not** reclaimable - the claim query matches `queued`
-  or `running` and this row is neither - so a long run does not survive four
-  deploys, it survives **none**. The aborted attempts are not merely unstored and
-  paid for twice; they are stored as failures, and the resume path skips every
-  combination that has a stored answer, so those combinations would never be
-  retried even if the run were resumable. And `MAX_RECLAIMS` is not consumed at
-  all, because no reclaim ever happens - the two mechanisms do not interact,
-  which is why nothing had noticed.
-  Why the misreading was possible: an aborted SDK call is not classified as
-  retryable. `APIUserAbortError extends APIError` in both `@anthropic-ai/sdk`
-  0.120.0 and `openai` 7.5.0 (verified in `node_modules`, 2026-08-25), and
-  `ask()`'s catch computes `isRetryableHttpStatus(status) || !(error instanceof
-  APIError)` with `status` undefined - false. So the abort becomes an ordinary
-  non-retryable failure, indistinguishable at the persistence layer from a
-  provider refusing the request.
-  The remedy is written up in `PLAN.md` -> Roadmap beyond v1 -> Engineering items
-  -> "A graceful worker shutdown", whose trigger this finding meets. It is a
-  phase, not a patch, and the shape it should take is a decision for the operator
-  rather than something to fix in passing.
+- **A deploy interrupting a run is handled by the reclaim path, not by a shutdown
+  protocol** - which is what this entry always claimed, and from Phase 0 until
+  2026-08-25 it was not true of the code. The correction is kept here rather than
+  tidied away, because the shape of the mistake is the point.
+  What it used to say: on SIGTERM the run "is left `running` with whatever
+  heartbeat it last wrote, and `finishRun` is never reached", so the reclaim path
+  resumes it; the accepted costs were up-to-eight billed-and-unstored calls, about
+  $0.58, and one `MAX_RECLAIMS` per interrupted deploy.
+  What the code did, established by driving `processNextRun` against a real
+  database with an adapter that aborts the way both SDKs do: every in-flight
+  attempt was stored as a `failed` answer; `executeRun` returned normally, because
+  skipping attempts that never started is not an error; the terminal status was
+  then written from whatever fraction of the work was done; and the run ended
+  `failed`, reason "no target reached the coverage threshold of 0.8", `finishedAt`
+  set, `heartbeatAt` null, `reclaimCount` 0. A long run therefore survived **no**
+  deploys rather than four, its aborted combinations could never be retried
+  because the resume path skips any combination with a stored answer, and
+  `MAX_RECLAIMS` was never consumed at all - the two mechanisms did not interact,
+  which is why nothing noticed. Worst of all, the ending was an infrastructure
+  event written in measurement language: a sentence claiming the targets were
+  measured and came up short, on every deploy.
+  Why it was possible: an aborted SDK call is not classified as retryable.
+  `APIUserAbortError extends APIError` in both `@anthropic-ai/sdk` 0.120.0 and
+  `openai` 7.5.0 (verified in `node_modules`, 2026-08-25), and `ask()`'s catch
+  computes `isRetryableHttpStatus(status) || !(error instanceof APIError)` with
+  `status` undefined - false. The abort became an ordinary non-retryable failure,
+  indistinguishable at the persistence layer from a provider refusing the request.
+  **What the code does now.** `executeRun` drops a non-ok attempt while the signal
+  is aborted rather than storing it, and `processNextRun` returns without writing a
+  terminal status. The run keeps `status: 'running'` and its last heartbeat;
+  `STALE_RUN_SECONDS` later the next worker reclaims and resumes it, issuing only
+  the combinations with no stored answer. A **successful** result is still stored
+  even mid-shutdown: the response had arrived, so the provider has already billed
+  for it, and discarding it would buy the same answer twice.
+  **The accepted cost, stated honestly this time.** Calls in flight when SIGTERM
+  lands whose responses have not yet arrived are billed by the provider, discarded,
+  and bought again on resume - at most `PROVIDER_CONCURRENCY` per provider, so
+  eight, about **$0.64** at the average measured on 2026-08-25 (provisional; see
+  `lib/defaults.ts`). And each interrupted deploy now genuinely does consume one of
+  `MAX_RECLAIMS`, so at the default of 3 a run survives three interrupting deploys
+  and is failed on the fourth - with a reason that says it was interrupted
+  repeatedly, not that nothing was found. Draining in-flight attempts before
+  exiting, and exempting a clean shutdown from the reclaim count, both remain
+  phases in `PLAN.md` -> Roadmap beyond v1.
+  The seam test is `tests/worker/shutdown.test.ts`, and it is the argument for
+  CLAUDE.md rule 18 rather than an illustration of it: every part worked in
+  isolation, no unit test could have seen this, and the document describing the
+  behaviour said the opposite for four phases.
+
+- **Every timestamp in the staleness comparison comes from the database's clock.**
+  `claimRun` decides a run is dead by comparing `heartbeatAt` against PostgreSQL's
+  `now()`, so `heartbeat` writes `now()` too rather than the worker's `new Date()`.
+  Worker and database are separate containers: a worker whose clock runs ahead
+  would write heartbeats from the future and leave its own dead runs unreclaimable
+  for the length of the skew, and one running behind would have live runs reclaimed
+  while they are still spending money. Found on 2026-08-25 as an intermittent test
+  failure - a resumed-run assertion that passed four times in five - which is the
+  cheap way to find it.
 
 - **A provider response is interpreted by a pure function, separate from the SDK
   call.** `ask()` keeps the request, the error handling and the latency clock;

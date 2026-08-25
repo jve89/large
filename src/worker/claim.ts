@@ -67,9 +67,19 @@ export async function claimRun(
 /**
  * Refreshes a run's heartbeat. A worker must do this at least every fifteen
  * seconds while it executes, or another worker will conclude it died.
+ *
+ * The timestamp comes from the **database's** clock, not the worker's, and that
+ * matters: `claimRun` above decides staleness by comparing `heartbeatAt` against
+ * PostgreSQL's `now()`. Writing `new Date()` here would put the two sides of that
+ * comparison on two different clocks, and every worker process is a separate
+ * container from the database. A worker whose clock runs ahead writes heartbeats
+ * from the future and its dead runs stay unreclaimable for the length of the skew;
+ * one running behind is reclaimed early, while it is still spending money. The
+ * skew is usually milliseconds and was found as an intermittent test failure
+ * rather than an outage, which is the only reason it is cheap to fix.
  */
 export async function heartbeat(prisma: PrismaClient, runId: string): Promise<void> {
-  await prisma.run.update({ where: { id: runId }, data: { heartbeatAt: new Date() } })
+  await prisma.$executeRaw`UPDATE "Run" SET "heartbeatAt" = now() WHERE id = ${runId}::uuid`
 }
 
 /** Writes a run's terminal status and stops its heartbeat. */
