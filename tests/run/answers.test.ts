@@ -20,6 +20,7 @@ import { interpretAnthropicMessage } from '../../src/core/providers/anthropic.ts
 import { executeRun, type RunnableRun } from '../../src/core/run/execute.ts'
 import { GET as getRun } from '../../src/app/api/runs/[runId]/route.ts'
 import { prisma } from '../../src/lib/db.ts'
+import { sweepByPrefix } from '../helpers/cleanup.ts'
 import { createStubAdapters, failedResult, okResult } from '../helpers/stub-adapter.ts'
 import { loadFixture } from '../helpers/fixtures.ts'
 
@@ -86,10 +87,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  if (companyId) {
-    await prisma.run.deleteMany({ where: { companyId } })
-    await prisma.company.deleteMany({ where: { id: companyId } })
-  }
+  await sweepByPrefix(prisma, PREFIX)
   await prisma.$disconnect()
 })
 

@@ -59,8 +59,10 @@ export type QueueRunResult =
  * `basisHash` - and returns without waiting for any measurement. The trigger is the
  * row; the worker claims it.
  *
- * `basisHash` covers exactly four inputs: prompts, targets, aliases, competitors.
- * The brand **name** is snapshotted but deliberately not hashed - renaming a
+ * `basisHash` covers exactly five inputs: prompts, targets, aliases, competitors,
+ * and the measurement semantics version - the last being what the code means by a
+ * mention, so that a parser change is a change of basis rather than an invisible
+ * one. The brand **name** is snapshotted but deliberately not hashed - renaming a
  * company does not change what was measured, while changing an alias does. N is
  * excluded for a related reason and is displayed beside every figure instead.
  */

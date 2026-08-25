@@ -136,8 +136,6 @@ describe('toVisibleText', () => {
   })
 
   it('removes both halves of a link whose label is itself an address', () => {
-    // Named explicitly because it is the case the two rules have to cooperate on:
-    // the link rule reduces this to its label, which is still an address.
     const visible = toVisibleText(
       'Source: [www.acme.example.com](https://www.acme.example.com).',
     )
@@ -145,11 +143,37 @@ describe('toVisibleText', () => {
     expect(visible).toContain('Source:')
   })
 
+  it('removes both halves when the label is a bare domain with no scheme or www', () => {
+    // Changed 2026-08-25. Link text that is a bare domain is the visible half of
+    // an attribution, not prose, and the markdown is what tells the two apart.
+    const visible = toVisibleText('Confirm at checkout ([acme.nl](https://www.acme.nl/x)).')
+    expect(visible).not.toContain('acme')
+    expect(visible).toContain('Confirm at checkout')
+  })
+
+  it('removes a domain-with-path used as link text', () => {
+    expect(toVisibleText('See [acme.nl/prices](https://acme.nl/prices).')).not.toContain('acme')
+  })
+
+  it('removes a reference-style link whose text is a domain', () => {
+    const raw = ['Source [acme.nl][a].', '', '[a]: https://acme.nl'].join('\n')
+    expect(toVisibleText(raw)).not.toContain('acme')
+  })
+
   it('keeps a bare domain written as prose, so a domain may be used as an alias', () => {
-    // Deliberately not removed: no scheme and no www. An operator who enters
-    // "acme.com" as an alias must still have it matched.
+    // The other half of the rule: no link, so this is the model naming a business.
     expect(toVisibleText('People just say acme.com when they mean them.')).toContain(
       'acme.com',
+    )
+  })
+
+  it('keeps a link label that names a brand rather than an address', () => {
+    expect(toVisibleText('Try [Acme Cloud](https://acme.nl) today.')).toContain('Acme Cloud')
+  })
+
+  it('keeps a label containing a domain among other words', () => {
+    expect(toVisibleText('See [the acme.nl guide](https://x.example.com).')).toContain(
+      'the acme.nl guide',
     )
   })
 

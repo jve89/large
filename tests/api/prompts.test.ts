@@ -20,9 +20,9 @@ import {
 import { fulfilled, raceWithSeparateConnections } from '../helpers/concurrency.ts'
 import { DEFAULT_REPETITIONS, DEFAULT_TARGETS } from '../../src/lib/defaults.ts'
 import { prisma } from '../../src/lib/db.ts'
+import { sweepByPrefix } from '../helpers/cleanup.ts'
 
 const PREFIX = `test-c2-${process.pid}-`
-const created: string[] = []
 
 interface PutBody {
   count: number
@@ -55,7 +55,6 @@ async function createFixture(name: string): Promise<string> {
   )
   expect(response.status).toBe(201)
   const { id } = (await response.json()) as { id: string }
-  created.push(id)
   return id
 }
 
@@ -77,11 +76,7 @@ async function stored(companyId: string): Promise<{ text: string; order: number 
 }
 
 afterAll(async () => {
-  for (const id of created) {
-    await prisma.run.deleteMany({ where: { companyId: id } })
-    await prisma.prompt.deleteMany({ where: { companyId: id } })
-    await prisma.company.deleteMany({ where: { id } })
-  }
+  await sweepByPrefix(prisma, PREFIX)
   await prisma.$disconnect()
 })
 

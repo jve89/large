@@ -241,20 +241,42 @@ describe('findMentions', () => {
     expect(brands('Everyone calls them acme.com locally.', domainAlias)).toEqual(['acme.com'])
   })
 
-  it('still counts the brand inside a bare domain, which is the cost of keeping bare domains', () => {
-    // Observed in real output on 2026-08-25: openai attributes its sources as
-    // `([coolblue.nl](https://www.coolblue.nl/...))`. The link rule reduces that
-    // to the label `coolblue.nl`, which has neither scheme nor `www.` and is
-    // therefore deliberately kept - and "Coolblue" then matches inside it, because
-    // the dot is a boundary.
-    //
-    // This is the residual of the address problem and it is a consequence of the
-    // rule rather than an oversight: bare domains stay so that an operator may use
-    // one as an alias. It is pinned here so that a later reader meets it as a
-    // known trade-off. Where it bites is the "cited but not named" case - a model
-    // that attributes a source as `[acme.nl](...)` while recommending a rival
-    // still scores the subject as mentioned.
+  it('does not count a brand whose only appearance is a link label that is a domain', () => {
+    // Observed in real output on 2026-08-25: openai attributes sources as
+    // `([coolblue.nl](https://www.coolblue.nl/...))`. That is the visible half of
+    // an attribution, not prose, and the markdown says so - the parser already
+    // knows it is inside a link because it strips the target.
     const raw = 'Buy from Globex. ([acme.nl](https://www.acme.nl/prices))'
-    expect(brands(raw)).toEqual(['Globex', 'Acme'])
+    expect(brands(raw)).toEqual(['Globex'])
+  })
+
+  it('still counts a bare domain standing in running prose', () => {
+    // The other half of the same rule. Here the model is naming a business.
+    expect(brands('Try acme.nl for pipes.', { aliases: ['acme.nl'], competitors: [] })).toEqual([
+      'acme.nl',
+    ])
+  })
+
+  it('still counts a link whose label names the brand', () => {
+    expect(brands('We recommend [Acme](https://acme.nl).')).toEqual(['Acme'])
+  })
+
+  it('keeps a label that merely contains a domain among other words', () => {
+    expect(brands('See [the acme.nl guide](https://x.example.com).')).toEqual(['Acme'])
+  })
+
+  it('accepts the false negative when a brand IS a domain and appears only as link text', () => {
+    // Booking.com, Marktplaats.nl - and Node.js, which only looks like one. This
+    // is the cost of the rule above, deliberately taken in the under-counting
+    // direction, and PLAN Phase 9 counts how often it actually happens rather than
+    // leaving it argued about.
+    const domainBrand = { aliases: ['Booking.com'], competitors: [] }
+    expect(brands('Compare prices at [Booking.com](https://www.booking.com).', domainBrand)).toEqual(
+      [],
+    )
+    // Named in prose as well, it is counted - which is the expected real case.
+    expect(
+      brands('Booking.com is cheapest ([booking.com](https://www.booking.com)).', domainBrand),
+    ).toEqual(['Booking.com'])
   })
 })

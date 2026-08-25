@@ -21,6 +21,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { ProviderAdapter, ProviderResult, Target } from '../../src/core/providers/types.ts'
 import { processNextRun, type WorkerDeps } from '../../src/worker/index.ts'
 import { prisma } from '../../src/lib/db.ts'
+import { sweepByPrefix } from '../helpers/cleanup.ts'
 import { createStubAdapters, okResult } from '../helpers/stub-adapter.ts'
 
 const PREFIX = `test-shutdown-${process.pid}-`
@@ -40,8 +41,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await prisma.run.deleteMany({ where: { companyId } })
-  await prisma.company.deleteMany({ where: { id: companyId } })
+  await sweepByPrefix(prisma, PREFIX)
   await prisma.$disconnect()
 })
 

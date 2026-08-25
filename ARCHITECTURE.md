@@ -907,37 +907,31 @@ phase. Phase 0 pushes to it.
   isolation, no unit test could have seen this, and the document describing the
   behaviour said the opposite for four phases.
 
-- **`basisHash` does not cover the code that decides what counts as a mention, and
-  as of 2026-08-25 nothing else does either. This is a recorded gap with a
-  proposal, not a decision.**
-  The measurement basis is four inputs - prompts, targets, aliases, competitors -
-  and widening the Visible text definition on 2026-08-25 changed what a mention
-  *is* without changing any of them. A run recorded before that date and one
-  recorded after can therefore carry the same `basisHash` while meaning different
-  things, which is exactly what C11 exists to prevent, and Phase 9 - which compares
-  runs a day apart - is the phase it would ruin.
-  **What exists today that would let a reader tell them apart: nothing.** `createdAt`
-  correlates with a deploy only for someone holding the git log, and the run page
-  shows no version of anything. There is one real mitigation, and it is not a
-  read-time one: raw answer text is never deleted, so mentions are re-derivable
-  over the entire history by re-running the parser. That means the history can be
-  *repaired*; it does not mean a reader can currently tell two runs apart.
-  **Proposed, not implemented: fold a `MEASUREMENT_SEMANTICS_VERSION` constant into
-  `basisHash` as a fifth input.** This needs **no schema change at all** -
-  `basisHash` is already a `String` column and nothing parses its contents - and
-  C11 then does the work unmodified: two runs either side of a parser change get
-  different hashes, so they are not drawn as one series and the change of basis is
-  stated. The cost is that it edits SPEC -> Definitions -> Measurement basis, which
-  is a stop-and-ask in its own right, and that every semantics change invalidates
-  every existing series - which is the intended behaviour rather than a side
-  effect.
-  The alternative is a `parserVersion` column on `Run`, displayed beside the
-  figures. It is more legible, because it says *what* changed rather than only
-  *that* something did, and it is a data model change and therefore a separate
-  stop-and-ask.
-  Nothing real is confounded yet: production holds one run, from before the
-  widening, and it is a skeleton demo. This must be settled before Phase 9 and is
-  recorded as an open question in `SPEC.md`.
+- **`basisHash` covers the code that decides what counts as a mention, as its
+  fifth input.** Added 2026-08-25, after the Visible text widening changed what a
+  mention *is* without changing any of the four inputs an operator can edit - so a
+  run recorded before it and one after could carry the same hash while meaning
+  different things, which is what C11 exists to prevent and what Phase 9, comparing
+  runs a day apart, would have been ruined by.
+  `MEASUREMENT_SEMANTICS_VERSION` lives in `src/core/parse/semantics.ts` and needed
+  **no schema change**: `basisHash` is already a `String` column and nothing parses
+  its contents, so C11 does the work unmodified. Two preconditions were checked
+  first. `basisHash` is computed once, in `queueRun`, and stored; every other site -
+  the run API, the company page, the run page - reads `run.basisHash` off the row.
+  Had anything recomputed it on read, adding an input would have silently rewritten
+  the comparability of every historical run instead of distinguishing them, which
+  is the opposite of the point. And version 1 is retroactive and unstamped, so runs
+  from before the change carry a four-input hash and differ from everything after
+  by construction.
+  The number alone would be uninterpretable in six months, so the legibility a
+  `parserVersion` column would have bought is bought instead by the **Measurement
+  semantics log** in `SPEC.md` -> Definitions: version, date, what changed, why.
+  When C11 says two runs are not comparable, that table is what lets a human say
+  why. Naming the version on the page is a display refinement the dashboard phase
+  can add if it wants to say it there, and it is still a data model change.
+  Its first value is 2, covering two changes at once - the address widening and the
+  link-text-domain rule - which exercised the mechanism on the day it was
+  introduced rather than leaving its first real use untested.
 
 - **Every timestamp in the staleness comparison comes from the database's clock.**
   `claimRun` decides a run is dead by comparing `heartbeatAt` against PostgreSQL's

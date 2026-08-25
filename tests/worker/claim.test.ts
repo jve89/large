@@ -11,6 +11,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { claimRun, exceededReclaimLimit, finishRun, heartbeat } from '../../src/worker/claim.ts'
 import { fulfilled, repeatRace } from '../helpers/concurrency.ts'
 import { prisma } from '../../src/lib/db.ts'
+import { sweepByPrefix } from '../helpers/cleanup.ts'
 
 const PREFIX = `test-c4-${process.pid}-`
 let companyId: string
@@ -53,8 +54,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   if (companyId) {
-    await prisma.run.deleteMany({ where: { companyId } })
-    await prisma.company.deleteMany({ where: { id: companyId } })
+  await sweepByPrefix(prisma, PREFIX)
   }
   await prisma.$disconnect()
 })

@@ -145,15 +145,24 @@ next to which competitors, and which sources the model cited.
   on visible text only.
   A **URL** here means a token carrying a scheme (`http://`, `https://`) or a
   leading `www.`, whether it is a markdown target, a bare address in prose, an
-  autolink in angle brackets, or a reference-link definition. A bare domain written
-  as prose - `acme.com`, with neither scheme nor `www.` - is **not** removed, so an
-  operator may use a domain as an alias. That choice has a cost, stated here rather
-  than left to be found: an alias also matches *inside* a surviving bare domain,
-  because the dot is a boundary, so a model that attributes a source as
-  `[acme.nl](https://www.acme.nl/...)` - a form openai was observed producing on
-  2026-08-25 - counts the subject as mentioned even where the prose recommends a
-  rival. This is the residual of the address problem and it is the one case the
-  widening does not reach.
+  autolink in angle brackets, or a reference-link definition.
+  A **bare domain** - `acme.nl`, with neither scheme nor `www.` - depends on where
+  it stands, and the markdown already says which case it is. In running prose it is
+  kept: "try acme.nl for pipes" is a model naming a business, and an operator may
+  use a domain as an alias. As the **visible text of a markdown link** it is
+  removed along with its target, because that is not prose but the visible half of
+  an attribution: `[acme.nl](https://acme.nl)` yields a citation and no mention,
+  while `[Acme](https://acme.nl)` still names the brand.
+  The accepted cost is a false negative: a business whose brand genuinely is a
+  domain - Booking.com, Marktplaats.nl - or merely looks like one - Node.js -
+  named **only** as link text and nowhere in prose is not counted. The expectation
+  is that this is rare, because a model that recommends a business names it in
+  prose and reserves link text for attribution. That is a belief, and `PLAN.md` ->
+  Phase 9 measures it rather than arguing it. The direction of the error is
+  deliberate: under-counting is what this product chose when it decided to label
+  thin coverage unreliable rather than present it as a measurement, and inflating a
+  headline number by reading citations as mentions is the criticism the category
+  already attracts.
   *Widened 2026-08-25, and this is a change of measurement basis.* The definition
   previously named only the three markdown forms, which left four ways for a brand
   to be counted from inside an address: a bare URL, an autolink, a reference-link
@@ -175,9 +184,29 @@ next to which competitors, and which sources the model cited.
   the same page twice, has drawn on that domain once. The unit of observation is
   the answer, never the citation row - see C16.
 - **Measurement basis** - the ordered prompt texts, the ordered target list, the
-  brand aliases and the competitor list of a run, hashed together as `basisHash`.
+  brand aliases, the competitor list of a run, and the **measurement semantics
+  version**, hashed together as `basisHash`.
   The brand **name** is deliberately excluded: renaming a company does not change
   what was measured, while changing an alias does. N is excluded too - see C10.
+  *The fifth input was added 2026-08-25.* The first four are what an operator can
+  edit; the fifth is what the system means by a mention. Without it a parser change
+  altered the meaning of every figure while the affected runs kept their hash and
+  went on being presented as one series - the precise thing C11 exists to prevent.
+  `basisHash` is computed once, when a run is queued, and stored; nothing
+  recomputes it on read, so a version bump distinguishes future runs from past ones
+  rather than rewriting the comparability of the past.
+
+- **Measurement semantics log** - what each version of the measurement semantics
+  means. `MEASUREMENT_SEMANTICS_VERSION` in `src/core/parse/semantics.ts` is
+  otherwise an uninterpretable number: this table is what lets a reader say *why*
+  two runs are not comparable when C11 says they are not. A version is bumped when
+  a change can alter which brands are found, their positions, or the total
+  recognised, for the same answer text - and not otherwise.
+
+  | Version | Date | What changed | Why |
+  |---|---|---|---|
+  | 1 | before 2026-08-25 | Not stamped. Visible text removed markdown link targets, image targets and fenced code blocks, and nothing else. | The constant did not exist. Runs from this period carry a hash over four inputs and so differ from every later run by construction. |
+  | 2 | 2026-08-25 | Visible text also removes URLs, autolinks, reference-link definitions and email addresses; and a markdown link whose visible text is itself a bare domain loses both halves. | Two changes, one bump, because both alter what counts as a mention. A brand inside an address was being counted, and a client's own domain contains its own name, so the subject was recorded as mentioned in answers that never named it and every position after it shifted. Link text that is a bare domain is an attribution rather than prose, and the markdown says which it is. |
 
 ## Capabilities (v1) - each has an ID and an EARS criterion
 
@@ -314,7 +343,8 @@ next to which competitors, and which sources the model cited.
   There is no stemming and no suffix rule: a plural or possessive suffix that is
   itself alphanumeric breaks the boundary, so "Acmes" does not match the alias
   "Acme". An operator who wants such a form counted adds it to the alias list.
-  IF a brand occurs only in a citation, a URL or an email address, and not in the
+  IF a brand occurs only in a citation, a URL, an email address, or the visible
+  text of a markdown link that is itself a bare domain, and not otherwise in the
   visible text, THEN it SHALL count as not mentioned. An address is where a brand
   lives, not a recommendation of it: "contact them at info@acme.nl" names the brand
   in the prose either way, and `https://acme.nl/prices` on its own does not.
@@ -561,13 +591,14 @@ or higher, producing at least one citation per successful answer.
   it, and so nobody later reports a zero-mention-with-citations result as a parser
   bug and "fixes" it. Nothing is authorised by this line; see Vision -> "How to use
   this section". **Open.**
-- **[Owner: Claude, before Phase 9]** Decide how a reader tells apart two runs
-  measured under different parser semantics. `basisHash` covers the prompts,
-  targets, aliases and competitors - not the code that decides what counts as a
-  mention - so the widening above left runs from before and after it carrying the
-  same hash while meaning different things, which is what C11 exists to prevent.
-  Phase 9 compares runs across time, so it is the phase this confound would ruin.
-  **Open**, with a proposal recorded in `ARCHITECTURE.md` -> Key decisions.
+- ~~**[Owner: Claude, before Phase 9]** Decide how a reader tells apart two runs
+  measured under different parser semantics.~~ **Resolved 2026-08-25.**
+  `MEASUREMENT_SEMANTICS_VERSION` is the fifth input to `basisHash`, so C11 does
+  the work unmodified and no schema change was needed - `basisHash` is already a
+  `String` and nothing parses it. The legibility a column would have given is
+  bought back by the Measurement semantics log in Definitions above; naming the
+  version on the page is a display refinement the dashboard phase can add if it
+  wants to say it there.
 - **[Owner: you]** Supply the first real brand: name, aliases, competitor list and
   at least ten buying-moment prompts. Without this the Success criterion above
   cannot be met. Blocks Phase 9. **Still open.**

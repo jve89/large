@@ -24,6 +24,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { executeRun, type RunnableRun } from '../../src/core/run/execute.ts'
 import { prisma } from '../../src/lib/db.ts'
+import { sweepByPrefix } from '../helpers/cleanup.ts'
 import { createStubAdapters, okResult } from '../helpers/stub-adapter.ts'
 
 const PREFIX = `test-c8-seam-${process.pid}-`
@@ -40,8 +41,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await prisma.run.deleteMany({ where: { companyId } })
-  await prisma.company.deleteMany({ where: { id: companyId } })
+  await sweepByPrefix(prisma, PREFIX)
   await prisma.$disconnect()
 })
 

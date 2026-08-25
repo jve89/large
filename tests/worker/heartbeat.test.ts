@@ -25,6 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { HEARTBEAT_INTERVAL_MS, processNextRun } from '../../src/worker/index.ts'
 import { createStubAdapters, okResult } from '../helpers/stub-adapter.ts'
 import { prisma } from '../../src/lib/db.ts'
+import { sweepByPrefix } from '../helpers/cleanup.ts'
 
 const PREFIX = `test-hb-${process.pid}-`
 let companyId: string
@@ -59,8 +60,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (companyId) {
-    await prisma.run.deleteMany({ where: { companyId } })
-    await prisma.company.deleteMany({ where: { id: companyId } })
+  await sweepByPrefix(prisma, PREFIX)
   }
   await prisma.$disconnect()
 })

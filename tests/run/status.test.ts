@@ -19,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { executeRun, terminalStatus, type RunnableRun } from '../../src/core/run/execute.ts'
 import { processNextRun } from '../../src/worker/index.ts'
 import { prisma } from '../../src/lib/db.ts'
+import { sweepByPrefix } from '../helpers/cleanup.ts'
 import { alwaysOk, createStubAdapters, failedResult, okResult } from '../helpers/stub-adapter.ts'
 
 const PREFIX = `test-status-${process.pid}-`
@@ -90,8 +91,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (companyId) {
-    await prisma.run.deleteMany({ where: { companyId } })
-    await prisma.company.deleteMany({ where: { id: companyId } })
+  await sweepByPrefix(prisma, PREFIX)
   }
   await prisma.$disconnect()
 })

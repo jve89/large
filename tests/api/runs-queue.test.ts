@@ -30,9 +30,9 @@ import {
 import { estimateMicrosPerCall } from '../../src/core/run/estimate.ts'
 import { formatMicrosAsUsd } from '../../src/lib/money.ts'
 import { prisma } from '../../src/lib/db.ts'
+import { sweepByPrefix } from '../helpers/cleanup.ts'
 
 const PREFIX = `test-c3-${process.pid}-`
-const created: string[] = []
 
 function ctx(companyId: string): { params: Promise<{ companyId: string }> } {
   return { params: Promise.resolve({ companyId }) }
@@ -59,7 +59,6 @@ async function createFixture(
   )
   expect(response.status).toBe(201)
   const { id } = (await response.json()) as { id: string }
-  created.push(id)
 
   const prompts = options.prompts ?? ['first prompt', 'second prompt']
   if (prompts.length > 0) {
@@ -97,11 +96,7 @@ async function loadRun(runId: string) {
 }
 
 afterAll(async () => {
-  for (const id of created) {
-    await prisma.run.deleteMany({ where: { companyId: id } })
-    await prisma.prompt.deleteMany({ where: { companyId: id } })
-    await prisma.company.deleteMany({ where: { id } })
-  }
+  await sweepByPrefix(prisma, PREFIX)
   await prisma.$disconnect()
 })
 

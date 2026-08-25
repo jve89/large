@@ -14,9 +14,9 @@ import {
   PATCH as patchCompany,
 } from '../../src/app/api/companies/[companyId]/route.ts'
 import { prisma } from '../../src/lib/db.ts'
+import { sweepByPrefix } from '../helpers/cleanup.ts'
 
 const PREFIX = `test-c1-${process.pid}-`
-const created: string[] = []
 
 function post(body: unknown): Request {
   return new Request('http://localhost/api/companies', {
@@ -46,18 +46,11 @@ async function createFixture(body: {
   const response = await createCompany(post(body))
   expect(response.status).toBe(201)
   const { id } = (await response.json()) as { id: string }
-  created.push(id)
   return id
 }
 
 afterAll(async () => {
-  for (const id of created) {
-    // Run holds companyId with ON DELETE RESTRICT, so runs go first. Their
-    // targets, prompts, answers, citations and mentions cascade from there.
-    await prisma.run.deleteMany({ where: { companyId: id } })
-    await prisma.prompt.deleteMany({ where: { companyId: id } })
-    await prisma.company.deleteMany({ where: { id } })
-  }
+  await sweepByPrefix(prisma, PREFIX)
   await prisma.$disconnect()
 })
 

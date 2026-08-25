@@ -356,6 +356,13 @@ this product's whole risk is a number being misread.
   - Every figure on screen 3 reaches its evidence in one step (C17), checked
     against real answers rather than fixtures - this is the differentiator, so it
     is checked on real output or it is not checked.
+  - **The link-text-domain false negative is counted.** Since 2026-08-25 a
+    markdown link whose visible text is a bare domain is removed with its target,
+    so a brand named *only* that way is not counted. Count the answers in which a
+    recognised brand appears only as link text and nowhere else in the visible
+    text. The expectation is zero, because a model that recommends a business names
+    it in prose; **if it is not zero on real data, it comes back to the operator**
+    before Phase 10. This is a measurement of a belief, not a check of the code.
   - **Per-call cost is re-derived and its spread recorded.** The figure in
     `lib/defaults.ts` is provisional - it moved eleven percent between samples of
     six and fourteen answers - and it has an uncharacterised driver: how many web

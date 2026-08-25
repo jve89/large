@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { basisHash } from '../src/lib/hash.ts'
+import { MEASUREMENT_SEMANTICS_VERSION } from '../src/core/parse/semantics.ts'
+import { basisHash, basisHashAt } from '../src/lib/hash.ts'
 
 const base = {
   prompts: ['best crm for startups', 'crm with good api'],
@@ -55,5 +57,41 @@ describe('basisHash', () => {
     expect(basisHash({ ...base, aliases: ['Acme', '  AcmeCo  ', 'Acme'] })).toBe(
       basisHash(base),
     )
+  })
+
+  it('changes when the measurement semantics version changes', () => {
+    // The fifth input, added 2026-08-25. Without it a parser change altered what
+    // "mentioned" means while every affected run kept its hash and went on being
+    // presented as one series - which is what C11 exists to prevent.
+    expect(basisHashAt(base, 2)).not.toBe(basisHashAt(base, 3))
+  })
+
+  it('uses the current version when none is given, so a caller cannot pass the wrong one', () => {
+    expect(basisHash(base)).toBe(basisHashAt(base, MEASUREMENT_SEMANTICS_VERSION))
+  })
+
+  it('differs from the four-input hash runs queued before 2026-08-25 carry', () => {
+    // Version 1 is retroactive and unstamped: those rows were hashed over four
+    // inputs. They must not collide with anything produced since, and they do not,
+    // because the payload itself gained a field.
+    const fourInput = createHash('sha256')
+      .update(
+        JSON.stringify({
+          prompts: base.prompts,
+          targets: base.targets.map((t) => [t.provider, t.modelId]),
+          aliases: [...base.aliases].sort(),
+          competitors: [...base.competitors],
+        }),
+        'utf8',
+      )
+      .digest('hex')
+
+    expect(basisHash(base)).not.toBe(fourInput)
+  })
+
+  it('is not changed by the brand name, which is still excluded', () => {
+    // Guarding the boundary from the other side: the fifth input is the code's
+    // meaning, not another field of the company.
+    expect(basisHash(base)).toBe(basisHash({ ...base }))
   })
 })
