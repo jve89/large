@@ -33,6 +33,47 @@
 import type { Provider } from '@prisma/client'
 import { formatMicrosAsUsd } from './money.ts'
 
+/**
+ * The version of this system's **aggregation semantics** - how stored rows are
+ * summarised into the figures a reader sees.
+ *
+ * ## The boundary this number governs
+ *
+ * **Everything `aggregateRun` in this file returns, and every rule that produces
+ * it**: coverage's numerator and denominator, mention rate's denominator, the
+ * population average position is taken over, the unit competitor frequency and
+ * cited domains are counted in, the domain rule in `citedDomainOf`, and every
+ * ordering and tie-break. If a change to this file can make the same stored rows
+ * yield a different figure, it is a bump.
+ *
+ * **Outside the boundary:** how a figure is formatted for display - rounding, the
+ * words around it, the layout in `figure.tsx`. Those change what a sentence looks
+ * like, not what the number is.
+ *
+ * ## Why this is not a sixth input to `basisHash`
+ *
+ * Because folding it in would be **actively wrong**, not merely inelegant.
+ * `basisHash` is computed when a run is created and never recomputed, so a bump
+ * would give runs created before and after it different hashes - and C11 would
+ * then refuse to draw as one series two runs that are both rendered under today's
+ * aggregation rule today, and are therefore perfectly comparable. The guard would
+ * break the comparison it exists to protect, on every historical run.
+ *
+ * The principle underneath: **stamp a version where the thing it governs is
+ * frozen.** Parse semantics freeze when an answer is parsed, so
+ * `MEASUREMENT_SEMANTICS_VERSION` lives on the run. Aggregation semantics never
+ * freeze - every read re-applies them - so this one lives on the *rendering*, and
+ * is stated once per rendered run rather than once per figure.
+ *
+ * The reader who needs it most is holding a screenshot from three months ago, and
+ * a screenshot carries what was on screen. That is why it is printed on the page
+ * and not only returned in the payload.
+ *
+ * Bumping it requires a row in `SPEC.md` -> Definitions -> Aggregation semantics
+ * log. The number alone is uninterpretable.
+ */
+export const AGGREGATION_SEMANTICS_VERSION = 1
+
 /** How much of one target's plan actually came back. */
 export interface Coverage {
   /** Answers with status `ok` for this target. */
@@ -151,6 +192,8 @@ export interface RunTotals {
 }
 
 export interface RunAggregate {
+  /** The aggregation rules these figures were computed under. */
+  readonly aggregationVersion: number
   readonly repetitions: number
   readonly targets: readonly TargetAggregate[]
   readonly totals: RunTotals
@@ -344,7 +387,12 @@ export function aggregateRun(input: AggregateInput): RunAggregate {
     plannedAttempts: planned * targets.length,
   }
 
-  return { repetitions, targets: targetAggregates, totals }
+  return {
+    aggregationVersion: AGGREGATION_SEMANTICS_VERSION,
+    repetitions,
+    targets: targetAggregates,
+    totals,
+  }
 }
 
 /**

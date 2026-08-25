@@ -976,6 +976,19 @@ phase. Phase 0 pushes to it.
   link-text-domain rule - which exercised the mechanism on the day it was
   introduced rather than leaving its first real use untested.
 
+- **Two version numbers, stamped in two different places, for the same reason.**
+  `MEASUREMENT_SEMANTICS_VERSION` is hashed into `basisHash` at run creation;
+  `AGGREGATION_SEMANTICS_VERSION` is stated on every rendering and is deliberately
+  **not** in the hash. The rule that decides which is which: **stamp a version
+  where the thing it governs is frozen.** Parse semantics freeze when an answer is
+  parsed, so they belong to the run. Aggregation semantics never freeze - every
+  read re-applies them - so they belong to the rendering.
+  Folding the aggregation version into `basisHash` would not have been untidy, it
+  would have been wrong: the hash is computed once and never recomputed, so a bump
+  would give runs created either side of it different hashes, and C11 would refuse
+  to draw as one series two runs that are both rendered under today's rule and are
+  therefore comparable. The guard would break the comparison it exists to protect.
+
 - **Every reproducible ordering compares by code unit, never by locale.**
   `localeCompare` depends on the runtime's ICU data and default locale, so the same
   two strings can order differently on a developer's machine and in the deployed

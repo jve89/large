@@ -72,7 +72,16 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
         Status <span className="font-medium">{run.status}</span> · N={run.repetitions} ·{' '}
         {run.prompts.length} prompts × {run.targets.length} targets ={' '}
         {plannedPerTarget * run.targets.length} planned attempts · basis{' '}
-        <code className="font-mono">{run.basisHash.slice(0, 12)}</code>
+        <code className="font-mono">{run.basisHash.slice(0, 12)}</code> ·{' '}
+        {/*
+          The aggregation version belongs on the screen, not only in the payload:
+          the reader who needs it is holding a screenshot from three months ago,
+          and a screenshot carries what was on screen. Stated once per rendering
+          rather than per figure, because it governs all of them equally.
+        */}
+        <span data-aggregation-version>
+          figures computed under aggregation rules v{aggregate.aggregationVersion}
+        </span>
       </p>
       {run.failureReason ? (
         <p className="mt-2 text-sm text-red-700">Failure reason: {run.failureReason}</p>

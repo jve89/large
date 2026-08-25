@@ -24,6 +24,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { AnswerStatus, RunStatus } from '@prisma/client'
+import { AGGREGATION_SEMANTICS_VERSION } from '../../src/lib/aggregate.ts'
 import { prisma } from '../../src/lib/db.ts'
 import { sweepByPrefix } from '../helpers/cleanup.ts'
 
@@ -261,6 +262,31 @@ describe('C10 on the page - a cell where every attempt failed', () => {
     // measurement of absence and must not be confused with the case above.
     expect(html).toContain('named in 0 of 2 successful attempts')
     expect(html).toContain('data-cell="measured"')
+  })
+})
+
+describe('C9 - the aggregation semantics version', () => {
+  it('is printed on the page, because a screenshot carries what was on screen', async () => {
+    const html = await renderRun(HEALTHY)
+    expect(html).toContain('data-aggregation-version')
+    expect(html).toContain(`aggregation rules v${AGGREGATION_SEMANTICS_VERSION}`)
+  })
+
+  it('is stated once per rendering, not once per figure', async () => {
+    // Per figure it would be noise beside the coverage and N that C10 already
+    // requires; the rules govern every figure equally, so it is said once.
+    const html = await renderRun(HEALTHY)
+    expect(html.match(/aggregation rules v/g)).toHaveLength(1)
+  })
+
+  it('is carried in the API payload too, so an export can record it', async () => {
+    const runId = await buildRunId(HEALTHY)
+    const { GET } = await import('../../src/app/api/runs/[runId]/route.ts')
+    const response = await GET(new Request('http://localhost'), {
+      params: Promise.resolve({ runId }),
+    })
+    const body = (await response.json()) as { aggregate: { aggregationVersion: number } }
+    expect(body.aggregate.aggregationVersion).toBe(AGGREGATION_SEMANTICS_VERSION)
   })
 })
 

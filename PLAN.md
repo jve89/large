@@ -54,6 +54,45 @@ answers it came from, so it cannot precede the figures themselves (Phases 7 and
 - **A real brand: name, aliases, competitors, and at least ten buying-moment
   prompts** - blocks Phase 9 and therefore Phase 10. **Still open.**
 
+## Register of behaviour reality has never produced
+
+Every clause below is implemented and tested, and **no real provider has ever
+made it happen.** Each is proved against rows we wrote ourselves.
+
+This exists because the same structural fact keeps surfacing one phase at a time
+and then scattering across reports: **a gate that asserts health cannot exercise
+the code that handles unhealth.** `verify:live` fails if a successful answer
+carries no citation - so it can never produce C16's empty-citation case. Phase 9
+requires 80 percent coverage per target - so it cannot exercise C10's
+below-threshold clauses. Those gates are right and are not to be weakened. What is
+wrong is only ever having said so in passing.
+
+The counts below were taken from the stored data on 2026-08-25, not from memory.
+A product whose second differentiator is that it says when it does not know owes
+itself the same treatment, and at Ship this table is the honest answer to "which
+of these behaviours has this instrument only ever performed against fixtures".
+
+| Clause | Observed in real data | Why the gates cannot produce it | What would |
+|---|---|---|---|
+| **A provider web-search error object** - HTTP 200 carrying an error instead of a result list (rule 8; C5, C7) | Never. Seven of the nine files in `tests/fixtures/` are `documented`, not `observed` | It needs a provider's search subsystem to fail while the request succeeds. `verify:live` asserts the call succeeded; it has no way to ask for this | A real occurrence in production. `logFailureEvidence` writes the raw body of every response-shaped failure to the worker log for exactly this purpose - take the body, rebuild the fixture, change `$meta.evidence` to `observed` |
+| **A successful answer carrying no citations** - C16's "cited nothing" empty list, which must not read as "no data" | Never: **0** of the stored `ok` answers have zero citations | `verify:live` **fails** if any successful answer lacks a citation. The gate asserts the exact negation of this clause | A model answering from what it already knows without searching - plausible on a question it considers settled |
+| **Coverage strictly between 0 and the threshold** - a partially degraded target labelled unreliable (C10) | Never. Only **0%** and **100%** have ever been observed, including the 401 pass, which produced both ends and nothing between | A partial failure needs some attempts against one target to fail while others succeed. A bad credential fails all of them; a healthy run fails none | A real rate limit or transient 5xx mid-run - likelier as prompt lists grow, and certain once a second worker multiplies the effective provider limit |
+| **The retry path** - a retryable status producing more than one HTTP attempt (C6) | Never: **0** answers have `httpAttempts` > 1. The one known real 429, on the first live gate run, predates stored answers | Nothing in the gate provokes a 408, 429 or 5xx | Concurrency against a provider limit. `PROVIDER_CONCURRENCY` is 4 per provider per process today |
+| **A reclaim and resume** - a stale run taken over and finished by the next worker (C15) | Never: **0** runs have `reclaimCount` > 0 | No worker has died mid-run in production, and no deploy has yet interrupted a real run | A deploy during a long run. The 300-call ceiling makes runs long enough that this is now a question of when |
+| **`failed` as a terminal status** - both of its causes (SPEC -> Run status) | Never: 11 `completed`, 1 `completed_with_errors`, **0** `failed` | Neither cause - no target reaching the threshold, or the reclaim limit exceeded - can be produced by a healthy gate | The rate-limit case above, or four interrupting deploys against one run |
+| **Average position `not-applicable`** - measured, and the brand was named in no successful answer | Never: **0** stored `ok` answers lack a subject mention | Every run so far has measured a brand the models actually name | **A real client that is genuinely absent** - which is precisely the customer this product exists for. The least-exercised path belongs to the most important user |
+| **The same host cited with and without `www.`** in one target's answers, which must group as one domain (C16) | Never: **0** hosts have appeared in both forms | Nothing forces a model to vary the form it cites | More answers, or a provider that normalises differently from the other |
+| ~~Two pages of one site inside one answer~~ | **Observed, 12 times.** This one is real | - | - |
+| **The long-context price tier** - over 272,000 input tokens at openai (`pricing.ts`) | Never: **0** answers. A buying-moment prompt runs about 20,000 input tokens | Nothing in v1's shape approaches it | Not v1. The branch guards against a provider changing the threshold rather than against this product's own traffic |
+| **C3's prompt-maximum and C19's planned-call refusals** | Never triggered by a real request | Both refuse before a run exists; no operator has yet asked for one that large | An operator pasting a long list, which is what they are for |
+
+Two notes on reading this table. The `www.` row and the struck-through row beneath
+it were flagged together as "likely, and invisible if wrong" - one of them turned
+out to be happening already, which is the argument for counting rather than
+assuming. And the degraded coverage rows were **partly** closed on 2026-08-25 by
+the 401 browser pass in Phase 11: 0 percent and its "no data" cells have now been
+produced by a real provider failure. What has not is anything in between.
+
 ## Phase 0 - Skeleton
 
 Thinnest slice for this shape: **one route inserts a queued run, the worker claims
@@ -493,6 +532,14 @@ this product's whole risk is a number being misread.
     text. The expectation is zero, because a model that recommends a business names
     it in prose; **if it is not zero on real data, it comes back to the operator**
     before Phase 10. This is a measurement of a belief, not a check of the code.
+  - **The aggregation semantics version is legible to a reader comparing over
+    time.** C9 states the version on every rendering; C11 deliberately does not
+    react to it, because a change in how figures are summarised does not make two
+    runs incomparable to each other. What is missing, and what this phase is the
+    right place to settle, is the reader-facing half: saying "these figures were
+    computed under a different aggregation rule than the ones you saw before"
+    when it is true. Decide the wording against real figures rather than in the
+    abstract; nothing was built for it in Phase 11.
   - **Citation churn and mention churn are measured separately, on the same runs.**
     This is a distinct criterion from the stability check below, and the two must
     not be merged. The published volatility figures in this category - see Roadmap
@@ -698,7 +745,8 @@ is never deleted.
   failure to the worker log precisely so this trigger can be acted on: take the
   logged body, rebuild the fixture, change its `$meta.evidence` to `observed`.
   Until then the rule is proved against dated documentation, which is a real
-  boundary and is stated as one.
+  boundary and is stated as one - see "Register of behaviour reality has never
+  produced" above, which now holds every such boundary in one place.
 - **A test for the transport-error branch of each adapter.** *Triggered by:* the
   same event, or sooner if a transport failure shape changes. `ask()`'s `catch`
   block - the one that turns a thrown SDK error into `{ ok: false }` with a

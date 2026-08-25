@@ -261,6 +261,40 @@ next to which competitors, and which sources the model cited.
   | 3 | 2026-08-25 | A domain-shaped link label is removed only when it is that link's **own address**, compared by host after stripping `www.` and allowing a deeper target host. An address-shaped label pointing elsewhere is kept. | Version 2 merged two error classes. `[acme.nl](https://acme.nl)` is an attribution and dropping it is a conservative measurement choice; `[Node.js](https://nodejs.org)` is a brand that merely contains a dot, and dropping it was a parsing artifact with no compensating benefit. Taken the same day as version 2 rather than after Phase 9's count, because each bump invalidates every series recorded under the version before it and production held one run. |
   | 4 | 2026-08-25 | The label-versus-target comparison stopped being symmetric: a label **deeper** than its target, `[blog.acme.nl](https://acme.nl)`, is now kept. | Version 3's code dropped that case and no document described it, so the parser was quietly stricter than its own definition. The rule is that a label is dropped only when shown to be the target's own address, and a subdomain of the target is a different host. Third bump in two days, taken deliberately: every bump invalidates every series recorded under the version before it, production holds nothing, and these are free today and never will be again. |
 
+- **Aggregation semantics** - how stored rows are summarised into the figures a
+  reader sees, as distinct from what was measured. `AGGREGATION_SEMANTICS_VERSION`
+  in `src/lib/aggregate.ts` versions them.
+  **The boundary it governs is everything `aggregateRun` returns and every rule
+  that produces it**: coverage's numerator and denominator, mention rate's
+  denominator, the population average position is taken over, the unit competitor
+  frequency and cited domains are counted in, the cited-domain rule itself, and
+  every ordering and tie-break. If a change can make the same stored rows yield a
+  different figure, it is a bump. **Outside the boundary:** formatting, rounding
+  and layout, which change what a sentence looks like rather than what the number
+  is.
+  It is **not** an input to `basisHash`, and that is a correctness matter rather
+  than a preference. `basisHash` is computed when a run is created and never
+  recomputed, so a bump would give runs created before and after it different
+  hashes - and C11 would then refuse to draw as one series two runs that are both
+  rendered under today's rule today, and are therefore perfectly comparable. The
+  guard would break the comparison it exists to protect, on every historical run.
+  The principle: **stamp a version where the thing it governs is frozen.** Parse
+  semantics freeze when an answer is parsed, so they live on the run; aggregation
+  semantics never freeze, because every read re-applies them, so they live on the
+  rendering.
+  It is stated **once per rendered run** - on the page as well as in the API
+  payload, because the reader who needs it is holding a screenshot and a screenshot
+  carries what was on screen - and not once per figure, which would be noise
+  beside the coverage and N that C10 already requires.
+
+- **Aggregation semantics log** - what each version means, on the same terms as the
+  measurement semantics log above and for the same reason: a bare number is
+  uninterpretable a year later.
+
+  | Version | Date | What it covers, and what changed | Why |
+  |---|---|---|---|
+  | 1 | 2026-08-25 | The initial stamped state of every rule inside the boundary above: coverage as successes over planned attempts; mention rate over successful answers; average position over the successful answers that named the subject; competitor frequency and cited-domain frequency counted per **answer**; cited domain as host, lower-cased, trailing dot and leading `www.` removed, with a subdomain as its own source; every order count-descending with ties broken by name ascending compared by code unit. | Stamped when the gap was found rather than when a rule first changed, so that version 1 names a state rather than a change. The exposure was never specific to one figure: every figure computed at read time has always been able to move under a reader without saying so, and C16 was only the first whose rule was interesting enough to make that obvious. |
+
 ## Capabilities (v1) - each has an ID and an EARS criterion
 
 - **C1 - Company registry**: WHEN the operator submits a company with a non-empty
@@ -413,6 +447,16 @@ next to which competitors, and which sources the model cited.
 - **C9 - Aggregate on read**: The system SHALL compute mention rate, average
   position, competitor frequency and cited domain frequency from the stored answer
   rows at read time, and SHALL NOT store any aggregate as a persisted field.
+  WHEN it displays those figures, it SHALL state the **aggregation semantics
+  version** they were computed under, once per rendered run, on the page and in the
+  API payload alike.
+  *Added 2026-08-25.* Computing at read time has a consequence the rest of this
+  capability did not account for: a figure has no provenance. Change an aggregation
+  rule and the same run, with the same `basisHash`, yields different figures on
+  different days, and a customer comparing a screenshot from three months ago is
+  comparing two definitions with nothing saying so. The version is stated per
+  rendering rather than per run precisely because the rules are applied at read
+  time - see Definitions -> Aggregation semantics.
 
 - **C10 - Coverage and N travel with every figure**: WHEN the system displays any
   aggregate figure, it SHALL display the coverage of that figure's target and the
@@ -426,6 +470,14 @@ next to which competitors, and which sources the model cited.
 - **C11 - Comparability guard**: IF two runs of the same company differ in
   `basisHash`, THEN the system SHALL NOT present them as one series, and SHALL
   state that the measurement basis changed.
+  **C11 deliberately says nothing about the aggregation semantics version, and
+  must not.** A change to how figures are summarised does not make two runs
+  incomparable to each other - both are rendered under today's rule - and making
+  C11 react to it would break the comparison this capability exists to protect.
+  What a reader eventually needs is different and weaker: to be told that the
+  figures in front of them were computed under a different rule than the ones they
+  saw last time. That is a presentation obligation, it is recorded against
+  `PLAN.md` -> Phase 9, and **nothing is built for it now**.
 
 - **C12 - Cost visibility**: WHEN a run reaches a terminal status, the system SHALL
   display the total token usage, the total number of web searches and the total
