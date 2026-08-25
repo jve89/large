@@ -145,7 +145,12 @@ export async function queueRun(input: QueueRunInput): Promise<QueueRunResult> {
       } as const
     }
 
-    // Two cost guardrails, neither a spec rule - see lib/defaults.ts for both.
+    // Two cost guardrails. Both are now normative: the prompt maximum is a clause
+    // of C3, and the planned-call ceiling is C19 - see lib/defaults.ts for the
+    // arithmetic behind each number, which is still an invention rather than a
+    // requirement. What the capabilities oblige is the refusal and what it must
+    // say, not the value.
+    //
     // Checked here rather than at save time because C2 requires a long list to
     // still save; it is running one that spends the money.
     //

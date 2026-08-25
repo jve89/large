@@ -27,4 +27,4 @@
  * every series recorded under the version before it. Version 3 was taken on the
  * day version 2 shipped, deliberately: production held one run.
  */
-export const MEASUREMENT_SEMANTICS_VERSION = 3
+export const MEASUREMENT_SEMANTICS_VERSION = 4

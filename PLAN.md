@@ -269,6 +269,12 @@ answer and cannot do so until that table exists.
   `npm run test -- aggregate` with fixtures at 100, 85, 79 and 0 percent coverage
   per target including one run where the two targets differ, and by inspecting the
   run page.
+  **C18's clause, added 2026-08-25:** every prompt in the run's snapshot has its
+  text displayed on the run page and returned by `GET /api/runs/:runId`, verified
+  by `npm run test -- ui/run-page` - both assertions go red if either is removed.
+  This clause exists because C18 was satisfied by this phase's code and guarded by
+  nothing, which is the defect the capability was written to close, reproduced on
+  the capability itself.
 - Commit: `feat: aggregation, coverage and cost`
 - **Recorded 2026-08-25.** Two things this phase established that later phases
   inherit. C10 is enforced in two places because it can fail in two - `Figure<T>`

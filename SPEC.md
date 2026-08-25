@@ -156,7 +156,9 @@ next to which competitors, and which sources the model cited.
   `[Acme](https://acme.nl)` still names the brand. Hosts are compared after any
   `www.` is stripped, and a label that is the registrable domain of a deeper target
   host still counts as that link's address, so a subdomain or a path does not
-  defeat it.
+  defeat it. The comparison is **not symmetric**: a label deeper than its target -
+  `[blog.acme.nl](https://acme.nl)` - names a different host from the one linked,
+  has therefore not been shown to be that link's address, and is kept.
   Where the label is address-shaped but is **not** the target's address, it is
   kept. `[Node.js](https://nodejs.org)` names a brand that happens to contain a dot
   and a TLD-shaped suffix; dropping it would be a parsing artifact rather than a
@@ -218,6 +220,7 @@ next to which competitors, and which sources the model cited.
   | 2 | 2026-08-25 | Visible text also removes URLs, autolinks, reference-link definitions and email addresses; and a markdown link whose visible text is itself a bare domain loses both halves. | Two changes, one bump, because both alter what counts as a mention. A brand inside an address was being counted, and a client's own domain contains its own name, so the subject was recorded as mentioned in answers that never named it and every position after it shifted. Link text that is a bare domain is an attribution rather than prose, and the markdown says which it is. |
   | 2 (documents) | 2026-08-25 | No semantics change. C3, `PLAN.md` -> Phase 3 and `ARCHITECTURE.md` were brought into line with version 2, having still said the hash covered four inputs. | Recorded because the gap is the point, not the edit: the code and Definitions moved to five inputs while the **normative** criterion still specified four, so the pack instructed a future session to undo the fix. Found by the consistency check, not by a test - no test can read a specification. |
   | 3 | 2026-08-25 | A domain-shaped link label is removed only when it is that link's **own address**, compared by host after stripping `www.` and allowing a deeper target host. An address-shaped label pointing elsewhere is kept. | Version 2 merged two error classes. `[acme.nl](https://acme.nl)` is an attribution and dropping it is a conservative measurement choice; `[Node.js](https://nodejs.org)` is a brand that merely contains a dot, and dropping it was a parsing artifact with no compensating benefit. Taken the same day as version 2 rather than after Phase 9's count, because each bump invalidates every series recorded under the version before it and production held one run. |
+  | 4 | 2026-08-25 | The label-versus-target comparison stopped being symmetric: a label **deeper** than its target, `[blog.acme.nl](https://acme.nl)`, is now kept. | Version 3's code dropped that case and no document described it, so the parser was quietly stricter than its own definition. The rule is that a label is dropped only when shown to be the target's own address, and a subdomain of the target is a different host. Third bump in two days, taken deliberately: every bump invalidates every series recorded under the version before it, production holds nothing, and these are free today and never will be again. |
 
 ## Capabilities (v1) - each has an ID and an EARS criterion
 

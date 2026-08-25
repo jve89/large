@@ -78,6 +78,17 @@ export async function GET(
       provider: target.provider,
       modelId: target.modelId,
     })),
+    // C18 - the prompt library is not a secret. This is the capability's statement
+    // of itself at the API level, and it is here because ARCHITECTURE documented it
+    // while the route did not return it: when a document and the code disagree, the
+    // tiebreaker is whether a capability depends on it (CLAUDE.md rule 22). It is
+    // the run's snapshot, never the company's current list, because the snapshot is
+    // what was measured.
+    prompts: run.prompts.map((prompt) => ({
+      id: prompt.id,
+      order: prompt.order,
+      text: prompt.text,
+    })),
     progress: { done: run._count.answers, total },
     // `totals.costMicros` is a BigInt and `JSON.stringify` throws on one, which
     // TypeScript does not catch. See RunTotalsWire for the representation and why.

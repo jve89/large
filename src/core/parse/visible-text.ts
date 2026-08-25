@@ -109,10 +109,17 @@ function hostOf(value: string): string | null {
  *
  * Comparing the label against the target tells the two apart using information the
  * parser already has. Hosts are compared after `www.` is stripped, and a label
- * that is the registrable domain of a deeper target host still matches - so
+ * that is the registrable domain of a **deeper** target host still matches - so
  * `[acme.nl](https://blog.acme.nl/x)` is an attribution too. Where the label is
  * address-shaped but points somewhere else entirely, the label is **kept**: the
  * rule drops a label only when it can show the label is the target's own address.
+ *
+ * The comparison is deliberately **not symmetric**, corrected 2026-08-25. A label
+ * deeper than its target - `[blog.acme.nl](https://acme.nl)` - names a different
+ * host from the one being linked, so it has not been shown to be that link's
+ * address and is kept. The first version of this function also dropped that case,
+ * which no document described; the asymmetry here is what makes the code and
+ * `SPEC.md` -> Definitions -> Visible text say the same thing.
  */
 function isSelfAttribution(label: string, target: string): boolean {
   const labelHost = hostOf(label)
@@ -121,8 +128,7 @@ function isSelfAttribution(label: string, target: string): boolean {
   const targetHost = hostOf(target)
   if (targetHost === null) return false
 
-  if (labelHost === targetHost) return true
-  return targetHost.endsWith(`.${labelHost}`) || labelHost.endsWith(`.${targetHost}`)
+  return labelHost === targetHost || targetHost.endsWith(`.${labelHost}`)
 }
 
 /** An autolink - `<https://example.com>` - brackets and all. */

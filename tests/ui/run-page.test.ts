@@ -117,8 +117,17 @@ async function renderRun(attempts: readonly Attempt[], status: RunStatus = 'comp
     })
   }
 
+  lastRunId = run.id
   const { default: RunPage } = await import('../../src/app/runs/[runId]/page.tsx')
   return renderToStaticMarkup(await RunPage({ params: Promise.resolve({ runId: run.id }) }))
+}
+
+/** The id of the run `renderRun` most recently built, for the API-level checks. */
+let lastRunId = ''
+
+async function buildRunId(attempts: readonly Attempt[]): Promise<string> {
+  await renderRun(attempts)
+  return lastRunId
 }
 
 /** Every `<li data-figure="...">` block in the rendered markup. */
@@ -249,6 +258,40 @@ describe('C10 on the page - a cell where every attempt failed', () => {
     // measurement of absence and must not be confused with the case above.
     expect(html).toContain('named in 0 of 2 successful attempts')
     expect(html).toContain('data-cell="measured"')
+  })
+})
+
+describe('C18 - the prompt library is not a secret', () => {
+  it('prints the text of every prompt in the run snapshot on the page', async () => {
+    // The capability's own guard. It is here because C18 was written on 2026-08-25
+    // to close a promise nothing enforced, and for one session it reproduced that
+    // defect on itself: the page rendered the prompts and no test looked, so
+    // deleting the one line that prints them left all 353 tests green. "Satisfied"
+    // and "guarded" are not the same thing (CLAUDE.md rule 18).
+    const html = await renderRun(HEALTHY)
+    expect(html).toContain('who is best in Leeds?')
+    expect(html).toContain('who does emergency call-outs?')
+  })
+
+  it('returns them from the run endpoint too, in snapshot order', async () => {
+    // The same capability one level down. ARCHITECTURE documented this array while
+    // the route did not return it, and a capability's statement of itself is the
+    // case where the document is right and the code is behind (rule 22).
+    const runId = await buildRunId(HEALTHY)
+    const { GET } = await import('../../src/app/api/runs/[runId]/route.ts')
+    const response = await GET(new Request('http://localhost'), {
+      params: Promise.resolve({ runId }),
+    })
+    expect(response.status).toBe(200)
+
+    const body = (await response.json()) as {
+      prompts: { id: string; order: number; text: string }[]
+    }
+    expect(body.prompts.map((prompt) => prompt.text)).toEqual([
+      'who is best in Leeds?',
+      'who does emergency call-outs?',
+    ])
+    expect(body.prompts.map((prompt) => prompt.order)).toEqual([0, 1])
   })
 })
 

@@ -196,6 +196,13 @@ describe('toVisibleText', () => {
     )
   })
 
+  it('keeps a label whose host is deeper than the target it points at', () => {
+    // The comparison is not symmetric, corrected 2026-08-25. `blog.acme.nl` is a
+    // different host from `acme.nl`, so the label has not been shown to be that
+    // link's own address. Version 3 dropped it and no document said so.
+    expect(toVisibleText('See [blog.acme.nl](https://acme.nl).')).toContain('blog.acme.nl')
+  })
+
   it('keeps an address-shaped label that points somewhere else entirely', () => {
     // The rule drops a label only when it can show the label is the target's own
     // address. A mismatch is not evidence of attribution.

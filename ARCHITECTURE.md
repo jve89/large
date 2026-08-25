@@ -567,32 +567,41 @@ POST   /api/runs
   # gate exercises this code path instead of inserting its own run row.
 
 GET    /api/runs/:runId
-  res: { run,                          # incl. status, N, basisHash, snapshot
-         targets,
+  res: { run,                          # incl. status, N, basisHash, brandName
+         targets: { id, provider, modelId }[],
+         prompts: { id, order, text }[],   # C18 - the run's snapshot, never the
+                                           # company's current list
          progress: { done, total },    # total = prompts x targets x N
-         perTarget: [ { provider, modelId, coverage, reliable,
-                        mentionRate, averagePosition, competitors,
-                        citedDomains } ],   # C16: [{ domain, count }],
-                                            # successful answers only; count is
-                                            # the number of ANSWERS the domain
-                                            # appears in, never citation rows;
-                                            # count desc then domain asc;
-                                            # null - not [] - when the target
-                                            # has no successful answer. [] means
-                                            # answers existed and cited nothing.
-         totals: { inputTokens, outputTokens, searchCount, costMicros },
-         prompts: [ { text, cells: [ { target, state, answers } ] } ] }
-        # every figure computed at read time; `state` is one of
-        # 'ok' | 'no-data'; 'no-data' is never rendered as zero.
-        # The `answers` array below is what SPEC C17 requires: it is
-        # the evidence every displayed figure must reach.
+         aggregate: { repetitions,
+                      targets: [ { targetId, provider, modelId,
+                                   coverage: { successes, planned, ratio,
+                                               reliable },
+                                   mentionRate, averagePosition, competitors,
+                                   cells: [ { runPromptId, planned, succeeded,
+                                              mentioned, state } ] } ],
+                      totals: { inputTokens, outputTokens, searchCount,
+                                costMicros, costUsd, answers,
+                                plannedAttempts } } }
+        # Corrected 2026-08-25: this block documented a top-level `perTarget`
+        # and `totals`, and cells hanging off prompts. None of that shipped -
+        # the cells live inside each target. That half was the document being
+        # stale, so the code won; the `prompts` array was C18's statement of
+        # itself, so the route gained it. See CLAUDE.md rule 22.
         #
-        # answers: { repetition, status, failureReason?, rawText?,
-        #            mentions:   { brand, isSubject, position,
-        #                          totalRecognised }[],
-        #            citations:  { url, title, order }[],
-        #            usage:      { inputTokens, outputTokens, searchCount },
-        #            costMicros, latencyMs, httpAttempts }[]
+        # Every figure is computed at read time (C9) in lib/aggregate.ts and
+        # nothing here is a column. mentionRate, averagePosition and
+        # competitors are each a Figure<T>: { result, coverage, repetitions },
+        # so a consumer cannot take the value without holding the coverage and
+        # the run's N (C10). `result` is
+        #   { kind: 'measured', value } | { kind: 'no-data' }
+        #   | { kind: 'not-applicable', why }
+        # - 'no-data' is never a zero, and 'not-applicable' is a measurement
+        # whose answer is "nowhere". `cells[].state` is 'measured' | 'no-data'.
+        # `costMicros` is a decimal STRING: JSON.stringify throws on a BigInt
+        # and a JSON number is a double. `costUsd` is display only.
+        #
+        # C16's citedDomains and C17's answers arrays are Phases 11 and 12 and
+        # are not in this payload yet.
   errs: 404 unknown run
 ```
 
