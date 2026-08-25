@@ -242,8 +242,11 @@ describe('POST /api/runs - the run is immutable afterwards', () => {
 })
 
 /**
- * `basisHash` covers exactly four inputs: prompts, targets, aliases, competitors.
- * The negatives are what matter - what must NOT move the hash.
+ * `basisHash` covers exactly five inputs: prompts, targets, aliases, competitors
+ * and the measurement semantics version, each canonicalised as a **set** rather
+ * than a sequence. The negatives are what matter - what must NOT move the hash -
+ * because the failure this guard has is the quiet one: refusing a comparison that
+ * was valid tells a customer their history is unavailable, and nobody argues.
  */
 describe('POST /api/runs - basisHash', () => {
   async function hashOf(companyId: string, body: Record<string, unknown> = {}): Promise<string> {
@@ -312,15 +315,24 @@ describe('POST /api/runs - basisHash', () => {
     expect(await hashOf(companyId)).not.toBe(before)
   })
 
-  it('changes when the prompts are merely reordered, because their order is the basis', async () => {
-    const companyId = await createFixture('hash-order', { prompts: ['one', 'two'] })
+  it('does NOT change when the prompts are merely reordered', async () => {
+    // Reversed 2026-08-25 along with the canonical form of the hash: a prompt list
+    // is a set, so re-pasting the same prompts in a different order must not
+    // refuse a comparison between two runs that asked identical questions.
+    const companyId = await createFixture('reorder-prompts', {
+      prompts: ['first prompt', 'second prompt'],
+    })
     const before = await hashOf(companyId)
 
-    await putPrompts(
-      jsonRequest('http://localhost/prompts', 'PUT', { prompts: ['two', 'one'] }),
+    const put = await putPrompts(
+      jsonRequest('http://localhost/prompts', 'PUT', {
+        prompts: ['second prompt', 'first prompt'],
+      }),
       ctx(companyId),
     )
-    expect(await hashOf(companyId)).not.toBe(before)
+    expect(put.status).toBe(200)
+
+    expect(await hashOf(companyId)).toBe(before)
   })
 
   it('changes when the target list changes', async () => {

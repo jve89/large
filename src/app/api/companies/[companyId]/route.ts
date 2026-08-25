@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { groupIntoSeries } from '../../../../lib/comparability.ts'
 import { prisma } from '../../../../lib/db.ts'
 import { validateEnv } from '../../../../lib/env.ts'
 import { isCompanyId, normaliseNames, schemaErrorMessage } from '../route.ts'
@@ -43,6 +44,8 @@ export async function GET(
     return NextResponse.json({ error: 'Unknown company' }, { status: 404 })
   }
 
+  const { series, basisChanged } = groupIntoSeries(company.runs)
+
   return NextResponse.json({
     company: {
       id: company.id,
@@ -62,6 +65,17 @@ export async function GET(
       createdAt: run.createdAt,
       finishedAt: run.finishedAt,
     })),
+    // C11. A client reading `runs` alone would have to re-derive which of them may
+    // be compared; this states it, and `basisChanged` is the flag the capability's
+    // "SHALL state that the measurement basis changed" hangs off.
+    comparability: {
+      basisChanged,
+      series: series.map((group) => ({
+        basisHash: group.basisHash,
+        ordinal: group.ordinal,
+        runIds: group.runs.map((run) => run.id),
+      })),
+    },
   })
 }
 

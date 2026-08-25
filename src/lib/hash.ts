@@ -35,12 +35,51 @@ export interface MeasurementBasis {
 }
 
 /**
- * Aliases and competitors are sets, not sequences: reordering them does not change
- * what was measured, so they are normalised and sorted before hashing. Prompts and
- * targets are ordered, and their order is part of the basis.
+ * ## Canonical form, per input
+ *
+ * **All four operator-editable inputs are sets, not sequences.** Reordering any of
+ * them does not change what was measured, so none of them may change the hash.
+ *
+ *   - **prompts** - NFC-normalised, then sorted. Every (prompt, target,
+ *     repetition) is an independent call with no shared state, so twenty prompts
+ *     asked in a different order are the same twenty questions. They are *not*
+ *     de-duplicated here: C2 already guarantees a stored list has no duplicates,
+ *     and collapsing one silently would hide a C2 failure rather than survive it.
+ *   - **targets** - `(provider, modelId)` pairs, sorted. Each target is measured
+ *     independently; `queueRun` refuses a repeated one.
+ *   - **aliases** and **competitors** - NFC-normalised, trimmed, de-duplicated,
+ *     sorted. De-duplication is right here and wrong for prompts because nothing
+ *     upstream guarantees an operator did not type a name twice.
+ *
+ * Sorting is by UTF-16 code unit, never `localeCompare`, for the reason recorded
+ * in `lib/aggregate.ts`: a locale comparison depends on the runtime's ICU data, so
+ * the same basis could hash differently on a laptop and in the container. For a
+ * hash whose whole job is to be equal across time and machines, that would be
+ * fatal rather than untidy.
+ *
+ * *Changed 2026-08-25.* Prompts and targets were previously hashed as ordered
+ * lists, which meant re-pasting the same twenty prompts in a different order
+ * refused a comparison between two runs that asked identical questions - a false
+ * negative in the guard, the same class of error as folding the aggregation
+ * version into this hash would have been. Hashes computed before that date are
+ * therefore not comparable with ones after it; production held one run.
  */
+function byCodeUnit(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+function canonicalPrompts(prompts: readonly string[]): string[] {
+  return prompts.map((prompt) => prompt.normalize('NFC')).sort(byCodeUnit)
+}
+
+function canonicalTargets(targets: readonly Target[]): [string, string][] {
+  return targets
+    .map((target): [string, string] => [target.provider, target.modelId])
+    .sort((a, b) => byCodeUnit(a[0], b[0]) || byCodeUnit(a[1], b[1]))
+}
+
 function normaliseNames(names: readonly string[]): string[] {
-  return [...new Set(names.map((n) => n.normalize('NFC').trim()).filter(Boolean))].sort()
+  return [...new Set(names.map((n) => n.normalize('NFC').trim()).filter(Boolean))].sort(byCodeUnit)
 }
 
 export function basisHash(basis: MeasurementBasis): string {
@@ -57,8 +96,8 @@ export function basisHash(basis: MeasurementBasis): string {
  */
 export function basisHashAt(basis: MeasurementBasis, semanticsVersion: number): string {
   const payload = {
-    prompts: basis.prompts.map((p) => p.normalize('NFC')),
-    targets: basis.targets.map((t) => [t.provider, t.modelId]),
+    prompts: canonicalPrompts(basis.prompts),
+    targets: canonicalTargets(basis.targets),
     aliases: normaliseNames(basis.aliases),
     competitors: normaliseNames(basis.competitors),
     semanticsVersion,

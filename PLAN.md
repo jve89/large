@@ -26,8 +26,8 @@
 | 8 | 7 - Aggregation, coverage and cost | C9, C10, C12, C18 | done |
 | 9 | 11 - Cited domain frequency | C16 | done |
 | 10 | 12 - Traceability to evidence | C17 | done |
-| 11 | 8 - Comparability guard | C11 | next |
-| 12 | 13 - Mark the client's own cited domain | C16, extended | |
+| 11 | 8 - Comparability guard | C11 | done |
+| 12 | 13 - Mark the client's own cited domain | C16, extended | next |
 | 13 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | |
 | 14 | 10 - Ship | SPEC "Success = done when" | |
 
@@ -84,6 +84,8 @@ of these behaviours has this instrument only ever performed against fixtures".
 | **The same host cited with and without `www.`** in one target's answers, which must group as one domain (C16) | Never: **0** hosts have appeared in both forms | Nothing forces a model to vary the form it cites | More answers, or a provider that normalises differently from the other |
 | ~~Two pages of one site inside one answer~~ | **Observed, 12 times.** This one is real | - | - |
 | **The long-context price tier** - over 272,000 input tokens at openai (`pricing.ts`) | Never: **0** answers. A buying-moment prompt runs about 20,000 input tokens | Nothing in v1's shape approaches it | Not v1. The branch guards against a provider changing the threshold rather than against this product's own traffic |
+| **C11 firing at all** - two runs of one company differing in basis | Never. Production holds **one** run; no two runs have ever differed in basis outside tests | Nothing in a gate changes a company's prompts, aliases, competitors or targets between runs | An operator editing a company between runs, which is ordinary use and will happen the first week a real client exists |
+| **A series interrupted and resumed** - basis A, then B, then A again, which must be two series and not three | Never | As above, and it needs three runs across two bases | The same operator changing something and changing it back - likelier than it sounds, since a prompt list is edited by re-pasting |
 | **C3's prompt-maximum and C19's planned-call refusals** | Never triggered by a real request | Both refuse before a run exists; no operator has yet asked for one that large | An operator pasting a long list, which is what they are for |
 
 Two notes on reading this table. The `www.` row and the struck-through row beneath
@@ -521,6 +523,39 @@ reachable from the figure.
   fail on the very input the guard had just been given, and Phase 9 - which
   compares two runs a day apart - is where that would first have mattered.
 - Commit: `feat: comparability guard`
+- **Recorded 2026-08-25.** Three decisions, one of which reversed an earlier one.
+  **What C11 observably guards today is the company's run list.** There is no trend
+  chart - deferred until Phase 9 establishes an N - and the run page shows one run
+  at a time, so it was worth asking whether the guard had any surface at all before
+  building to it, given that C18 turned out to have none a week after it was
+  written. It does: the run list shows every run of one company in time order with
+  its basis, and a reader looking at four rows descending by date is reading a
+  series whether or not anything calls it one. They are now grouped, and a list
+  spanning more than one basis says in words that it is not one series. The API
+  returns the same grouping so a client need not re-derive it. When scheduled runs
+  arrive at stage 3 and a chart is drawn, it is drawn over these groups.
+  **Prompt and target order no longer change the basis.** Every (prompt, target,
+  repetition) is an independent call, so twenty prompts asked in a different order
+  are the same twenty questions, and hashing them as a list refused a comparison
+  between two runs that had asked identically. That is a **false negative**, and it
+  is the quieter of this guard's two failure modes: a false positive draws a wrong
+  line and somebody argues with it, while a false negative only tells a customer
+  their history is unavailable. The canonical form of all four operator inputs is
+  now recorded in `SPEC.md` -> Definitions, and the two tests that asserted the old
+  decision were inverted rather than deleted.
+  **The aggregation version cannot make the guard refuse, and that is now a test
+  rather than a comment.** `tests/comparability.test.ts` recomputes the hash payload
+  from exactly its five inputs, so adding a sixth - the aggregation version or
+  anything else - turns it red, which no comment can do.
+  **The browser pass found the guard firing on real history, not constructed
+  rows.** The `verify-live` company has 12 runs across **three** bases: 8 from
+  before the semantics version existed, 1 from an intermediate version, and 3 from
+  after the canonical form changed. Every one of those splits was caused by this
+  project's own changes over two days, and the page now says so - "these 12 runs
+  were measured on 3 different bases and are not one series" - instead of listing
+  twelve rows a reader would take for one line. The register's C11 row stays
+  accurate all the same: **no operator action** has ever changed a basis, which is
+  the case the guard was written for and the one still unexercised.
 
 ## Phase 9 - Presentation pass against a real brand
 
@@ -556,6 +591,27 @@ this product's whole risk is a number being misread.
     computed under a different aggregation rule than the ones you saw before"
     when it is true. Decide the wording against real figures rather than in the
     abstract; nothing was built for it in Phase 11.
+  - **At least two brands are measured: one the models name, and one genuinely
+    absent.** Every run this project has ever made measured a brand the models
+    name readily, so the register above records that "average position, not
+    applicable - measured, and the brand was named nowhere" has **never been
+    produced by reality**. That is not a gap in coverage, it is a gap in the
+    screen this product sells.
+    The reasoning is commercial rather than technical. First contact with almost
+    every customer is a free scan whose most common honest answer is "you are not
+    named in any of these six answers". That is the screen a plumber sees, and it
+    is the screen that decides whether they pay - and it is the one screen this
+    instrument has never rendered from real data.
+    So: pick a real small business in a real city whose category the models will
+    answer about, and expect zero mentions. **It must not render as a degraded
+    run.** Coverage can be 100 percent, every attempt successful, every figure
+    valid, and the answer still be that the brand appears nowhere. Mention rate
+    reads a measured 0 percent; average position reads not-applicable and never
+    "no data"; the cited-domain list is full; nothing is labelled unreliable.
+    **The distinction between "we could not measure you" and "we measured you and
+    you are not there" is the single most important thing this instrument
+    communicates, and only one side of it has ever been on screen.** Verify it on
+    the page, not only in the figures.
   - **Citation churn and mention churn are measured separately, on the same runs.**
     This is a distinct criterion from the stability check below, and the two must
     not be merged. The published volatility figures in this category - see Roadmap

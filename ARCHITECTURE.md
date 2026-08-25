@@ -1002,6 +1002,25 @@ phase. Phase 0 pushes to it.
   the one a reader actually takes. If it ever needs pagination, that is a change to
   this page and not to the capability.
 
+- **C11's surface is the company's run list, and asking that first was the point.**
+  A capability with no observable behaviour is what C18 turned out to be. There is
+  no trend chart and the run page shows one run, so before building a guard it was
+  worth establishing that a series exists anywhere a reader can see - it does, in
+  the run list, where rows descending by date read as a series whether or not
+  anything calls them one. `lib/comparability.ts` groups them by `basisHash` and
+  the page states in words when a list spans more than one. Grouping is by basis
+  and **not** by adjacency: a company that measured A, then B, then A again has two
+  series, and the two A runs are one of them - splitting on adjacency would refuse
+  a comparison that is valid.
+
+- **`basisHash` canonicalises all four operator inputs as sets.** Prompt and target
+  order were part of the basis until 2026-08-25, which meant re-pasting the same
+  prompts in a different order refused a comparison between two runs that had asked
+  identically. Every (prompt, target, repetition) is an independent call, so order
+  is presentation and not measurement. Sorting is by code unit, never locale, for
+  the same reason the cited-domain tie-break is: a hash whose job is to be equal
+  across machines cannot depend on the runtime's ICU data.
+
 - **Two version numbers, stamped in two different places, for the same reason.**
   `MEASUREMENT_SEMANTICS_VERSION` is hashed into `basisHash` at run creation;
   `AGGREGATION_SEMANTICS_VERSION` is stated on every rendering and is deliberately

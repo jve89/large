@@ -246,6 +246,46 @@ next to which competitors, and which sources the model cited.
   competitor or target is visible to whoever made the change; a changed parser is
   visible to nobody. Every other input announces itself.
 
+  **Canonical form, per input.** All four operator-editable inputs are **sets, not
+  sequences**: reordering any of them does not change what was measured, so none of
+  them may change the hash.
+  - *Prompts* - NFC-normalised, then sorted. Every (prompt, target, repetition) is
+    an independent call with no shared state, so twenty prompts asked in a
+    different order are the same twenty questions. They are **not** de-duplicated,
+    because C2 already guarantees a stored list has none and collapsing one here
+    would hide a C2 failure rather than survive it.
+  - *Targets* - `(provider, modelId)` pairs, sorted. Each is measured
+    independently, and C3 refuses a repeated one.
+  - *Aliases* and *competitors* - NFC-normalised, trimmed, **de-duplicated**,
+    sorted. De-duplication is right here and wrong for prompts because nothing
+    upstream promises an operator did not type a name twice.
+  Sorting is by UTF-16 code unit and never by locale: a locale comparison depends
+  on the runtime's ICU data, so the same basis could hash differently on a laptop
+  and in the container. For a hash whose whole job is to be equal across time and
+  machines that is fatal rather than untidy.
+  *Changed 2026-08-25.* Prompts and targets were previously hashed as ordered
+  lists, so re-pasting the same twenty prompts in a different order refused a
+  comparison between two runs that had asked identically - a **false negative**,
+  and the quieter of the guard's two failure modes: a false positive draws a wrong
+  line and somebody argues with it, while a false negative only tells a customer
+  their history is unavailable.
+
+- **Why a past run's figures never change** - the position, because a customer will
+  ask. Raw answer text is retained, so a run's answers *could* in principle be
+  re-parsed under a newly added alias. They are not, and will not be.
+  A run is a **measurement taken at a time**, not a query standing over stored
+  text. Its snapshot records the aliases, competitors, prompts and targets in force
+  when the questions were asked, and its `basisHash` says so. Re-parsing would
+  rewrite what a past measurement found, silently, and destroy the only thing that
+  makes two runs comparable - which is the promise C11 exists to keep.
+  So the answer to "I added an alias, why did my old numbers not change" is: they
+  are what was actually observed under the definitions in force at the time.
+  Adding an alias changes what the **next** run measures, and the guard shows
+  exactly where the new series begins.
+  This does not conflict with retaining raw text. The v2 judge reprocesses that
+  history to produce **new** derived data alongside the old, which is a different
+  act from editing what a stored run reported.
+
 - **Measurement semantics log** - what each version of the measurement semantics
   means. `MEASUREMENT_SEMANTICS_VERSION` in `src/core/parse/semantics.ts` is
   otherwise an uninterpretable number: this table is what lets a reader say *why*
@@ -258,6 +298,7 @@ next to which competitors, and which sources the model cited.
   | 1 | before 2026-08-25 | Not stamped. Visible text removed markdown link targets, image targets and fenced code blocks, and nothing else. | The constant did not exist. Runs from this period carry a hash over four inputs and so differ from every later run by construction. |
   | 2 | 2026-08-25 | Visible text also removes URLs, autolinks, reference-link definitions and email addresses; and a markdown link whose visible text is itself a bare domain loses both halves. | Two changes, one bump, because both alter what counts as a mention. A brand inside an address was being counted, and a client's own domain contains its own name, so the subject was recorded as mentioned in answers that never named it and every position after it shifted. Link text that is a bare domain is an attribution rather than prose, and the markdown says which it is. |
   | 2 (documents) | 2026-08-25 | No semantics change. C3, `PLAN.md` -> Phase 3 and `ARCHITECTURE.md` were brought into line with version 2, having still said the hash covered four inputs. | Recorded because the gap is the point, not the edit: the code and Definitions moved to five inputs while the **normative** criterion still specified four, so the pack instructed a future session to undo the fix. Found by the consistency check, not by a test - no test can read a specification. |
+  | 2 (canonical form) | 2026-08-25 | No semantics change and **no bump**. The canonical form of `basisHash` changed: prompts and targets became sets rather than ordered lists. | Recorded because hashes computed before this date differ from ones after it for an identical basis, and a reader comparing across it needs to know why. Bumping the constant would not have helped - future hashes already differ - and would have implied a change to what counts as a mention, which this is not. Production held one run, so the cost was as close to nothing as it will ever be. |
   | 3 | 2026-08-25 | A domain-shaped link label is removed only when it is that link's **own address**, compared by host after stripping `www.` and allowing a deeper target host. An address-shaped label pointing elsewhere is kept. | Version 2 merged two error classes. `[acme.nl](https://acme.nl)` is an attribution and dropping it is a conservative measurement choice; `[Node.js](https://nodejs.org)` is a brand that merely contains a dot, and dropping it was a parsing artifact with no compensating benefit. Taken the same day as version 2 rather than after Phase 9's count, because each bump invalidates every series recorded under the version before it and production held one run. |
   | 4 | 2026-08-25 | The label-versus-target comparison stopped being symmetric: a label **deeper** than its target, `[blog.acme.nl](https://acme.nl)`, is now kept. | Version 3's code dropped that case and no document described it, so the parser was quietly stricter than its own definition. The rule is that a label is dropped only when shown to be the target's own address, and a subdomain of the target is a different host. Third bump in two days, taken deliberately: every bump invalidates every series recorded under the version before it, production holds nothing, and these are free today and never will be again. |
 

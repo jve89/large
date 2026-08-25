@@ -24,10 +24,17 @@ describe('basisHash', () => {
     )
   })
 
-  it('changes when prompt order changes, because prompt order is part of the basis', () => {
-    expect(basisHash({ ...base, prompts: [...base.prompts].reverse() })).not.toBe(
-      basisHash(base),
-    )
+  it('is unchanged by prompt order, because a prompt list is a set and not a sequence', () => {
+    // Reversed 2026-08-25. Prompt order used to be part of the basis; it is not.
+    // Every (prompt, target, repetition) is an independent call with no shared
+    // state, so twenty prompts asked in a different order are the same twenty
+    // questions - and refusing to compare two runs that asked identically is a
+    // false negative in the guard. See lib/hash.ts -> Canonical form.
+    expect(basisHash({ ...base, prompts: [...base.prompts].reverse() })).toBe(basisHash(base))
+  })
+
+  it('is unchanged by target order, for the same reason', () => {
+    expect(basisHash({ ...base, targets: [...base.targets].reverse() })).toBe(basisHash(base))
   })
 
   it('changes when a model id changes', () => {
