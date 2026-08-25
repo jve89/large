@@ -172,6 +172,15 @@ answer and cannot do so until that table exists.
     three terminal outcomes including a high-coverage run killed by the reclaim
     limit.
 - Commit: `feat: worker claim, resume and retry`
+- **Correction, recorded 2026-08-25.** The heartbeat clause held, but Phase 4's
+  report justified it wrongly: it cited the per-attempt `heartbeat` callback in
+  `executeRun`, when what actually satisfies the clause is a `setInterval` started
+  at claim and cleared in a `finally`. Those are not equivalent - a per-attempt
+  beat is bounded by one attempt's duration, not by the interval, and could exceed
+  `STALE_RUN_SECONDS`. The code was mechanism (a) all along, so the gate did not
+  pass on a false clause; the *evidence offered for it* was wrong. The clause is
+  now proved by observation in `tests/worker/heartbeat.test.ts`, which fails if the
+  write ever moves onto the attempt path.
 
 ## Phase 5 - Answers and citations
 
@@ -419,6 +428,21 @@ needs no new provider calls against the measured models - which is why raw text
 is never deleted.
 
 ### Engineering items, each with its trigger
+
+- **An N and target-list control in the start-run dialog.** *Triggered by:* anyone
+  needing to run at an N other than the default. The dialog states the exact call
+  count before the button is pressed (C3), but it always submits
+  `DEFAULT_REPETITIONS` and `DEFAULT_TARGETS`, because it has no controls for
+  either - the endpoint accepts both, so this is a dashboard gap and not a worker
+  or API one. Consequence today: there is no way to click through a cheap N=1 run,
+  which made Phase 4's browser pass cost $0.43 rather than the $0.02 estimated.
+- **A graceful worker shutdown.** *Triggered by:* deploys interrupting runs often
+  enough that either accepted cost bites - the up-to-eight in-flight calls billed
+  but unstored per interrupted deploy, or the one `MAX_RECLAIMS` each deploy
+  consumes, which fails a long run crossing four deploys for no reason of its own.
+  Today SIGTERM aborts in flight and the reclaim path resumes the run, which is
+  correct but not free; see `ARCHITECTURE.md` -> Key decisions. The fix is to let
+  in-flight attempts finish before exiting, and it is a phase, not a patch.
 
 - **A shared rate limiter across workers.** *Triggered by:* starting a second
   worker process. `PROVIDER_CONCURRENCY` is per process, so running W workers

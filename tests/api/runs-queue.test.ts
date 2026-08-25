@@ -20,7 +20,12 @@ import {
 import { queueRun } from '../../src/core/run/queue.ts'
 import { fulfilled, raceWithSeparateConnections } from '../helpers/concurrency.ts'
 import { POST as postRun } from '../../src/app/api/runs/route.ts'
-import { DEFAULT_REPETITIONS, DEFAULT_TARGETS, MAX_REPETITIONS } from '../../src/lib/defaults.ts'
+import {
+  DEFAULT_REPETITIONS,
+  DEFAULT_TARGETS,
+  MAX_PROMPTS,
+  MAX_REPETITIONS,
+} from '../../src/lib/defaults.ts'
 import { prisma } from '../../src/lib/db.ts'
 
 const PREFIX = `test-c3-${process.pid}-`
@@ -562,5 +567,52 @@ describe('POST /api/runs - queued while the prompt list is being replaced', () =
       // Either way the company's own list ends up cleared - the replacement ran.
       expect(await prisma.prompt.count({ where: { companyId } })).toBe(0)
     }
+  })
+})
+
+/**
+ * The prompt-list ceiling (`MAX_PROMPTS`). A cost guardrail rather than a
+ * capability, enforced at queue time because C2 requires a long list to still
+ * save - saving is free, running is what spends money.
+ */
+describe('POST /api/runs - the prompt-list ceiling', () => {
+  function lines(count: number): string[] {
+    return Array.from({ length: count }, (_, i) => `prompt number ${i}`)
+  }
+
+  it('queues a run at exactly the maximum', async () => {
+    const companyId = await createFixture('at-max-prompts', { prompts: lines(MAX_PROMPTS) })
+    const run = await loadRun(await queueOk({ companyId, repetitions: 1 }))
+    expect(run.prompts).toHaveLength(MAX_PROMPTS)
+  })
+
+  it('refuses one past the maximum, names the numbers, and creates no run', async () => {
+    const count = MAX_PROMPTS + 1
+    const companyId = await createFixture('over-max-prompts', { prompts: lines(count) })
+    const before = await prisma.run.count()
+
+    const response = await queue({ companyId, repetitions: DEFAULT_REPETITIONS })
+    expect(response.status).toBe(400)
+
+    const body = (await response.json()) as { error: string }
+    expect(body.error).toContain(String(count))
+    expect(body.error).toContain(String(MAX_PROMPTS))
+    // ...and the call count it would have cost, which is the reason for the bound.
+    expect(body.error).toContain(String(count * DEFAULT_TARGETS.length * DEFAULT_REPETITIONS))
+
+    expect(await prisma.run.count()).toBe(before)
+    expect(await prisma.run.count({ where: { companyId } })).toBe(0)
+  })
+
+  it('still allows the oversized list to be SAVED, per C2', async () => {
+    // The bound is on running, not on storing. C2 says a list over 50 "SHALL
+    // still allow the save", so enforcing this at save time would contradict it.
+    const companyId = await createFixture('save-over-max', { prompts: [] })
+    const put = await putPrompts(
+      jsonRequest('http://localhost/prompts', 'PUT', { prompts: lines(MAX_PROMPTS + 25) }),
+      ctx(companyId),
+    )
+    expect(put.status).toBe(200)
+    expect(await prisma.prompt.count({ where: { companyId } })).toBe(MAX_PROMPTS + 25)
   })
 })

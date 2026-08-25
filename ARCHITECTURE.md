@@ -278,6 +278,8 @@ large/
     worker/
       claim.test.ts                  # two claimers, exactly one winner
       resume.test.ts                 # stale run resumes, does not restart
+      heartbeat.test.ts              # the beat is wall-clock, not per-attempt
+    prompt-writer-guard.test.ts     # only replacePromptList may write Prompt
     aggregate.test.ts
     cited-domains.test.ts            # SPEC C16, per target
     traceability.test.ts             # SPEC C17, figure -> its answers
@@ -650,6 +652,15 @@ get** - enumerate and check these when a deploy behaves unexpectedly:
   missing trigger (`deploymentTriggerCreate`, branch `main`). Query both with:
   `railway api 'query { project(id: "...") { services { edges { node { name
   repoTriggers { edges { node { branch repository } } } } } } } }'`
+  **What that recalibrated.** Every "pushed, CI green" claim from Phase 0 to Phase 4
+  covered the **web service only**. CI runs typecheck, lint and test and deploys
+  nothing; the worker had never deployed since the skeleton, so nothing anyone
+  believed about worker behaviour in production had ever been true - there was no
+  worker in production to behave. A green gate says the code is correct, and said
+  nothing at all about whether the running system contained it.
+  **A consequence that only started on 2026-08-25:** every push to main now sends
+  SIGTERM to a worker that may be mid-run. Before the fix no deploy ever
+  interrupted a worker, because no deploy ever reached one.
 - the start command per service (they differ; they are not in `package.json`)
 - which service is publicly exposed (web only - the worker must have no domain)
 - the Postgres plugin's injected `DATABASE_URL` and its connection limit
@@ -827,6 +838,26 @@ phase. Phase 0 pushes to it.
 - **Money as integer micro-dollars.** Floating point currency accumulates error
   across 120 rows per run and is never correct at the point someone is invoiced.
 
+- **A deploy interrupting a run is handled by the reclaim path, not by a shutdown
+  protocol.** On SIGTERM the worker aborts its `AbortController`; `executeRun`
+  skips attempts not yet started and both adapters pass the signal to their SDK,
+  so in-flight HTTP calls are cancelled. The run is left `running` with whatever
+  heartbeat it last wrote, and `finishRun` is never reached. `STALE_RUN_SECONDS`
+  later the next worker reclaims it and resumes, executing only the combinations
+  with no stored answer - so every attempt already paid for is kept and none is
+  bought twice. **This is sufficient for correctness**, and it is what the resume
+  path was built for.
+  Two costs are accepted rather than solved. First, calls in flight at the moment
+  of SIGTERM may be billed by the provider and never stored, so they are paid for
+  again on resume: at most `PROVIDER_CONCURRENCY` per provider, so eight calls -
+  about $0.58 at the measured $0.072 - per interrupted deploy. Second, **each
+  interrupted deploy consumes one of `MAX_RECLAIMS`**, so a long run crossing four
+  deploys is failed by deploys alone rather than by anything wrong with it. If
+  either becomes a real problem the answer is a graceful shutdown that lets
+  in-flight attempts finish before exiting, which is a phase of its own and is
+  written into `PLAN.md` -> Roadmap beyond v1, not something to patch in
+  incidentally.
+
 - **Concurrency rules are tested under real contention, on one shared harness.**
   `tests/helpers/concurrency.ts` gives each actor **its own `PrismaClient`** - actors
   sharing a pool can be served by one connection, and then `FOR UPDATE SKIP LOCKED`
@@ -841,6 +872,19 @@ phase. Phase 0 pushes to it.
   this project would be asserted by two sequential calls, which pass against an
   implementation that has no locking at all.
 
+- **The heartbeat is wall-clock, not per-attempt, and that is the whole of C15's
+  fifteen-second clause.** `processNextRun` starts a `setInterval` when it claims a
+  run and clears it in a `finally`, so the beat fires while an attempt is still in
+  flight. Had the only write been on the attempt path, the real gap between beats
+  would be bounded by one attempt - a provider timeout, times up to three attempts,
+  plus backoff - which can exceed `STALE_RUN_SECONDS`; a live worker would then be
+  declared dead, a second worker would claim a run that is actively spending money,
+  both would execute it, and `finishRun` would race a reclaim. One defect wearing
+  four hats. `tests/worker/heartbeat.test.ts` **observes** the beat advancing
+  several times during a single long attempt with no answer row written, so a
+  refactor onto the attempt path fails a test rather than passing one - the
+  constants alone would still look correct.
+
 - **`queueRun` reads the company and its prompts as two SQL statements**, because
   Prisma issues an `include` as two queries - verified against the query log, not
   assumed. Under PostgreSQL's default READ COMMITTED each statement takes its own
@@ -848,7 +892,11 @@ phase. Phase 0 pushes to it.
   makes a run's snapshot coherent. It works because `replacePromptList` - the only
   writer of `Prompt` - takes the same lock. **Any future writer of `Prompt` must
   take it too**, or a run can silently record aliases from before a save and
-  prompts from after it.
+  prompts from after it. That precondition is not left to this paragraph:
+  `tests/prompt-writer-guard.test.ts` scans `src/` and fails, naming the file and
+  the call, if any module other than `replacePromptList` writes `Prompt` - through
+  the Prisma delegate, through raw SQL, or nested through the `Company` relation.
+  A comment is not a mechanism.
 
 - **One implementation of "queue a run", called by both the endpoint and the
   gate.** `src/core/run/queue.ts` holds it; `POST /api/runs` is an HTTP wrapper and

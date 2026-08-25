@@ -14,6 +14,7 @@
  * imitation passing is the failure mode the gate exists to catch.
  */
 import type { PrismaClient, RunStatus } from '@prisma/client'
+import { MAX_PROMPTS } from '../../lib/defaults.ts'
 import { basisHash } from '../../lib/hash.ts'
 import { priceFor } from '../providers/pricing.ts'
 import { targetKey, type Target } from '../providers/types.ts'
@@ -32,6 +33,7 @@ export type QueueRunFailure =
   | 'no-prompts'
   | 'duplicate-target'
   | 'unpriceable-target'
+  | 'too-many-prompts'
 
 export type QueueRunResult =
   | {
@@ -135,6 +137,22 @@ export async function queueRun(input: QueueRunInput): Promise<QueueRunResult> {
         ok: false,
         reason: 'no-prompts',
         message: 'This company has no prompts; nothing would be measured.',
+      } as const
+    }
+
+    // A cost guardrail, not a spec rule - see MAX_PROMPTS in lib/defaults.ts for
+    // the arithmetic. Checked here rather than at save time because C2 requires a
+    // long list to still save; it is running one that spends the money.
+    if (company.prompts.length > MAX_PROMPTS) {
+      const calls = company.prompts.length * targets.length * repetitions
+      return {
+        ok: false,
+        reason: 'too-many-prompts',
+        message:
+          `This company has ${company.prompts.length} prompts, above the limit of ` +
+          `${MAX_PROMPTS}. Queueing it would make ${calls} provider calls. ` +
+          'Shorten the prompt list, or raise MAX_PROMPTS in lib/defaults.ts if the ' +
+          'cost is intended.',
       } as const
     }
 

@@ -219,6 +219,13 @@ next to which competitors, and which sources the model cited.
   legitimately come from. A run that cannot cost itself is not a measurement, and
   refusing it at queue time is the difference between one clear error and a run
   whose every attempt fails for a reason nobody can see beforehand.
+  IF the company has more prompts than the configured maximum, THEN the system
+  SHALL reject the request and create no run, naming the count, the maximum and
+  the number of calls the run would have made. The maximum is a cost guardrail
+  rather than a capability - the arithmetic is recorded beside it in
+  `lib/defaults.ts` - and it is checked when a run is queued rather than when a
+  list is saved, because C2 requires a long list to still save. Saving is free;
+  running is what spends money.
   WHEN a run is created, the system SHALL state the number of provider calls it
   will make - prompts x targets x N - and SHALL state it **before** the operator
   commits to the run, not only afterwards. This is the point at which real money

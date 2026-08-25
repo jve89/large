@@ -9,19 +9,28 @@
  * A run survives a worker restart, because a stalled run is reclaimed and
  * **resumed** rather than restarted (SPEC C15).
  */
+import path from 'node:path'
 import type { PrismaClient } from '@prisma/client'
 import { adapterFor, type ProviderCredentials } from '../core/providers/index.ts'
-import type { Target } from '../core/providers/types.ts'
+import type { ProviderAdapter, Target } from '../core/providers/types.ts'
 import { executeRun, type RunnableRun } from '../core/run/execute.ts'
-import { assertDatabaseMajorVersion, prisma as defaultPrisma } from '../lib/db.ts'
 import { validateEnv } from '../lib/env.ts'
 import { claimRun, exceededReclaimLimit, finishRun, heartbeat } from './claim.ts'
 
 /**
- * The heartbeat must be refreshed at least every fifteen seconds while a worker
- * executes, or another worker will conclude it died. Ten leaves margin.
+ * SPEC C15: a worker "SHALL refresh that run's heartbeat at least every fifteen
+ * seconds" while it executes. Ten leaves margin.
+ *
+ * **This is wall-clock, not per-attempt, and that distinction is the whole
+ * criterion.** The beat below is a `setInterval` started when the run is claimed
+ * and cleared in a `finally`, so it fires while an attempt is still in flight. If
+ * the only write happened between stored attempts, the real gap would be bounded
+ * by how long one attempt takes - a provider timeout, times up to three attempts,
+ * plus backoff - which can exceed `STALE_RUN_SECONDS`. A live worker would then be
+ * declared dead, a second worker would claim a run that is actively spending
+ * money, and both would execute it. Do not move this write onto the attempt path.
  */
-const HEARTBEAT_INTERVAL_MS = 10_000
+export const HEARTBEAT_INTERVAL_MS = 10_000
 
 export interface WorkerDeps {
   readonly prisma: PrismaClient
@@ -31,6 +40,13 @@ export interface WorkerDeps {
   readonly staleRunSeconds: number
   readonly maxReclaims: number
   readonly signal?: AbortSignal
+  /**
+   * Test seams. The production path uses the adapter registry and the constant
+   * above; a test overrides them so that the heartbeat can be *observed* firing
+   * during a single long attempt rather than merely asserted from the constant.
+   */
+  readonly adapterFor?: (target: Target) => ProviderAdapter
+  readonly heartbeatIntervalMs?: number
 }
 
 export interface ProcessedRun {
@@ -73,17 +89,19 @@ export async function processNextRun(deps: WorkerDeps): Promise<ProcessedRun | n
     })),
   }
 
+  // Started here, at claim, and cleared in the `finally` below - never on the
+  // attempt path. See the note on HEARTBEAT_INTERVAL_MS.
   const beat = setInterval(() => {
     void heartbeat(deps.prisma, run.id).catch(() => {
       // A missed beat is recoverable: the run is reclaimed and resumed, never
       // restarted, so nothing is paid for twice.
     })
-  }, HEARTBEAT_INTERVAL_MS)
+  }, deps.heartbeatIntervalMs ?? HEARTBEAT_INTERVAL_MS)
 
   try {
     const status = await executeRun(run, {
       prisma: deps.prisma,
-      adapterFor: (target: Target) => adapterFor(target, deps.credentials),
+      adapterFor: deps.adapterFor ?? ((target: Target) => adapterFor(target, deps.credentials)),
       concurrencyPerProvider: deps.concurrencyPerProvider,
       coverageThreshold: deps.coverageThreshold,
       heartbeat: () => heartbeat(deps.prisma, run.id),
@@ -102,6 +120,23 @@ export async function processNextRun(deps: WorkerDeps): Promise<ProcessedRun | n
 }
 
 async function main(): Promise<void> {
+  // Load .env exactly the way scripts/verify-live.ts does, and for the same
+  // reason: the worker is a plain Node process, so nothing loads it for us the
+  // way Next does for the web service. An absent file is not an error - Railway
+  // injects the environment directly and there is no .env there.
+  //
+  // The db module is imported **after** this, dynamically, because it builds its
+  // client at module-evaluation time: a static import would read DATABASE_URL
+  // before this line ran and throw at load. That is the same ordering
+  // scripts/verify-live.ts uses, for the same reason.
+  try {
+    process.loadEnvFile(path.join(process.cwd(), '.env'))
+  } catch {
+    // No .env on disk; fall through to the ambient environment.
+  }
+
+  const { assertDatabaseMajorVersion, prisma: defaultPrisma } = await import('../lib/db.ts')
+
   const env = validateEnv('worker')
   await assertDatabaseMajorVersion()
 

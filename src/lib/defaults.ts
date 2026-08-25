@@ -39,6 +39,33 @@ export const DEFAULT_REPETITIONS = 3
 export const MAX_REPETITIONS = 50
 
 /**
+ * The largest prompt list a run may be queued against.
+ *
+ * Like `MAX_REPETITIONS` this is a **cost guardrail, not a spec rule** - and like
+ * it, the number is arithmetic rather than taste. The first real measurement, in
+ * Phase 4's browser pass, was 429,238 micro-dollars for six calls: about
+ * **$0.072 per provider call** (as measured 2026-08-25; re-check, don't trust -
+ * it moves with token counts and with each provider's prices).
+ *
+ * A run costs prompts x targets x N x $0.072. At the current two targets and the
+ * default N of 3, that is about **$0.43 per prompt**, so 100 prompts is roughly
+ * **$43** for one run. The absolute ceiling, at `MAX_REPETITIONS` of 50, is
+ * 100 x 2 x 50 = 10,000 calls, about **$715** - and that ceiling is dominated by
+ * N, not by this bound.
+ *
+ * 100 is chosen as twice C2's warning threshold of 50: a genuinely long list still
+ * saves and still runs, carrying the warning C2 requires, while a careless paste
+ * cannot turn into an unbounded bill. Without any bound the cost of one run is
+ * unbounded, and stating the call count before the click limits surprise but not
+ * exposure.
+ *
+ * Enforced at **queue** time rather than at save time, deliberately: C2 says a
+ * list over 50 "SHALL still allow the save", so refusing to store a long list
+ * would contradict it. Saving is free; running is what spends money.
+ */
+export const MAX_PROMPTS = 100
+
+/**
  * Model ids are confirmed against each provider's live models endpoint in Phase 0
  * before they are written into an adapter (as researched 2026-08-23; re-check,
  * don't trust).
