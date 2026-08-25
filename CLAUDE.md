@@ -111,11 +111,22 @@ each one before claiming a phase done.
 19. **Verify the check ran against this commit, not that the check is green.**
     "CI is green" and "Railway is healthy" are statements about a *service*, not
     about your work. Confirm the run and the deploy exist **for this sha**:
-    `gh run list --json headSha,status,conclusion` and match the sha, rather than
-    reading the most recent run; `railway deployment list` **per service**, rather
-    than `railway status`, which reports that services are up and says nothing
-    about which commit they are running. A service can be perfectly healthy while
-    running code from four phases ago.
+    `gh run list --json headSha,status,conclusion` and **select the row whose
+    headSha equals yours**, rather than reading the most recent run - if no row
+    matches, the answer is "CI has not run this", which is a different and worse
+    state than "CI failed".
+    For Railway, ask for the deployed commit rather than the service's health:
+
+        railway api 'query { project(id: "<id>") { services { edges { node {
+          name serviceInstances { edges { node { latestDeployment {
+          status meta } } } } } } } } }'
+
+    and compare `meta.commitHash` per service. `railway status` reports that
+    services are up and says nothing about which commit they run;
+    `railway deployment list` gives timestamps, not shas, so it only tells you a
+    deploy happened near the right time. A service can be perfectly healthy while
+    running code from four phases ago - that is exactly what happened to the
+    worker, and a timestamp would not have caught it either.
 
 ## Stop points
 
