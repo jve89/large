@@ -89,10 +89,18 @@ export async function processNextRun(deps: WorkerDeps): Promise<ProcessedRun | n
     })),
   }
 
-  // Started here, at claim, and cleared in the `finally` below - never on the
-  // attempt path. See the note on HEARTBEAT_INTERVAL_MS.
+  // Started here, at claim, and stopped before the terminal status is written -
+  // never on the attempt path. See the note on HEARTBEAT_INTERVAL_MS.
+  //
+  // `pendingBeat` exists because a beat is fire-and-forget: without tracking it,
+  // an update already in flight can land *after* `finishRun` has cleared
+  // `heartbeatAt`, leaving a terminal run with a heartbeat. That is cosmetic today
+  // - the claim query matches on `status = 'running'`, so a finished run is not
+  // reclaimable whatever its heartbeat says - but it is an ordering hazard, and it
+  // made this project's own test flake in CI before it was fixed.
+  let pendingBeat: Promise<void> = Promise.resolve()
   const beat = setInterval(() => {
-    void heartbeat(deps.prisma, run.id).catch(() => {
+    pendingBeat = heartbeat(deps.prisma, run.id).catch(() => {
       // A missed beat is recoverable: the run is reclaimed and resumed, never
       // restarted, so nothing is paid for twice.
     })
@@ -107,6 +115,11 @@ export async function processNextRun(deps: WorkerDeps): Promise<ProcessedRun | n
       heartbeat: () => heartbeat(deps.prisma, run.id),
       signal: deps.signal,
     })
+
+    // Stop beating and let any in-flight beat land before the terminal status is
+    // written, so the two cannot race.
+    clearInterval(beat)
+    await pendingBeat
 
     const reason =
       status === 'failed'

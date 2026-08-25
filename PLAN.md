@@ -172,6 +172,14 @@ answer and cannot do so until that table exists.
     three terminal outcomes including a high-coverage run killed by the reclaim
     limit.
 - Commit: `feat: worker claim, resume and retry`
+- **Second correction, recorded 2026-08-25.** A latent ordering defect in the same
+  code, found when it finally lost the race in CI: `clearInterval(beat)` sat in the
+  `finally`, so it ran *after* `finishRun`, and a fire-and-forget heartbeat already
+  in flight could re-populate `heartbeatAt` on a run that had just been finished.
+  The beat is now stopped and awaited **before** the terminal status is written.
+  Cosmetic in production - the claim query matches on `status = 'running'`, so a
+  finished run is not reclaimable whatever its heartbeat says - but it is a real
+  ordering hazard, and it had passed CI three times by luck before failing once.
 - **Correction, recorded 2026-08-25.** The heartbeat clause held, but Phase 4's
   report justified it wrongly: it cited the per-attempt `heartbeat` callback in
   `executeRun`, when what actually satisfies the clause is a `setInterval` started
