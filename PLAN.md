@@ -18,8 +18,8 @@
 |---|---|---|---|
 | 1 | 0 - Skeleton | C13, C14 | done |
 | 2 | 1 - Company registry | C1 | done |
-| 3 | 2 - Prompt list | C2 | next |
-| 4 | 3 - Queue a run | C3 | |
+| 3 | 2 - Prompt list | C2 | done |
+| 4 | 3 - Queue a run | C3 | next |
 | 5 | 4 - Worker: claim, resume, retry, terminal status | C4, C6, C15 | |
 | 6 | 5 - Answers and citations | C5, C7 | |
 | 7 | 6 - Mention parsing | C8 | |
@@ -115,10 +115,16 @@ answer and cannot do so until that table exists.
 
 - Delivers: C2
 - Done when: WHEN a prompt list is saved, every non-empty line becomes one ordered
-  prompt for that company and the previous list is replaced in full; IF the list
+  prompt for that company and the previous list is replaced in full; IF two lines
+  are identical after trimming, only the first is stored and the response names
+  how many lines were submitted, how many prompts were stored and **which specific
+  lines were removed** - de-duplication being on the exact trimmed string, so
+  lines differing only in case or in internal spacing are both kept; IF the list
   exceeds 50 prompts, a warning is returned naming the resulting call count **and
   both figures it was computed from** - `DEFAULT_REPETITIONS` and the length of
-  `DEFAULT_TARGETS` from `lib/defaults.ts` - and the save still succeeds - verified
+  `DEFAULT_TARGETS` from `lib/defaults.ts` - and the save still succeeds; the
+  de-duplication report and the warning can appear together; and replacing a
+  company's prompt list leaves every existing run untouched - verified
   by `npm run test -- api/prompts` and `npm run verify`.
 - Commit: `feat: prompt list`
 

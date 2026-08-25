@@ -490,8 +490,16 @@ PATCH  /api/companies/:companyId
 
 PUT    /api/companies/:companyId/prompts
   req: { prompts: string[] }          # whole list replaced, order = index
-  res: { count, warning?: string }    # warning when count > 50
-  errs: 400 schema, 404 unknown company
+  res: { count,                       # prompts stored
+         submittedLines,              # lines received, before anything dropped
+         prompts: string[],           # what was stored, in order
+         duplicatesRemoved: string[], # every line dropped as a duplicate
+         notice?: string,             # C2 de-duplication report, when any
+         warning?: string }           # C2 call count, when count > 50
+        # notice and warning are independent: either alone, or both together.
+        # `prompts` is returned so the editor can show what was stored rather
+        # than what was typed.
+  errs: 400 schema, 404 unknown company (a malformed id is 404, not 400)
 
 POST   /api/runs
   req: { companyId, repetitions, targets: { provider, modelId }[] }

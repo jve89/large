@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { CompanyForm } from '../../../components/company-form.tsx'
+import { PromptEditor } from '../../../components/prompt-editor.tsx'
 import { StartRunDialog } from '../../../components/start-run-dialog.tsx'
 import { prisma } from '../../../lib/db.ts'
 
@@ -55,13 +56,11 @@ export default async function CompanyPage({
           <p className="mt-2 text-neutral-600">
             No prompts. A run cannot be started without at least one.
           </p>
-        ) : (
-          <ol className="mt-2 list-decimal space-y-1 pl-6">
-            {company.prompts.map((prompt) => (
-              <li key={prompt.id}>{prompt.text}</li>
-            ))}
-          </ol>
-        )}
+        ) : null}
+        <PromptEditor
+          companyId={company.id}
+          prompts={company.prompts.map((prompt) => prompt.text)}
+        />
         {company.prompts.length > 0 ? <StartRunDialog companyId={company.id} /> : null}
       </section>
 

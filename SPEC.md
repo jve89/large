@@ -171,11 +171,30 @@ next to which competitors, and which sources the model cited.
 - **C2 - Prompt list**: WHEN the operator saves a prompt list for a company, the
   system SHALL persist each non-empty line as one ordered prompt belonging to that
   company, replacing the previous list in full.
+  IF two or more submitted lines are identical after trimming, THEN the system
+  SHALL persist the first and SHALL NOT persist the others, and SHALL report in
+  its response how many lines were submitted, how many prompts were stored, and
+  which specific lines were removed.
+  De-duplication is on the **exact trimmed string**. It is never case-insensitive
+  and never normalises internal whitespace, because two prompts differing in case
+  or in spacing are two different prompts to a provider and therefore two
+  different measurements. This differs deliberately from C1, which folds aliases
+  case-insensitively.
+  A duplicate prompt is removed rather than warned about because it is never
+  something the operator wants: it double-weights one question in that run's
+  mention rate, which is a corrupted measurement and not merely an expensive one,
+  and a warning that can be dismissed still lets that measurement be produced and
+  read back to a client. What is removed is reported line by line - the removal is
+  never silent, and that is the half of this rule that matters.
   IF a prompt list contains more than 50 prompts, THEN the system SHALL display a
   warning stating the resulting call count **at the default N and the default
   target list**, naming both, and SHALL still allow the save. The prompt endpoint
   does not know the N or the targets of any future run, so the figure it shows is
   explicitly the default case and says so.
+  The de-duplication report and this warning are independent: either may appear
+  alone and both may appear together. The count the 50 is compared against is the
+  number of prompts **stored**, since a prompt is a non-empty line and a removed
+  duplicate is not a prompt.
 
 - **C3 - Queue a run**: WHEN the operator starts a run for a company, the system
   SHALL create a run record with status `queued` carrying an immutable snapshot of
