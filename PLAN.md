@@ -444,13 +444,21 @@ is never deleted.
   either - the endpoint accepts both, so this is a dashboard gap and not a worker
   or API one. Consequence today: there is no way to click through a cheap N=1 run,
   which made Phase 4's browser pass cost $0.43 rather than the $0.02 estimated.
-- **A graceful worker shutdown.** *Triggered by:* deploys interrupting runs often
-  enough that either accepted cost bites - the up-to-eight in-flight calls billed
-  but unstored per interrupted deploy, or the one `MAX_RECLAIMS` each deploy
-  consumes, which fails a long run crossing four deploys for no reason of its own.
-  Today SIGTERM aborts in flight and the reclaim path resumes the run, which is
-  correct but not free; see `ARCHITECTURE.md` -> Key decisions. The fix is to let
-  in-flight attempts finish before exiting, and it is a phase, not a patch.
+- **A graceful worker shutdown. The trigger has fired; the decision is open.**
+  *Triggered by:* deploys interrupting runs. This item used to say the cost was
+  two accepted inefficiencies - eight in-flight calls billed but unstored per
+  deploy, and one `MAX_RECLAIMS` consumed - and that "the reclaim path resumes the
+  run, which is correct but not free". **That was wrong**, and it was checked at
+  the seam on 2026-08-25: a SIGTERM stores every in-flight attempt as a `failed`
+  answer, `processNextRun` then writes a terminal status, and the run ends
+  `failed` with `finishedAt` set. It is not reclaimable, so a long run survives
+  **no** deploys rather than four, and `MAX_RECLAIMS` is never consumed because no
+  reclaim happens. The evidence and the reason the misreading was possible are in
+  `ARCHITECTURE.md` -> Key decisions. The fix is to let in-flight attempts finish
+  before exiting and to leave an interrupted run `running` for the reclaim path;
+  it is a phase, not a patch, and its shape - including whether a reclaim
+  following a clean shutdown should count against `MAX_RECLAIMS` at all - is an
+  open operator decision.
 
 - **Upgrade the error fixtures from `documented` to `observed`.** *Triggered by:*
   the first real web-search error object seen in production. Seven of the nine

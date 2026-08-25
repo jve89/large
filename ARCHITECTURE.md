@@ -844,25 +844,55 @@ phase. Phase 0 pushes to it.
 - **Money as integer micro-dollars.** Floating point currency accumulates error
   across 120 rows per run and is never correct at the point someone is invoiced.
 
-- **A deploy interrupting a run is handled by the reclaim path, not by a shutdown
-  protocol.** On SIGTERM the worker aborts its `AbortController`; `executeRun`
-  skips attempts not yet started and both adapters pass the signal to their SDK,
-  so in-flight HTTP calls are cancelled. The run is left `running` with whatever
-  heartbeat it last wrote, and `finishRun` is never reached. `STALE_RUN_SECONDS`
-  later the next worker reclaims it and resumes, executing only the combinations
-  with no stored answer - so every attempt already paid for is kept and none is
-  bought twice. **This is sufficient for correctness**, and it is what the resume
-  path was built for.
-  Two costs are accepted rather than solved. First, calls in flight at the moment
-  of SIGTERM may be billed by the provider and never stored, so they are paid for
-  again on resume: at most `PROVIDER_CONCURRENCY` per provider, so eight calls -
-  about $0.58 at the measured $0.072 - per interrupted deploy. Second, **each
-  interrupted deploy consumes one of `MAX_RECLAIMS`**, so a long run crossing four
-  deploys is failed by deploys alone rather than by anything wrong with it. If
-  either becomes a real problem the answer is a graceful shutdown that lets
-  in-flight attempts finish before exiting, which is a phase of its own and is
-  written into `PLAN.md` -> Roadmap beyond v1, not something to patch in
-  incidentally.
+- **The cost bound is on planned calls, not on any single factor.** A run's bill is
+  prompts x targets x N. Until 2026-08-25 only the first two factors had ceilings -
+  `MAX_PROMPTS` of 100 and `MAX_REPETITIONS` of 50 - and a request that satisfied
+  both planned 10,000 calls, roughly $800, against the current two targets.
+  Bounding a factor never bounds a product. `MAX_PLANNED_CALLS` is therefore the
+  real guardrail and the other two are sanity limits on their own quantity; it is
+  checked in `queueRun` before the run row exists and therefore before any provider
+  call can be made for it. 300 calls is about $24 at the measured average, which
+  allows a 20-prompt client run at N=3 and a 50-prompt list at N=3 exactly, and
+  refuses the 100-prompt list at N=3. `ESTIMATED_MICROS_PER_CALL` states the
+  estimate in the refusal message; it is an observation about this system's own
+  traffic and not a provider price, which is why it is in `lib/defaults.ts` and not
+  in `pricing.ts` (rule 12).
+
+- **A deploy interrupting a run is NOT handled. This entry is a defect report,
+  and the decision on it is open.** *Corrected 2026-08-25 - what this entry
+  previously said was wrong, and wrong in the direction of comfort.*
+  It said: on SIGTERM the run "is left `running` with whatever heartbeat it last
+  wrote, and `finishRun` is never reached", so the reclaim path resumes it, and
+  the only costs were up-to-eight billed-and-unstored calls plus one of
+  `MAX_RECLAIMS` per interrupted deploy.
+  None of that is what the code does. Driven at the seam - `processNextRun`, real
+  database, an adapter that aborts the way both SDKs do - the observed behaviour
+  is: every in-flight attempt is stored as a `failed` Answer row with the reason
+  `Request was aborted.`; `executeRun` then returns normally, because skipping the
+  attempts that have not started is not an error; `processNextRun` writes the
+  terminal status; and the run ends `failed`, reason `no target reached the
+  coverage threshold of 0.8`, with `finishedAt` set, `heartbeatAt` null and
+  `reclaimCount` 0.
+  Three consequences follow, and each is worse than the cost that was accepted in
+  their place. The run is **not** reclaimable - the claim query matches `queued`
+  or `running` and this row is neither - so a long run does not survive four
+  deploys, it survives **none**. The aborted attempts are not merely unstored and
+  paid for twice; they are stored as failures, and the resume path skips every
+  combination that has a stored answer, so those combinations would never be
+  retried even if the run were resumable. And `MAX_RECLAIMS` is not consumed at
+  all, because no reclaim ever happens - the two mechanisms do not interact,
+  which is why nothing had noticed.
+  Why the misreading was possible: an aborted SDK call is not classified as
+  retryable. `APIUserAbortError extends APIError` in both `@anthropic-ai/sdk`
+  0.120.0 and `openai` 7.5.0 (verified in `node_modules`, 2026-08-25), and
+  `ask()`'s catch computes `isRetryableHttpStatus(status) || !(error instanceof
+  APIError)` with `status` undefined - false. So the abort becomes an ordinary
+  non-retryable failure, indistinguishable at the persistence layer from a
+  provider refusing the request.
+  The remedy is written up in `PLAN.md` -> Roadmap beyond v1 -> Engineering items
+  -> "A graceful worker shutdown", whose trigger this finding meets. It is a
+  phase, not a patch, and the shape it should take is a decision for the operator
+  rather than something to fix in passing.
 
 - **A provider response is interpreted by a pure function, separate from the SDK
   call.** `ask()` keeps the request, the error handling and the latency clock;

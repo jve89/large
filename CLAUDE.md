@@ -128,6 +128,14 @@ each one before claiming a phase done.
     running code from four phases ago - that is exactly what happened to the
     worker, and a timestamp would not have caught it either.
 
+20. **The full local test suite runs before every push, whatever the diff
+    contains.** `npm run test`, all of it, every time - not the files that look
+    related, and not "it's only docs". Which tests a diff can break is a judgement
+    about the diff; the suite is where the race lived, and the heartbeat ordering
+    defect had already passed CI three times by luck before it failed once. It
+    costs eleven seconds. `verify:live` is the exception and stays at phase
+    boundaries, because that one costs money.
+
 ## Stop points
 
 - Stop after each phase. Report what changed and what is untested.

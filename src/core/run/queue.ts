@@ -14,8 +14,13 @@
  * imitation passing is the failure mode the gate exists to catch.
  */
 import type { PrismaClient, RunStatus } from '@prisma/client'
-import { MAX_PROMPTS } from '../../lib/defaults.ts'
+import {
+  ESTIMATED_MICROS_PER_CALL,
+  MAX_PLANNED_CALLS,
+  MAX_PROMPTS,
+} from '../../lib/defaults.ts'
 import { basisHash } from '../../lib/hash.ts'
+import { formatMicrosAsUsd } from '../../lib/money.ts'
 import { priceFor } from '../providers/pricing.ts'
 import { targetKey, type Target } from '../providers/types.ts'
 
@@ -34,6 +39,7 @@ export type QueueRunFailure =
   | 'duplicate-target'
   | 'unpriceable-target'
   | 'too-many-prompts'
+  | 'too-many-calls'
 
 export type QueueRunResult =
   | {
@@ -140,9 +146,13 @@ export async function queueRun(input: QueueRunInput): Promise<QueueRunResult> {
       } as const
     }
 
-    // A cost guardrail, not a spec rule - see MAX_PROMPTS in lib/defaults.ts for
-    // the arithmetic. Checked here rather than at save time because C2 requires a
-    // long list to still save; it is running one that spends the money.
+    // Two cost guardrails, neither a spec rule - see lib/defaults.ts for both.
+    // Checked here rather than at save time because C2 requires a long list to
+    // still save; it is running one that spends the money.
+    //
+    // The order matters only for which message the operator reads. The prompt
+    // count is checked first because "shorten the list" is the more actionable
+    // remedy of the two.
     if (company.prompts.length > MAX_PROMPTS) {
       const calls = company.prompts.length * targets.length * repetitions
       return {
@@ -153,6 +163,30 @@ export async function queueRun(input: QueueRunInput): Promise<QueueRunResult> {
           `${MAX_PROMPTS}. Queueing it would make ${calls} provider calls. ` +
           'Shorten the prompt list, or raise MAX_PROMPTS in lib/defaults.ts if the ' +
           'cost is intended.',
+      } as const
+    }
+
+    // The bound that actually limits the bill. Cost is driven by
+    // prompts x targets x N, and bounding any one of those three leaves the
+    // product unbounded: 100 prompts, two targets and N=50 all pass their own
+    // limits and plan 10,000 calls. This is the only check that sees the product,
+    // and it is refused here - before the run row exists, and therefore before any
+    // provider call can be made for it.
+    const plannedCalls = company.prompts.length * targets.length * repetitions
+    if (plannedCalls > MAX_PLANNED_CALLS) {
+      const estimate = formatMicrosAsUsd(BigInt(plannedCalls) * ESTIMATED_MICROS_PER_CALL)
+      const ceiling = formatMicrosAsUsd(BigInt(MAX_PLANNED_CALLS) * ESTIMATED_MICROS_PER_CALL)
+      return {
+        ok: false,
+        reason: 'too-many-calls',
+        message:
+          `This run would make ${plannedCalls} provider calls - ` +
+          `${company.prompts.length} prompts x ${targets.length} targets x N=${repetitions} - ` +
+          `costing roughly ${estimate}, above the limit of ${MAX_PLANNED_CALLS} calls ` +
+          `(roughly ${ceiling}). Lower N, shorten the prompt list, measure fewer ` +
+          'targets, or raise MAX_PLANNED_CALLS in lib/defaults.ts if the cost is ' +
+          'intended. The estimate is an average of real calls already made and is ' +
+          'not a quote.',
       } as const
     }
 
@@ -191,7 +225,7 @@ export async function queueRun(input: QueueRunInput): Promise<QueueRunResult> {
       ok: true,
       runId: run.id,
       status: run.status,
-      plannedCalls: promptTexts.length * targets.length * repetitions,
+      plannedCalls,
     } as const
   })
 }
