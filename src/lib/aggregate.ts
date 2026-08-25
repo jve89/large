@@ -77,6 +77,13 @@ export interface Figure<T> {
   readonly repetitions: number
 }
 
+export interface DomainCount {
+  /** The cited domain, as `citedDomainOf` defines it. */
+  readonly domain: string
+  /** In how many successful answers this domain was cited. Never a citation count. */
+  readonly answers: number
+}
+
 export interface CompetitorCount {
   readonly brand: string
   /** In how many successful answers this competitor appeared. */
@@ -110,6 +117,8 @@ export interface TargetAggregate {
   readonly averagePosition: Figure<number>
   /** Every competitor in the run's snapshot, with its answer count. */
   readonly competitors: Figure<readonly CompetitorCount[]>
+  /** C16. Which sources this target drew on, and in how many answers. */
+  readonly citedDomains: Figure<readonly DomainCount[]>
   readonly cells: readonly PromptCell[]
 }
 
@@ -157,6 +166,8 @@ export interface AggregatableAnswer {
   readonly searchCount: number | null
   readonly costMicros: bigint | null
   readonly mentions: readonly { readonly brand: string; readonly isSubject: boolean; readonly position: number }[]
+  /** Stored citation rows. Only the URL is needed; C16 counts answers, not rows. */
+  readonly citations: readonly { readonly url: string }[]
 }
 
 export interface AggregateInput {
@@ -168,6 +179,58 @@ export interface AggregateInput {
   /** The run's competitor snapshot, so a competitor that never appeared still shows. */
   readonly competitors: readonly string[]
   readonly answers: readonly AggregatableAnswer[]
+}
+
+/**
+ * The cited domain of one stored citation URL (SPEC -> Definitions -> Cited
+ * domain): the host, lower-cased, with a trailing dot and a leading `www.`
+ * removed. Returns null for anything that is not an http(s) URL, which C7 already
+ * guarantees cannot be stored.
+ *
+ * **A subdomain is its own source.** `www.acme.nl` groups with `acme.nl` and
+ * `blog.acme.nl` does not, which is the same choice made in `visible-text.ts` for
+ * the same reason: `www.` is a convention for addressing one site, while a
+ * subdomain is a different host that may be a different publication entirely.
+ * `en.wikipedia.org` and `nl.wikipedia.org` are two sources here, and that is the
+ * intended reading.
+ *
+ * **This rule needs no public suffix list, and that is a consequence of the choice
+ * above rather than luck.** Nothing here depends on where the registrable domain
+ * begins: `acme.co.uk` and `blog.acme.co.uk` are simply two different hosts, so
+ * the multi-label suffixes that defeat a naive last-two-labels rule never arise.
+ * A public suffix list becomes necessary the moment some capability needs to know
+ * that two hosts belong to the same **organisation** - which is what marking the
+ * client's own site wants - and not when a new country is added. That trigger is
+ * recorded in `PLAN.md` -> Engineering items.
+ *
+ * Where the stated rule is wrong and is accepted as wrong: one business serving
+ * from `acme.nl` and `shop.acme.nl` is counted as two sources.
+ */
+export function citedDomainOf(url: string): string | null {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return null
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+
+  const host = parsed.hostname.toLowerCase().replace(/\.$/, '').replace(/^www\./, '')
+  return host === '' ? null : host
+}
+
+/**
+ * Orders two strings by UTF-16 code unit.
+ *
+ * Deliberately **not** `localeCompare`, which depends on the runtime's ICU data
+ * and default locale and can therefore order the same two strings differently on
+ * a developer's machine and in the deployed container. A product whose argument is
+ * reproducibility cannot have a table that reorders between reads, and a tie-break
+ * that varies by host is exactly that. Corrected here for competitors too, which
+ * used `localeCompare` from Phase 7 until 2026-08-25.
+ */
+function byCodeUnit(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
 }
 
 function coverageFor(successes: number, planned: number, threshold: number): Coverage {
@@ -200,7 +263,27 @@ export function aggregateRun(input: AggregateInput): RunAggregate {
           answer.mentions.some((m) => !m.isSubject && m.brand === brand),
         ).length,
       }))
-      .sort((a, b) => b.answers - a.answers || a.brand.localeCompare(b.brand))
+      .sort((a, b) => b.answers - a.answers || byCodeUnit(a.brand, b.brand))
+
+    // C16. Counted per **answer**, never per citation row: an answer citing three
+    // pages of one site has drawn on that site once, and counting rows would let a
+    // heavily footnoting model inflate its favourite source. A `failed` answer
+    // contributes nothing, because `ok` is what this iterates.
+    const domainAnswerCounts = new Map<string, number>()
+    for (const answer of ok) {
+      const seen = new Set<string>()
+      for (const citation of answer.citations) {
+        const domain = citedDomainOf(citation.url)
+        if (domain !== null) seen.add(domain)
+      }
+      for (const domain of seen) {
+        domainAnswerCounts.set(domain, (domainAnswerCounts.get(domain) ?? 0) + 1)
+      }
+    }
+
+    const domains: DomainCount[] = [...domainAnswerCounts.entries()]
+      .map(([domain, answers]) => ({ domain, answers }))
+      .sort((a, b) => b.answers - a.answers || byCodeUnit(a.domain, b.domain))
 
     return {
       targetId: target.id,
@@ -229,6 +312,13 @@ export function aggregateRun(input: AggregateInput): RunAggregate {
         // An empty list here means "measured, and no competitor appeared", which is
         // an observation. It is not the same as no-data and must not render alike.
         ok.length === 0 ? { kind: 'no-data' } : { kind: 'measured', value: counts },
+      ),
+      citedDomains: wrap<readonly DomainCount[]>(
+        // The same distinction, and C16 names it explicitly: with no successful
+        // answer there is nothing to have cited, which is "no data"; with
+        // successful answers that carry no citations the model genuinely cited
+        // nothing, which is an observation and renders as an empty list.
+        ok.length === 0 ? { kind: 'no-data' } : { kind: 'measured', value: domains },
       ),
       cells: promptIds.map((runPromptId) => {
         const cell = mine.filter((answer) => answer.runPromptId === runPromptId)

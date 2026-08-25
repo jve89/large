@@ -75,6 +75,19 @@ trust) and offer no evidence. Immutable
 hashed runs, retained raw text and per-answer cost make that evidence
 collectible here. It cannot be bought, only accumulated.
 
+### What this product may say about the category
+
+Third-party research about how volatile model citations are - see `PLAN.md` ->
+Roadmap beyond v1, stage 3, which records two studies with their samples and
+dates - is **a reason to build things, not a number this product may quote at a
+customer.** What it may quote is what it measures itself.
+The distinction will be tested the first time someone writes a landing page, which
+is why it is here rather than in a phase report. Two of the sources for those
+figures sell in this category and have an interest in a high number; this product's
+entire argument is that a figure carries its own coverage, its own N and a path to
+the evidence beneath it, and a borrowed statistic has none of those. Quoting one
+would spend the differentiator to make the sale.
+
 ### Why local service businesses first
 
 Not because the product is only for them. Because they are the population in
@@ -189,11 +202,33 @@ next to which competitors, and which sources the model cited.
 - **Recognised brand** - the subject brand (via its aliases) or a competitor from
   the run's competitor snapshot. v1 does not discover unknown brands.
 - **Cited domain** - the host of a stored citation's URL, lower-cased, with a
-  leading `www.` removed. C7 guarantees every stored citation URL is absolute and
-  http or https, so every stored citation has exactly one domain.
+  trailing dot and a leading `www.` removed. C7 guarantees every stored citation
+  URL is absolute and http or https, so every stored citation has exactly one
+  domain.
+  **A subdomain is its own source.** `www.acme.nl` groups with `acme.nl`;
+  `blog.acme.nl` does not. `www.` is a convention for addressing one site, while a
+  subdomain is a different host that may be a different publication - `en.` and
+  `nl.wikipedia.org` are two sources here, and that is the intended reading. It is
+  the same distinction `visible-text.ts` draws when it decides whether a link label
+  is that link's own address.
+  *Where this rule is wrong, and accepted as wrong:* one business serving from
+  `acme.nl` and `shop.acme.nl` is counted as two sources.
+  *What it deliberately avoids:* the rule never groups by registrable domain, so
+  nothing in it depends on where a public suffix begins. `acme.co.uk` and
+  `blog.acme.co.uk` are simply two hosts, and the multi-label suffixes that defeat
+  a naive last-two-labels rule never arise - **no public suffix list is needed for
+  this figure, and adding a country cannot change that.** A public suffix list
+  becomes necessary when some capability needs to know that two hosts belong to the
+  same *organisation*, which is a different question; its trigger is recorded in
+  `PLAN.md` -> Engineering items.
   A domain is counted **per answer**: an answer citing two pages of one site, or
   the same page twice, has drawn on that domain once. The unit of observation is
   the answer, never the citation row - see C16.
+  Ties in the displayed order are broken by domain ascending, compared by **code
+  unit** rather than by locale: a locale comparison depends on the runtime's ICU
+  data and can order the same two domains differently on a developer's machine and
+  in the deployed container, and a product whose argument is reproducibility cannot
+  have a table that reorders between reads.
 - **Measurement basis** - the ordered prompt texts, the ordered target list, the
   brand aliases, the competitor list of a run, and the **measurement semantics
   version**, hashed together as `basisHash`.
@@ -206,6 +241,10 @@ next to which competitors, and which sources the model cited.
   `basisHash` is computed once, when a run is queued, and stored; nothing
   recomputes it on read, so a version bump distinguishes future runs from past ones
   rather than rewriting the comparability of the past.
+  **The semantics version is the only basis input no operator action produces, and
+  that is the whole justification for the mechanism.** A changed alias, prompt,
+  competitor or target is visible to whoever made the change; a changed parser is
+  visible to nobody. Every other input announces itself.
 
 - **Measurement semantics log** - what each version of the measurement semantics
   means. `MEASUREMENT_SEMANTICS_VERSION` in `src/core/parse/semantics.ts` is
@@ -733,6 +772,32 @@ or higher, producing at least one citation per successful answer.
   given a new one. This was the third gap that check has found, after C16 and C17,
   which is why it is now run every phase against the Objective and the Vision
   rather than only across the documents.
+- **[Owner: Claude, proposal recorded 2026-08-25; the decision is the operator's]**
+  **A read-time figure has no provenance.** `MEASUREMENT_SEMANTICS_VERSION` is
+  folded into `basisHash` when a run is created, so it protects what counted as a
+  mention when the answers were parsed. C9 requires aggregates to be computed at
+  read time and never persisted. Between those two facts sits a gap: if an
+  aggregation rule changes - how two hosts group into one domain, what breaks a
+  tie, whether mention rate's denominator is successful answers or planned ones -
+  then **the same run, with the same `basisHash`, produces different figures on
+  different days**, and nothing says so. A customer holding a screenshot from
+  September is comparing it against a different definition in November.
+  The gap is wider than C16: every figure in `lib/aggregate.ts` is already exposed
+  to it, and C16 is only the first whose rule is interesting enough that it will
+  plausibly change.
+  *Proposed, not implemented:* a separate `AGGREGATION_SEMANTICS_VERSION` with its
+  own log, stated once per rendered run and carried in the API payload - **not** a
+  sixth input to `basisHash`. Folding it into the hash would be actively wrong, not
+  merely inelegant: `basisHash` is computed at run creation and never recomputed,
+  so a bump would give runs created before and after it different hashes, and C11
+  would refuse to draw them as one series - even though both are rendered under
+  today's rule today and are therefore perfectly comparable. The guard would fire
+  falsely on every historical run.
+  The principle underneath, which is the part worth keeping whatever is decided:
+  **stamp a version where the thing it governs is frozen.** Parse semantics freeze
+  when an answer is parsed, so they belong on the run. Aggregation semantics never
+  freeze, so they belong on the rendering.
+  **Open.** It changes this document and is therefore a stop-and-ask.
 - **[Owner: you]** Supply the first real brand: name, aliases, competitor list and
   at least ten buying-moment prompts. Without this the Success criterion above
   cannot be met. Blocks Phase 9. **Still open.**

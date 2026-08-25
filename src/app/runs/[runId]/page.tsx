@@ -131,6 +131,20 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
                       : counts.map((c) => `${c.brand} ${c.answers}`).join(' · ')
                   }
                 />
+                <FigureValue
+                  name="cited-domains"
+                  label="Cited sources"
+                  figure={target.citedDomains}
+                  render={(domains) =>
+                    // An empty list is a measurement: the model cited nothing. It
+                    // is rendered as a sentence rather than as blank space so it
+                    // cannot be misread as a missing figure - "no data" is what an
+                    // absence of measurement looks like, and it is not this.
+                    domains.length === 0
+                      ? 'the model cited no sources in any successful answer'
+                      : domains.map((d) => `${d.domain} ${d.answers}`).join(' · ')
+                  }
+                />
               </ul>
 
               <details className="mt-2">

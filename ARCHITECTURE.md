@@ -577,6 +577,12 @@ GET    /api/runs/:runId
                                    coverage: { successes, planned, ratio,
                                                reliable },
                                    mentionRate, averagePosition, competitors,
+                                   citedDomains,   # C16: [{ domain, answers }],
+                                                   # successful answers only;
+                                                   # `answers` is how many ANSWERS
+                                                   # the domain appears in, never
+                                                   # citation rows; count desc then
+                                                   # domain asc by code unit.
                                    cells: [ { runPromptId, planned, succeeded,
                                               mentioned, state } ] } ],
                       totals: { inputTokens, outputTokens, searchCount,
@@ -600,8 +606,11 @@ GET    /api/runs/:runId
         # `costMicros` is a decimal STRING: JSON.stringify throws on a BigInt
         # and a JSON number is a double. `costUsd` is display only.
         #
-        # C16's citedDomains and C17's answers arrays are Phases 11 and 12 and
-        # are not in this payload yet.
+        # citedDomains is a Figure<T> like the others, so it carries its
+        # target's coverage and the run's N. 'no-data' means the target had no
+        # successful answer; a `measured` empty list means the model cited
+        # nothing, which is an observation and must not render alike.
+        # C17's answers arrays are Phase 12 and are not in this payload yet.
   errs: 404 unknown run
 ```
 
@@ -966,6 +975,15 @@ phase. Phase 0 pushes to it.
   Its first value is 2, covering two changes at once - the address widening and the
   link-text-domain rule - which exercised the mechanism on the day it was
   introduced rather than leaving its first real use untested.
+
+- **Every reproducible ordering compares by code unit, never by locale.**
+  `localeCompare` depends on the runtime's ICU data and default locale, so the same
+  two strings can order differently on a developer's machine and in the deployed
+  container. Every tie-break in `lib/aggregate.ts` - cited domains and competitor
+  frequency both - uses an explicit code-unit comparator instead. A product whose
+  argument is reproducibility cannot have a table that reorders between reads, and
+  a tie-break that varies by host is exactly that. Found in Phase 11 while choosing
+  C16's secondary key; the competitor list had used `localeCompare` since Phase 7.
 
 - **Aggregates are a pure function over loaded rows, and the read is constant in
   queries.** `lib/aggregate.ts` takes answer rows and returns figures; it touches no

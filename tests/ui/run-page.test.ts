@@ -51,8 +51,8 @@ afterAll(async () => {
   await prisma.$disconnect()
 })
 
-/** `[promptIndex, targetIndex, status, namesSubject]` for one stored attempt. */
-type Attempt = [number, number, AnswerStatus, boolean]
+/** `[promptIndex, targetIndex, status, namesSubject, citedUrls?]` per attempt. */
+type Attempt = readonly [number, number, AnswerStatus, boolean, (readonly string[])?]
 
 async function renderRun(attempts: readonly Attempt[], status: RunStatus = 'completed') {
   const run = await prisma.run.create({
@@ -82,7 +82,7 @@ async function renderRun(attempts: readonly Attempt[], status: RunStatus = 'comp
   })
 
   const seen = new Map<string, number>()
-  for (const [promptIndex, targetIndex, answerStatus, namesSubject] of attempts) {
+  for (const [promptIndex, targetIndex, answerStatus, namesSubject, citedUrls] of attempts) {
     const runPromptId = run.prompts[promptIndex]!.id
     const runTargetId = run.targets[targetIndex]!.id
     const key = `${runPromptId}|${runTargetId}`
@@ -98,6 +98,9 @@ async function renderRun(attempts: readonly Attempt[], status: RunStatus = 'comp
         status: answerStatus,
         rawText: answerStatus === 'ok' ? 'Acme and Globex both serve Leeds.' : null,
         failureReason: answerStatus === 'failed' ? 'stubbed provider failure' : null,
+        citations: {
+          create: (citedUrls ?? []).map((url, order) => ({ url, title: null, order })),
+        },
         inputTokens: answerStatus === 'ok' ? 1000 : null,
         outputTokens: answerStatus === 'ok' ? 250 : null,
         searchCount: answerStatus === 'ok' ? 2 : null,
@@ -153,11 +156,11 @@ const HEALTHY: Attempt[] = [
 describe('C10 on the page - coverage and N beside every figure', () => {
   it('renders at least one figure, so the assertion below cannot pass vacuously', async () => {
     const blocks = figureBlocks(await renderRun(HEALTHY))
-    // Two targets x three figures. If a figure is added or removed this is the
+    // Two targets x four figures. If a figure is added or removed this is the
     // line that says so, rather than the structural check silently covering less.
-    expect(blocks).toHaveLength(6)
+    expect(blocks).toHaveLength(8)
     expect(new Set(blocks.map((b) => b.name))).toEqual(
-      new Set(['mention-rate', 'average-position', 'competitor-frequency']),
+      new Set(['mention-rate', 'average-position', 'competitor-frequency', 'cited-domains']),
     )
   })
 
@@ -203,8 +206,8 @@ describe('C10 on the page - a target below the threshold', () => {
     const html = await renderRun(DEGRADED)
     const blocks = figureBlocks(html)
 
-    // Still six figures: the degraded target is labelled, never dropped.
-    expect(blocks).toHaveLength(6)
+    // Still eight figures: the degraded target is labelled, never dropped.
+    expect(blocks).toHaveLength(8)
     // The healthy one still reports its measurement.
     expect(blocks.some((b) => b.name === 'mention-rate' && b.text.includes('50%'))).toBe(true)
     // The degraded one reports no data, and says so with its own coverage.
@@ -258,6 +261,72 @@ describe('C10 on the page - a cell where every attempt failed', () => {
     // measurement of absence and must not be confused with the case above.
     expect(html).toContain('named in 0 of 2 successful attempts')
     expect(html).toContain('data-cell="measured"')
+  })
+})
+
+describe('C16 on the page - cited domains', () => {
+  /** Both targets healthy; target 0 cites two sources, target 1 cites one. */
+  const CITING: Attempt[] = [
+    [0, 0, 'ok', true, ['https://www.acme.nl/a', 'https://acme.nl/b']],
+    [0, 0, 'ok', true, ['https://acme.nl/c']],
+    [1, 0, 'ok', false, ['https://globex.nl/a']],
+    [1, 0, 'ok', false, []],
+    [0, 1, 'ok', true, ['https://initech.nl/a']],
+    [0, 1, 'ok', true, []],
+    [1, 1, 'ok', true, []],
+    [1, 1, 'ok', true, []],
+  ]
+
+  it('renders each target’s own list, counted by answer and ordered reproducibly', async () => {
+    const blocks = figureBlocks(await renderRun(CITING)).filter((b) => b.name === 'cited-domains')
+    expect(blocks).toHaveLength(2)
+
+    // Target 0: acme.nl in two answers (four citations, two of them the same
+    // host with and without www), globex.nl in one. Count desc, then domain asc.
+    expect(blocks[0]!.text).toContain('acme.nl 2 · globex.nl 1')
+    expect(blocks[1]!.text).toContain('initech.nl 1')
+  })
+
+  it('carries the coverage and the N with the table, like every other figure', async () => {
+    for (const block of figureBlocks(await renderRun(CITING)).filter(
+      (b) => b.name === 'cited-domains',
+    )) {
+      expect(block.text).toMatch(/coverage \d/)
+      expect(block.text).toMatch(/N=2/)
+    }
+  })
+
+  it('reads "no data" for a target with no successful answers, never an empty table', async () => {
+    const degraded: Attempt[] = [
+      [0, 0, 'ok', true, ['https://acme.nl/a']],
+      [0, 0, 'ok', true, ['https://acme.nl/a']],
+      [1, 0, 'ok', true, ['https://acme.nl/a']],
+      [1, 0, 'ok', true, ['https://acme.nl/a']],
+      [0, 1, 'failed', false],
+      [0, 1, 'failed', false],
+      [1, 1, 'failed', false],
+      [1, 1, 'failed', false],
+    ]
+    const blocks = figureBlocks(await renderRun(degraded)).filter((b) => b.name === 'cited-domains')
+
+    expect(blocks[0]!.text).toContain('acme.nl 4')
+    const value = blocks[1]!.text.split('· coverage')[0]!
+    expect(value).toContain('no data')
+    expect(value).not.toMatch(/\d/)
+  })
+
+  it('says the model cited nothing, rather than going blank, when it genuinely did', async () => {
+    // An empty list is a measurement and must not read as a missing figure.
+    const noCitations: Attempt[] = HEALTHY.map(
+      (attempt) => [attempt[0], attempt[1], attempt[2], attempt[3]] as Attempt,
+    )
+    const blocks = figureBlocks(await renderRun(noCitations)).filter(
+      (b) => b.name === 'cited-domains',
+    )
+    for (const block of blocks) {
+      expect(block.text).toContain('cited no sources')
+      expect(block.text).not.toContain('no data')
+    }
   })
 })
 

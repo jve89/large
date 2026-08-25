@@ -24,11 +24,12 @@
 | 6 | 5 - Answers and citations | C5, C7 | done |
 | 7 | 6 - Mention parsing | C8 | done |
 | 8 | 7 - Aggregation, coverage and cost | C9, C10, C12, C18 | done |
-| 9 | 11 - Cited domain frequency | C16 | next |
-| 10 | 12 - Traceability to evidence | C17 | |
+| 9 | 11 - Cited domain frequency | C16 | done |
+| 10 | 12 - Traceability to evidence | C17 | next |
 | 11 | 8 - Comparability guard | C11 | |
-| 12 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | |
-| 13 | 10 - Ship | SPEC "Success = done when" | |
+| 12 | 13 - Mark the client's own cited domain | C16, extended | |
+| 13 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | |
+| 14 | 10 - Ship | SPEC "Success = done when" | |
 
 Phases 11 and 12 are new work and therefore take new numbers, but both belong
 after Phase 7. Phase 11 is a read-time aggregate over stored citation rows, so it
@@ -336,6 +337,36 @@ turns that raw data into an answer to the question.
     which must come back in ascending domain order; and two targets in one run
     whose lists differ. Plus by inspecting the run page.
 - Commit: `feat: cited domain frequency`
+- **Decisions recorded 2026-08-25.** The domain rule is stated in `SPEC.md` ->
+  Definitions -> Cited domain: host, lower-cased, trailing dot and leading `www.`
+  removed, and **a subdomain is its own source**. The consequence worth knowing is
+  that it needs **no public suffix list at all** - nothing in it depends on where a
+  registrable domain begins, so no country TLD can defeat it. The trigger for a
+  public suffix list is therefore not a new country but the first capability that
+  needs two hosts grouped by *organisation*, which is Phase 13 below.
+  Ties are broken by domain ascending compared by **code unit**, not by
+  `localeCompare`, which depends on the runtime's ICU data and can order two
+  domains differently on a laptop and in the container. The competitor list has
+  been corrected the same way; it had used `localeCompare` since Phase 7.
+- **The degraded browser pass was run, 2026-08-25, and every clause held.** One
+  prompt at N=3 against both targets with an **invalid Anthropic credential**, on
+  the deployed code running locally. What the page actually showed:
+  run `completed_with_errors`; totals "over 3 successful answers of 6 planned ·
+  N=3 · $0.18"; the anthropic target labelled *"Unreliable - coverage 0% is below
+  the threshold, so these figures are not presented as a measurement. The other
+  targets are unaffected"*, with all four of its figures reading "no data · coverage
+  0% (0 of 3 planned) · N=3 · unreliable" and its single cell reading *"no data -
+  all 3 attempts failed"* rather than a zero; the openai target unaffected at 100
+  percent with mention rate 100%, average position 1, and a cited-source table
+  reading `coolblue.nl 3 · mediamarkt.nl 3 · consumentenbond.nl 2 · expert.nl 2 ·
+  tweakers.net 2 · acm.nl 1 · rijksoverheid.nl 1` - count descending with every tie
+  in ascending domain order. The run stayed visible throughout.
+  **The broken provider cost nothing**, as predicted: 401 is not a retryable
+  status, so each failed attempt records `httpAttempts` 1 and `costMicros` 0. The
+  whole pass cost 181,112 micro-dollars on the working provider alone.
+  These clauses had never been exercised by a real provider failure before this.
+  They now have been - by a transport failure. The **web-search error object**
+  remains the untested path; see the note below.
 - **Closing sequence addition: one degraded browser pass.** Do this pass as part of
   this phase's close, not as work of its own. Run it with an **invalid credential
   for one provider only**. The working provider costs its usual few cents; the
@@ -357,6 +388,32 @@ turns that raw data into an answer to the question.
   `observed`" under Engineering items, and `logFailureEvidence`, which writes the
   raw body of every response-shaped failure to the worker log precisely so that
   trigger can be acted on. The limitation now has a trigger rather than a hope.
+
+## Phase 13 - Mark the client's own cited domain
+
+The open question the pack rewrite left, answered: **yes, eventually, and not in
+Phase 11.** A target citing the client's own site while recommending somebody else
+is "cited but not named" made visible on the page, and it is one of the more
+sellable things this instrument can say - see `SPEC.md` -> Open questions, where
+that state is already named and reserved.
+
+It is a phase of its own rather than part of C16 because it needs a website field
+on `Company` that the data model does not have, somewhere to enter it, and a rule
+for deciding that two hosts belong to the same organisation - which is the first
+thing in this project that needs a public suffix list, since `acme.nl` and
+`shop.acme.nl` are one business and the C16 rule deliberately counts them as two.
+Folding a migration and a new dependency into C16 would have made one phase do
+three things.
+
+- Delivers: C16, extended
+- Blocked on: a data model change (a website field on `Company`) and a new
+  dependency (a public suffix list). **Both are stop-and-ask** under
+  `CLAUDE.md` -> Stop points, so this phase begins with a proposal, not with code.
+- Done when: WHEN a target's cited-domain list is displayed, the domains belonging
+  to the client's own site are marked as such; IF a company has no website
+  recorded, THEN the list is displayed exactly as C16 specifies and nothing is
+  marked - the absence of the field is never rendered as "none of these are yours".
+- Commit: `feat: mark the client's own cited domain`
 
 ## Phase 12 - Traceability to evidence
 
@@ -661,6 +718,14 @@ is never deleted.
   is adequate while one operator writes and checks every screen and stops being
   adequate the moment it is not. Adding it means a jsdom environment and a
   component-testing library, which is a stack change and therefore a stop-and-ask.
+- **A public suffix list.** *Triggered by:* the first capability that needs to know
+  two hosts belong to the same **organisation** - which is Phase 13, marking the
+  client's own cited domain. It is explicitly **not** triggered by adding a
+  country: C16's domain rule never groups by registrable domain, so `acme.co.uk`
+  and `blog.acme.co.uk` are simply two hosts and no multi-label suffix can defeat
+  it. A naive last-two-labels rule would break on `.co.uk` and `.com.au`, which is
+  why the rule avoids the question rather than answering it badly. Adding the list
+  is a new dependency and therefore a stop-and-ask.
 - **A shared rate limiter across workers.** *Triggered by:* starting a second
   worker process. `PROVIDER_CONCURRENCY` is per process, so running W workers
   multiplies the effective provider limit by W. Whoever turns on the second worker

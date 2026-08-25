@@ -26,6 +26,8 @@ interface AnswerSpec {
   readonly targetId: string
   readonly ok: number
   readonly failed?: number
+  /** Citation URLs put on every answer, ok or failed. */
+  readonly citing?: readonly string[]
   /** Of the ok answers, how many name the subject. */
   readonly subjectIn?: number
   /** Position given to the subject wherever it is named. */
@@ -49,6 +51,7 @@ function answersFor(spec: AnswerSpec): AggregatableAnswer[] {
       outputTokens: isOk ? 200 : null,
       searchCount: isOk ? 2 : null,
       costMicros: isOk ? 80_000n : null,
+      citations: (spec.citing ?? []).map((url) => ({ url })),
       mentions: !isOk
         ? []
         : [

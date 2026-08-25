@@ -39,6 +39,8 @@ export async function GET(
           searchCount: true,
           costMicros: true,
           mentions: { select: { brand: true, isSubject: true, position: true } },
+          // C16 needs only the URL: the figure counts answers, not citation rows.
+          citations: { select: { url: true } },
         },
       },
     },
