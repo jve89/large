@@ -21,6 +21,10 @@
  *
  * Version 1 is retroactive and unstamped: runs queued before 2026-08-25 carry a
  * hash computed over four inputs and are distinguishable from anything after by
- * that alone, which is why the first stamped value is 2.
+ * that alone, which is why the first stamped value was 2.
+ *
+ * Bumping is cheapest while the dataset is small, because each bump invalidates
+ * every series recorded under the version before it. Version 3 was taken on the
+ * day version 2 shipped, deliberately: production held one run.
  */
-export const MEASUREMENT_SEMANTICS_VERSION = 2
+export const MEASUREMENT_SEMANTICS_VERSION = 3

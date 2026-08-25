@@ -149,13 +149,22 @@ next to which competitors, and which sources the model cited.
   A **bare domain** - `acme.nl`, with neither scheme nor `www.` - depends on where
   it stands, and the markdown already says which case it is. In running prose it is
   kept: "try acme.nl for pipes" is a model naming a business, and an operator may
-  use a domain as an alias. As the **visible text of a markdown link** it is
-  removed along with its target, because that is not prose but the visible half of
-  an attribution: `[acme.nl](https://acme.nl)` yields a citation and no mention,
-  while `[Acme](https://acme.nl)` still names the brand.
-  The accepted cost is a false negative: a business whose brand genuinely is a
-  domain - Booking.com, Marktplaats.nl - or merely looks like one - Node.js -
-  named **only** as link text and nowhere in prose is not counted. The expectation
+  use a domain as an alias. As the visible text of a markdown link it is removed
+  along with its target **only when it is that link's own address**, because that
+  is not prose but the visible half of an attribution:
+  `[acme.nl](https://www.acme.nl/prices)` yields a citation and no mention, while
+  `[Acme](https://acme.nl)` still names the brand. Hosts are compared after any
+  `www.` is stripped, and a label that is the registrable domain of a deeper target
+  host still counts as that link's address, so a subdomain or a path does not
+  defeat it.
+  Where the label is address-shaped but is **not** the target's address, it is
+  kept. `[Node.js](https://nodejs.org)` names a brand that happens to contain a dot
+  and a TLD-shaped suffix; dropping it would be a parsing artifact rather than a
+  measurement choice, and the two cases are told apart by information the parser
+  already has.
+  The accepted cost is therefore narrower than it first appears: a business whose
+  brand genuinely **is** its domain - Booking.com, Werkspot.nl - and which appears
+  only as a link to itself and nowhere in prose, is not counted. The expectation
   is that this is rare, because a model that recommends a business names it in
   prose and reserves link text for attribution. That is a belief, and `PLAN.md` ->
   Phase 9 measures it rather than arguing it. The direction of the error is
@@ -207,6 +216,7 @@ next to which competitors, and which sources the model cited.
   |---|---|---|---|
   | 1 | before 2026-08-25 | Not stamped. Visible text removed markdown link targets, image targets and fenced code blocks, and nothing else. | The constant did not exist. Runs from this period carry a hash over four inputs and so differ from every later run by construction. |
   | 2 | 2026-08-25 | Visible text also removes URLs, autolinks, reference-link definitions and email addresses; and a markdown link whose visible text is itself a bare domain loses both halves. | Two changes, one bump, because both alter what counts as a mention. A brand inside an address was being counted, and a client's own domain contains its own name, so the subject was recorded as mentioned in answers that never named it and every position after it shifted. Link text that is a bare domain is an attribution rather than prose, and the markdown says which it is. |
+  | 3 | 2026-08-25 | A domain-shaped link label is removed only when it is that link's **own address**, compared by host after stripping `www.` and allowing a deeper target host. An address-shaped label pointing elsewhere is kept. | Version 2 merged two error classes. `[acme.nl](https://acme.nl)` is an attribution and dropping it is a conservative measurement choice; `[Node.js](https://nodejs.org)` is a brand that merely contains a dot, and dropping it was a parsing artifact with no compensating benefit. Taken the same day as version 2 rather than after Phase 9's count, because each bump invalidates every series recorded under the version before it and production held one run. |
 
 ## Capabilities (v1) - each has an ID and an EARS criterion
 

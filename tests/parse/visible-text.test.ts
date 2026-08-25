@@ -177,6 +177,49 @@ describe('toVisibleText', () => {
     )
   })
 
+  // ---- The label is dropped only when it is the link's OWN address. ----
+  // Narrowed 2026-08-25, after the broader rule merged two error classes: an
+  // attribution, where the label is the address of the thing linked, and a brand
+  // that merely contains a dot and a TLD-shaped suffix.
+
+  it('keeps a brand-shaped label that is not the address it points at', () => {
+    // "Node.js" is address-shaped and is not an address. Dropping it was a parsing
+    // artifact with nothing to justify it.
+    expect(toVisibleText('Use [Node.js](https://nodejs.org) for this.')).toContain('Node.js')
+  })
+
+  it('drops a label that is the registrable domain of a deeper target host', () => {
+    // www on one side and a subdomain plus path on the other must not defeat the
+    // comparison: this is still the label naming the link's own address.
+    expect(toVisibleText('Source [acme.nl](https://blog.acme.nl/prices).')).not.toContain(
+      'acme',
+    )
+  })
+
+  it('keeps an address-shaped label that points somewhere else entirely', () => {
+    // The rule drops a label only when it can show the label is the target's own
+    // address. A mismatch is not evidence of attribution.
+    expect(toVisibleText('See [acme.nl](https://example.com/redirect).')).toContain('acme.nl')
+  })
+
+  it('judges a reference link against the definition it resolves to', () => {
+    const attribution = ['Source [acme.nl][a].', '', '[a]: https://www.acme.nl/x'].join('\n')
+    expect(toVisibleText(attribution)).not.toContain('acme')
+
+    const mismatch = ['Source [acme.nl][b].', '', '[b]: https://example.com/x'].join('\n')
+    expect(toVisibleText(mismatch)).toContain('acme.nl')
+  })
+
+  it('keeps a reference label when no definition resolves it', () => {
+    // Nothing to compare against, so nothing is proved and the label stays.
+    expect(toVisibleText('Source [acme.nl][missing].')).toContain('acme.nl')
+  })
+
+  it('resolves an empty reference against the label itself', () => {
+    const raw = ['Source [acme.nl][].', '', '[acme.nl]: https://acme.nl'].join('\n')
+    expect(toVisibleText(raw)).not.toContain('acme')
+  })
+
   it('removes a URL inside parentheses without eating the closing bracket', () => {
     const visible = toVisibleText('The guide (https://acme.example.com/g) explains it.')
     expect(visible).not.toContain('acme')

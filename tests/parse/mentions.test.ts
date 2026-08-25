@@ -265,11 +265,11 @@ describe('findMentions', () => {
     expect(brands('See [the acme.nl guide](https://x.example.com).')).toEqual(['Acme'])
   })
 
-  it('accepts the false negative when a brand IS a domain and appears only as link text', () => {
-    // Booking.com, Marktplaats.nl - and Node.js, which only looks like one. This
-    // is the cost of the rule above, deliberately taken in the under-counting
-    // direction, and PLAN Phase 9 counts how often it actually happens rather than
-    // leaving it argued about.
+  it('accepts the false negative when a brand IS a domain and links to itself', () => {
+    // Booking.com, Werkspot.nl. The label is the address of the thing linked, the
+    // citation already records it, and counting it would read a source as a
+    // recommendation. Deliberately taken in the under-counting direction, and
+    // PLAN Phase 9 counts how often it actually happens.
     const domainBrand = { aliases: ['Booking.com'], competitors: [] }
     expect(brands('Compare prices at [Booking.com](https://www.booking.com).', domainBrand)).toEqual(
       [],
@@ -278,5 +278,12 @@ describe('findMentions', () => {
     expect(
       brands('Booking.com is cheapest ([booking.com](https://www.booking.com)).', domainBrand),
     ).toEqual(['Booking.com'])
+  })
+
+  it('counts a brand that merely looks like a domain, because it is not the address', () => {
+    // The class the previous rule wrongly merged with the one above. "Node.js"
+    // contains a dot and a TLD-shaped suffix and is not an address; nodejs.org is.
+    const dotted = { aliases: ['Node.js'], competitors: [] }
+    expect(brands('We build on [Node.js](https://nodejs.org) here.', dotted)).toEqual(['Node.js'])
   })
 })
