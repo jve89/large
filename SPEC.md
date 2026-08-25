@@ -474,6 +474,30 @@ next to which competitors, and which sources the model cited.
   had none, so removing the display would have broken no criterion. It is satisfied
   by Phase 7's commit rather than by new work; see `PLAN.md` -> Phase 7.
 
+- **C19 - Refuse a run that would spend too much**: IF the number of provider
+  calls a run would make - prompts x targets x N - exceeds the configured maximum,
+  THEN the system SHALL reject the request, SHALL create no run, and SHALL state in
+  its response the planned call count, each of the three factors it was computed
+  from, the maximum, and an estimated cost.
+  The estimate SHALL be derived from this system's own recent stored answers rather
+  than from a constant, and SHALL be described as an estimate. A per-call cost
+  written down as a literal goes stale, and it goes stale **low** - the direction
+  that understates exposure - because it moved eleven percent between this
+  project's first two measurements.
+  The refusal SHALL happen before the run record exists, so that no provider call
+  is ever made for a refused run.
+  *Why this is a capability and the prompt-list maximum in C3 is a clause of one.*
+  Cost is the product of three factors and bounding any one of them leaves the
+  product unbounded: a request at the prompt maximum and the repetition maximum
+  plans ten thousand calls, roughly $800, while violating neither. Refusing that
+  with a stated reason before any money is spent is observable behaviour that
+  protects a customer from a bill, which is what a capability is; the length of one
+  list is a sanity limit on a shape.
+  *Added 2026-08-25.* The bound shipped in commit `820ea43` and had no capability
+  behind it, so nothing in this document obliged the refusal or the derived
+  estimate. It is satisfied by that commit rather than by new work; see `PLAN.md`
+  -> Phase 3.
+
 ## Run status
 
 - `queued` - created, not yet claimed.
@@ -655,7 +679,7 @@ considered at all.
 
 ## Success = done when
 
-`npm run verify` exits 0 against the deployed configuration, all eighteen
+`npm run verify` exits 0 against the deployed configuration, all nineteen
 capabilities pass their EARS criteria, and one real run of a real brand with at
 least ten real prompts has completed with every target at coverage of 80 percent
 or higher, producing at least one citation per successful answer.

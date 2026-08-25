@@ -245,7 +245,8 @@ large/
         openai.ts                    #   ditto - the seam fixtures come through
         index.ts                     # registry, configuration-driven
       parse/
-        visible-text.ts              # strip link targets, images, code fences
+        visible-text.ts              # SPEC Definitions -> Visible text is normative
+        semantics.ts                 # MEASUREMENT_SEMANTICS_VERSION, hashed into basis
         mentions.ts                  # alias match on visible text, position
         citations.ts                 # normalise + error-object detection
       run/
@@ -264,9 +265,12 @@ large/
       concurrency.ts               # separate connections + a barrier, so a race
                                    #   is a real race; see the note below
       stub-adapter.ts              # recording ProviderAdapter for unit tests
+      fixtures.ts                  # loads tests/fixtures/ with its $meta block
+      cleanup.ts                   # the only place that knows the FK order
     parse/
       visible-text.test.ts
       mentions.test.ts
+      mentions-seam.test.ts          # C8 at the seam: does anything CALL it
       citations.test.ts
     api/
       companies.test.ts
@@ -280,6 +284,14 @@ large/
       claim.test.ts                  # two claimers, exactly one winner
       resume.test.ts                 # stale run resumes, does not restart
       heartbeat.test.ts              # the beat is wall-clock, not per-attempt
+      shutdown.test.ts               # SIGTERM leaves a run reclaimable
+    providers/
+      ask-seam.test.ts               # ask()'s catch, at its seam
+      capture.test.ts                # PROVIDER_CAPTURE_DIR is off by default
+    ui/
+      run-page.test.ts               # C10 and C18 on the rendered page
+    db/
+      cleanup.test.ts                # the teardown helper, against the FK
     prompt-writer-guard.test.ts     # only replacePromptList may write Prompt
     aggregate.test.ts
     cited-domains.test.ts            # SPEC C16, per target
@@ -490,11 +502,15 @@ provides the integer arithmetic.
 
 ### Matching (`src/core/parse/`)
 
-`visible-text.ts` reduces raw answer text to what a reader sees: markdown link
-targets and image targets are removed while their label text is kept, and fenced
-code blocks are dropped. Every alias and competitor match in `mentions.ts` runs
-against that reduced text and never against the raw string. The full matching rule
-set is normative in `SPEC.md` C8.
+`visible-text.ts` reduces raw answer text to the places where a brand appearing is
+a recommendation of it. **What it removes is normative in `SPEC.md` -> Definitions
+-> Visible text and is deliberately not restated here** - this paragraph described
+the pre-widening list for a day after the parser changed, which is how a
+description becomes a instruction to regress. Every alias and competitor match in
+`mentions.ts` runs against that reduced text and never against the raw string; the
+matching rules themselves are normative in `SPEC.md` C8, and the version of those
+semantics that a given run was measured under is the fifth input to its
+`basisHash`.
 
 ### API contracts
 
@@ -540,8 +556,11 @@ POST   /api/runs
        # plannedCalls = prompts x targets x N. Exact, unlike C2's warning.
        # The start-run dialog states the same figure BEFORE the button is
        # pressed - the 201 body is after the operator has committed (C3).
-  errs: 400 schema, empty prompt list, a target repeated in the list, or a
-        target with no row in pricing.ts (it could not be costed, C3);
+  errs: 400 schema, empty prompt list, a target repeated in the list, a
+        target with no row in pricing.ts (it could not be costed, C3), more
+        prompts than MAX_PROMPTS (C3), or more planned calls than
+        MAX_PLANNED_CALLS (C19 - prompts x targets x N, refused before the run
+        row exists so no provider call is ever made for it);
         404 unknown company (a malformed id is 404, not 400)
   # The handler is an HTTP wrapper only. The capability is
   # src/core/run/queue.ts, which scripts/verify-live.ts calls too, so the live
@@ -785,7 +804,7 @@ phase. Phase 0 pushes to it.
   up unattended. Cost: the discipline above has no v1 payoff.
   **This shape is heading toward multi-tenant** - `SPEC.md` -> Vision describes a
   self-service platform, and `PLAN.md` -> Roadmap beyond v1 makes accounts,
-  quotas and payment the first layer above v1. That is the reason the chain is
+  quotas and payment the first stage above v1. That is the reason the chain is
   kept intact rather than treated as incidental: it is what lets that layer
   arrive as middleware plus policies. Nothing else in v1 anticipates multiple
   tenants, and nothing in v1 should - but nothing in v1 may foreclose it either.
@@ -797,7 +816,7 @@ phase. Phase 0 pushes to it.
 - **Token usage, search counts and cost captured per answer.** This data is present
   in the provider response and is unrecoverable afterwards. It is what makes
   per-customer margin computable once the product is priced - `PLAN.md` -> Roadmap
-  beyond v1, product layer 2, which usage-based pricing depends on.
+  beyond v1, product stage 2, which usage-based pricing depends on.
 
 - **No delete affordance.** Stored answers are the asset and cannot be regenerated
   without paying again, and v1 has no authentication protecting a delete button.
@@ -856,10 +875,13 @@ phase. Phase 0 pushes to it.
   checked in `queueRun` before the run row exists and therefore before any provider
   call can be made for it. 300 calls is about $24 at the measured average, which
   allows a 20-prompt client run at N=3 and a 50-prompt list at N=3 exactly, and
-  refuses the 100-prompt list at N=3. `ESTIMATED_MICROS_PER_CALL` states the
-  estimate in the refusal message; it is an observation about this system's own
-  traffic and not a provider price, which is why it is in `lib/defaults.ts` and not
-  in `pricing.ts` (rule 12).
+  refuses the 100-prompt list at N=3. The refusal is C19, and the estimate in its
+  message is **derived at read time** by `src/core/run/estimate.ts` from the mean
+  of recent stored answers, never from a literal - a per-call cost written down as
+  a constant goes stale, and stale low, which is the direction that hides exposure.
+  `FALLBACK_MICROS_PER_CALL` in `lib/defaults.ts` is used only when no answer has
+  been stored yet. It is an observation about this system's own traffic and not a
+  provider price, which is why it is not in `pricing.ts` (rule 12).
 
 - **A deploy interrupting a run is handled by the reclaim path, not by a shutdown
   protocol** - which is what this entry always claimed, and from Phase 0 until

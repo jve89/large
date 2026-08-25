@@ -59,9 +59,16 @@ each one before claiming a phase done.
 6. **The prompt goes out unmodified.** No system prompt, no `temperature` or
    `top_p`, no length instruction. `max_tokens` exists only so an answer is never
    truncated. Steering the model raises the numbers and destroys their meaning.
-7. **Match on visible text, never on raw text.** Strip markdown link targets, image
-   targets and fenced code blocks first. A brand that appears only inside a URL or
-   only in a citation is not a mention, and counting it shifts every position.
+7. **Match on visible text, never on raw text.** A brand that appears only inside
+   an address, or only in a citation, is not a mention, and counting it shifts
+   every position after it.
+   **What "visible text" removes is defined in exactly one place:** `SPEC.md` ->
+   Definitions -> Visible text. That definition is normative and this rule
+   deliberately does not restate the list, because it restated it once and then
+   described the pre-widening semantics for a day afterwards - while being the rule
+   a session reads *while writing parser code*. If you are changing what is
+   removed, change the definition, bump `MEASUREMENT_SEMANTICS_VERSION`, and add a
+   row to the Measurement semantics log; this rule needs no edit.
 8. **A provider search error is not an empty result.** Both providers return web
    search failures as HTTP 200 with an error object instead of a result list (as
    researched 2026-08-23; re-check, don't trust). An
@@ -149,6 +156,20 @@ each one before claiming a phase done.
     This is rule 18 applied to a pairing rather than to a side effect, and it is
     narrow on purpose - it is for obligations of the form "X is never displayed,
     stored or returned without Y", not for typing things in general.
+
+22. **When a document and the code disagree, ask whether a capability depends on
+    it.** The tiebreaker is not "the code is the truth" and not "the spec wins" -
+    both are wrong often enough to be dangerous. If the disagreement is a
+    capability's statement of itself, the **document is right and the code is
+    behind**: fix the code. If it is a document describing an implementation
+    detail that has since moved, the **code is right and the document is stale**:
+    fix the document. Worked example, 2026-08-25: `ARCHITECTURE.md` documented a
+    `prompts` array on `GET /api/runs/:runId` that the route did not return, and a
+    per-target aggregate shape that no longer matched. The prompts array is the
+    API-level statement of C18, so the route gained it; the aggregate shape was
+    only stale prose, so the document was corrected. Same file, same day, opposite
+    directions.
+
 
 ## Stop points
 

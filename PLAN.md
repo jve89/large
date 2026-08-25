@@ -19,7 +19,7 @@
 | 1 | 0 - Skeleton | C13, C14 | done |
 | 2 | 1 - Company registry | C1 | done |
 | 3 | 2 - Prompt list | C2 | done |
-| 4 | 3 - Queue a run | C3 | done |
+| 4 | 3 - Queue a run | C3, C19 | done |
 | 5 | 4 - Worker: claim, resume, retry, terminal status | C4, C6, C15 | done |
 | 6 | 5 - Answers and citations | C5, C7 | done |
 | 7 | 6 - Mention parsing | C8 | done |
@@ -130,7 +130,7 @@ answer and cannot do so until that table exists.
 
 ## Phase 3 - Queue a run
 
-- Delivers: C3
+- Delivers: C3, C19
 - Done when: WHEN a run is started, a run record with status `queued` exists
   carrying an immutable snapshot of the prompt texts, the target list, the brand
   name, the aliases and the competitors, plus the chosen N and the `basisHash`
@@ -142,6 +142,16 @@ answer and cannot do so until that table exists.
   unchanged - verified by `npm run test -- api/runs-queue`,
   `npm run test -- hash` and `npm run verify`.
 - Commit: `feat: queue a run`
+- **C19 added afterwards, 2026-08-25, and satisfied by commit `820ea43`.** The
+  planned-call bound shipped as debt work between phases and had no capability
+  behind it, so nothing obliged either the refusal or the derived estimate; the
+  Stage 3 check found `queue.ts` calling both cost guardrails "neither a spec rule"
+  while `SPEC.md` stated one of them as a normative clause. C19 promotes the bound
+  rather than demoting the clause, because refusing a run before it spends money,
+  with a stated reason, is observable behaviour that protects a customer from a
+  bill. It takes no new phase - the work exists and is covered by the cost-bound
+  block in `tests/api/runs-queue.test.ts`, five tests of which go red if the bound
+  is removed - which is the same handling C18 got against Phase 7.
 
 ## Phase 4 - Worker: claim, resume, retry, terminal status
 
@@ -382,9 +392,16 @@ reachable from the figure.
 - Delivers: C11
 - Done when: IF two runs of one company differ in `basisHash`, THEN they are not
   presented as one series and the change of measurement basis is stated - verified
-  by `npm run test -- comparability` with five runs: identical basis, changed
-  prompt, changed model id, changed alias list, and changed competitor list - plus
-  a sixth with only the brand name changed, which must **not** break the series.
+  by `npm run test -- comparability` with **seven** runs: identical basis, changed
+  prompt, changed model id, changed alias list, changed competitor list, and a
+  changed **`MEASUREMENT_SEMANTICS_VERSION`** - plus a seventh with only the brand
+  name changed, which must **not** break the series.
+  The semantics-version case was added 2026-08-25 and is the one that matters most
+  here, because it is the input C11 was extended to carry and the only one no
+  operator action produces: an alias change is visible to whoever made it, while a
+  parser change is visible to nobody. Without that case the criterion could not
+  fail on the very input the guard had just been given, and Phase 9 - which
+  compares two runs a day apart - is where that would first have mattered.
 - Commit: `feat: comparability guard`
 
 ## Phase 9 - Presentation pass against a real brand
@@ -413,6 +430,23 @@ this product's whole risk is a number being misread.
     text. The expectation is zero, because a model that recommends a business names
     it in prose; **if it is not zero on real data, it comes back to the operator**
     before Phase 10. This is a measurement of a belief, not a check of the code.
+  - **Citation churn and mention churn are measured separately, on the same runs.**
+    This is a distinct criterion from the stability check below, and the two must
+    not be merged. The published volatility figures in this category - see Roadmap
+    stage 3 - measure how fast **cited sources** change and are widely reported as
+    though they measured visibility. They are not the same quantity. A model can
+    cite an entirely different set of pages this week and still recommend the same
+    three businesses; whether it does is an open empirical question that nobody has
+    published.
+    This instrument stores mentions and citations separately, per answer, on
+    immutable hashed runs, so it can measure both from one pair of runs on an
+    identical basis: the proportion of cited domains that changed between them, and
+    the proportion of recognised brands that changed. Record both, per target.
+    IF mentions turn out to be materially more stable than citations, THEN that is
+    a finding this category has not published and it belongs to differentiator 3;
+    record it in `SPEC.md` -> Vision rather than only in a phase report. IF they
+    move together, that is equally worth knowing and weakens the case for the
+    recurring stage rather than strengthening it.
   - **Per-call cost is re-derived and its spread recorded.** The figure in
     `lib/defaults.ts` is provisional - it moved eleven percent between samples of
     six and fourteen answers - and it has an uncharacterised driver: how many web
@@ -434,7 +468,7 @@ this product's whole risk is a number being misread.
 
 - Delivers: SPEC's "Success = done when"
 - Done when: `npm run verify` exits 0 against the deployed configuration; all
-  eighteen capabilities pass their EARS criteria; the real-brand run from Phase 9
+  nineteen capabilities pass their EARS criteria; the real-brand run from Phase 9
   is reachable at the deployed URL; every environment variable is set on every
   service that needs it; both provider integrations have been exercised live end
   to end; and the "Blocked on the operator" list above is empty.
@@ -483,11 +517,35 @@ measurement keeps running because the answer keeps changing. This product has a
 stronger claim to that than the incumbents do, because it can **demonstrate** the
 staleness rather than assert it - cited domains are already stored per answer
 (C16) and runs are already immutable and hashed, so the churn in what a model
-draws on is measurable from this system's own history. The operator's working
-figure is that 40-60 percent of the sources models cite turn over month to month
-(operator's figure, supplied 2026-08-25; **not independently verified** -
-re-check, don't trust). Establishing it from stored data is part of the point of
-this stage rather than a premise of it.
+draws on is measurable from this system's own history.
+
+Two published measurements of that churn, and both say it is far faster than a
+monthly cadence assumes:
+
+- **SISTRIX**: 82,619 qualified prompts and 1,548,213 snapshots over 17 weeks,
+  17 December 2025 to 8 April 2026, six countries. ChatGPT Search replaced **74
+  percent of cited sources weekly** and Google AI Mode 56 percent, while Google AI
+  Overviews drifted only 5 percent weekly with 53 percent of prompts unchanged.
+  The authors call their domain-level figures conservative; URL-level volatility
+  ran 15 percent higher. (as researched 2026-08-25; re-check, don't trust)
+- **GetMentions**: 530,875 citations from 67,144 answers across 2,398 queries over
+  7 consecutive days in June 2026, logged-out and non-personalised from a fixed
+  location. **69 percent of sources changed day to day** - Gemini 88.3 percent,
+  ChatGPT 79.2 percent, Google AI Mode 75.9 percent, Perplexity 44.4 percent.
+  (as researched 2026-08-25; re-check, don't trust)
+
+**Read both with the interest in mind.** GetMentions sells in this category, and
+so does Profound, whose volatility post sits alongside these; a vendor selling
+monitoring has an interest in a high churn number. SISTRIX is a search-data
+company with a stated methodology and a stated conservative bias, which is why it
+is listed first. Neither is peer-reviewed. These figures are a reason to build the
+stage, not evidence this product may quote at a customer - what it may quote is
+what it measures itself.
+An earlier working figure of 40-60 percent monthly was carried here briefly and
+was wrong in the safe direction: the published measurements are weekly and daily,
+not monthly, so the case for re-measurement is stronger than the guess it replaced.
+The two are also **not the same quantity as the one this product sells** - see
+Phase 9, which measures citation churn against mention churn on the same runs.
 *Requires first:* stage 1, because an automatic run spends real money and must be
 something a customer has already paid for - which is the same condition
 `SPEC.md` -> Explicitly NOT in scope -> "Scheduled or automatic runs" already
@@ -567,22 +625,6 @@ is never deleted.
   and therefore a stop-and-ask when the phase is scheduled.
   The history of the entry is kept in `ARCHITECTURE.md` -> Key decisions, because
   what this item said before that date was the opposite of what the code did.
-
-- ~~**A graceful worker shutdown. The trigger has fired; the decision is open.**~~
-  *Triggered by:* deploys interrupting runs. This item used to say the cost was
-  two accepted inefficiencies - eight in-flight calls billed but unstored per
-  deploy, and one `MAX_RECLAIMS` consumed - and that "the reclaim path resumes the
-  run, which is correct but not free". **That was wrong**, and it was checked at
-  the seam on 2026-08-25: a SIGTERM stores every in-flight attempt as a `failed`
-  answer, `processNextRun` then writes a terminal status, and the run ends
-  `failed` with `finishedAt` set. It is not reclaimable, so a long run survives
-  **no** deploys rather than four, and `MAX_RECLAIMS` is never consumed because no
-  reclaim happens. The evidence and the reason the misreading was possible are in
-  `ARCHITECTURE.md` -> Key decisions. The fix is to let in-flight attempts finish
-  before exiting and to leave an interrupted run `running` for the reclaim path;
-  it is a phase, not a patch, and its shape - including whether a reclaim
-  following a clean shutdown should count against `MAX_RECLAIMS` at all - is an
-  open operator decision.
 
 - **Upgrade the error fixtures from `documented` to `observed`.** *Triggered by:*
   the first real web-search error object seen in production. Seven of the nine
