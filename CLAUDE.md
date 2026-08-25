@@ -94,6 +94,28 @@ each one before claiming a phase done.
     tiers rot.
 17. **Secrets never enter the repository.** Every required variable is declared in
     `lib/env.ts` and fails loudly at startup when absent.
+18. **A side effect is proved at its seam, not at its definition.** When a function
+    exists to do something at a boundary - write to a log, call an adapter, enqueue
+    a row, deploy - the test drives the **caller** and observes the effect. A test
+    that calls the function directly proves the function; it proves nothing about
+    whether anything calls it. Before writing such a test, ask: if I delete the one
+    line that calls this, does any test go red? If the answer is no, the test is
+    watching the wrong thing.
+    This is the characteristic defect of this codebase and it has already cost four
+    incidents: Railway with `source.repo` set and `repoTriggers` empty, so the
+    worker never deployed for four phases; a stub adapter asserted against but
+    never wired into `processNextRun`, reporting zero calls for the wrong reason; a
+    commit pushed that CI never ran; and `logFailureEvidence`, unit-tested while
+    its only call site was exercised by nothing. Every one has the same shape - the
+    part works, the seam does not, and nothing looks at seams.
+19. **Verify the check ran against this commit, not that the check is green.**
+    "CI is green" and "Railway is healthy" are statements about a *service*, not
+    about your work. Confirm the run and the deploy exist **for this sha**:
+    `gh run list --json headSha,status,conclusion` and match the sha, rather than
+    reading the most recent run; `railway deployment list` **per service**, rather
+    than `railway status`, which reports that services are up and says nothing
+    about which commit they are running. A service can be perfectly healthy while
+    running code from four phases ago.
 
 ## Stop points
 

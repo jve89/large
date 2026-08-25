@@ -444,6 +444,30 @@ is never deleted.
   correct but not free; see `ARCHITECTURE.md` -> Key decisions. The fix is to let
   in-flight attempts finish before exiting, and it is a phase, not a patch.
 
+- **Upgrade the error fixtures from `documented` to `observed`.** *Triggered by:*
+  the first real web-search error object seen in production. Seven of the nine
+  files in `tests/fixtures/` are `documented` - their shape comes from the
+  provider's own documentation, not from a response this system has received - and
+  they are the only evidence CLAUDE.md rule 8 is checked against outside the live
+  gate. `logFailureEvidence` writes the raw response of every response-shaped
+  failure to the worker log precisely so this trigger can be acted on: take the
+  logged body, rebuild the fixture, change its `$meta.evidence` to `observed`.
+  Until then the rule is proved against dated documentation, which is a real
+  boundary and is stated as one.
+- **A test for the transport-error branch of each adapter.** *Triggered by:* the
+  same event, or sooner if a transport failure shape changes. `ask()`'s `catch`
+  block - the one that turns a thrown SDK error into `{ ok: false }` with a
+  retryable flag - is covered for Anthropic by one stubbed case in
+  `tests/providers/ask-seam.test.ts` and not at all for OpenAI, and neither
+  exercises a real 5xx, timeout or rate limit. The retry policy that sits on top
+  of `retryable` is tested; the classification feeding it is not.
+- **Component tests for the UI.** *Triggered by:* the second person able to change
+  a component, or the first UI regression that reaches a client. There is no DOM
+  test environment in the repo, so `prompt-editor.tsx`, `start-run-dialog.tsx` and
+  the run page are covered only by the hand browser pass each phase performs. That
+  is adequate while one operator writes and checks every screen and stops being
+  adequate the moment it is not. Adding it means a jsdom environment and a
+  component-testing library, which is a stack change and therefore a stop-and-ask.
 - **A shared rate limiter across workers.** *Triggered by:* starting a second
   worker process. `PROVIDER_CONCURRENCY` is per process, so running W workers
   multiplies the effective provider limit by W. Whoever turns on the second worker
