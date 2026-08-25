@@ -94,4 +94,74 @@ describe('toVisibleText', () => {
     const prose = 'Acme, Globex and Initech all serve Leeds; ask for a quote.'
     expect(toVisibleText(prose)).toBe(prose)
   })
+
+  // ---- Addresses. SPEC -> Definitions -> Visible text, widened 2026-08-25. ----
+  // Each of these counted the brand as mentioned before that date, and a
+  // web-searching model emits all of them.
+
+  it('removes a bare URL in prose', () => {
+    expect(toVisibleText('Details at https://acme.example.com/guide today.')).not.toContain(
+      'acme',
+    )
+  })
+
+  it('removes an autolink, angle brackets and all', () => {
+    const visible = toVisibleText('See <https://acme.example.com/guide>.')
+    expect(visible).not.toContain('acme')
+    expect(visible).not.toContain('<')
+  })
+
+  it('removes a reference-link definition line entirely', () => {
+    const raw = ['See [the guide][g].', '', '[g]: https://acme.example.com/guide'].join('\n')
+    const visible = toVisibleText(raw)
+    expect(visible).not.toContain('acme')
+    // ...while the label a reader actually sees survives, without its brackets.
+    expect(visible).toContain('See the guide.')
+  })
+
+  it('removes a bare www host with no scheme', () => {
+    expect(toVisibleText('Visit www.acme.example.com today.')).not.toContain('acme')
+  })
+
+  it('removes an email address', () => {
+    expect(toVisibleText('Write to info@acme.nl for a quote.')).not.toContain('acme')
+  })
+
+  it('keeps prose that names the brand alongside its address', () => {
+    // The rule removes the address, not the sentence. A brand named in prose is
+    // named however many of its addresses appear beside it.
+    const visible = toVisibleText('Contact Acme at info@acme.nl or www.acme.nl.')
+    expect(visible).toContain('Acme')
+    expect(visible.match(/acme/gi)).toHaveLength(1)
+  })
+
+  it('removes both halves of a link whose label is itself an address', () => {
+    // Named explicitly because it is the case the two rules have to cooperate on:
+    // the link rule reduces this to its label, which is still an address.
+    const visible = toVisibleText(
+      'Source: [www.acme.example.com](https://www.acme.example.com).',
+    )
+    expect(visible).not.toContain('acme')
+    expect(visible).toContain('Source:')
+  })
+
+  it('keeps a bare domain written as prose, so a domain may be used as an alias', () => {
+    // Deliberately not removed: no scheme and no www. An operator who enters
+    // "acme.com" as an alias must still have it matched.
+    expect(toVisibleText('People just say acme.com when they mean them.')).toContain(
+      'acme.com',
+    )
+  })
+
+  it('removes a URL inside parentheses without eating the closing bracket', () => {
+    const visible = toVisibleText('The guide (https://acme.example.com/g) explains it.')
+    expect(visible).not.toContain('acme')
+    expect(visible).toContain(')')
+  })
+
+  it('removes several addresses in one answer', () => {
+    const raw = 'Try https://acme.example.com, or www.globex.example.com, or ask sales@acme.nl.'
+    const visible = toVisibleText(raw)
+    for (const gone of ['acme', 'globex']) expect(visible.toLowerCase()).not.toContain(gone)
+  })
 })

@@ -199,4 +199,62 @@ describe('findMentions', () => {
     const result = findMentions('Anything at all.', { aliases: ['', '   '], competitors: [] })
     expect(result).toEqual([])
   })
+
+  it('does not count a brand that appears only in a bare URL', () => {
+    // CLAUDE.md rule 7, and the reason SPEC's Visible text definition was widened:
+    // a client's own domain contains its own name, so this counted the subject as
+    // mentioned in answers that never named it and shifted every position after.
+    expect(brands('Three firms serve Leeds; see https://acme.example.com/prices.')).toEqual([])
+  })
+
+  it('does not count a brand that appears only in an email address', () => {
+    expect(brands('Ask for a quote at info@acme.nl.')).toEqual([])
+  })
+
+  it('does not count a brand that appears only in a reference-link definition', () => {
+    const raw = ['Read [the comparison][c].', '', '[c]: https://acme.example.com/vs'].join('\n')
+    expect(brands(raw)).toEqual([])
+  })
+
+  it('does not let an address shift the positions of brands that are named', () => {
+    // The damaging version of the bug: the subject is only in a URL, but that URL
+    // comes first, so before the widening Acme took position 1 and Globex - the
+    // brand the model actually recommended - was reported second.
+    const raw = 'Per https://acme.example.com/guide, Globex is the one to call.'
+    expect(findMentions(raw, subject).map((m) => [m.brand, m.position])).toEqual([
+      ['Globex', 1],
+    ])
+  })
+
+  it('still counts a brand named in a link label', () => {
+    expect(brands('We recommend [Acme](https://example.com/x).')).toEqual(['Acme'])
+  })
+
+  it('still counts a brand named in prose beside its own address', () => {
+    const result = findMentions('Acme (www.acme.example.com) is the pick.', subject)
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({ brand: 'Acme', position: 1, totalRecognised: 1 })
+  })
+
+  it('matches an alias that is a bare domain, since those are not stripped', () => {
+    const domainAlias = { aliases: ['acme.com'], competitors: [] }
+    expect(brands('Everyone calls them acme.com locally.', domainAlias)).toEqual(['acme.com'])
+  })
+
+  it('still counts the brand inside a bare domain, which is the cost of keeping bare domains', () => {
+    // Observed in real output on 2026-08-25: openai attributes its sources as
+    // `([coolblue.nl](https://www.coolblue.nl/...))`. The link rule reduces that
+    // to the label `coolblue.nl`, which has neither scheme nor `www.` and is
+    // therefore deliberately kept - and "Coolblue" then matches inside it, because
+    // the dot is a boundary.
+    //
+    // This is the residual of the address problem and it is a consequence of the
+    // rule rather than an oversight: bare domains stay so that an operator may use
+    // one as an alias. It is pinned here so that a later reader meets it as a
+    // known trade-off. Where it bites is the "cited but not named" case - a model
+    // that attributes a source as `[acme.nl](...)` while recommending a rival
+    // still scores the subject as mentioned.
+    const raw = 'Buy from Globex. ([acme.nl](https://www.acme.nl/prices))'
+    expect(brands(raw)).toEqual(['Globex', 'Acme'])
+  })
 })

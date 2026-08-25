@@ -22,8 +22,8 @@
 | 4 | 3 - Queue a run | C3 | done |
 | 5 | 4 - Worker: claim, resume, retry, terminal status | C4, C6, C15 | done |
 | 6 | 5 - Answers and citations | C5, C7 | done |
-| 7 | 6 - Mention parsing | C8 | next |
-| 8 | 7 - Aggregation, coverage and cost | C9, C10, C12 | |
+| 7 | 6 - Mention parsing | C8 | done |
+| 8 | 7 - Aggregation, coverage and cost | C9, C10, C12 | next |
 | 9 | 11 - Cited domain frequency | C16 | |
 | 10 | 12 - Traceability to evidence | C17 | |
 | 11 | 8 - Comparability guard | C11 | |
@@ -211,16 +211,37 @@ answer and cannot do so until that table exists.
   and the total number of recognised brands found; matching is case-insensitive
   and Unicode-normalised, requires a non-alphanumeric boundary **or a string edge**
   on both sides, tolerates extra whitespace inside multi-word aliases, ignores
-  markdown link targets, image targets and fenced code blocks, prefers the longest
-  matching alias, and resolves a name in both lists in favour of the subject brand;
-  a brand occurring only in a citation counts as not mentioned - verified by
+  markdown link targets, image targets, fenced code blocks, URLs and email
+  addresses, prefers the longest matching alias, and resolves a name in both lists
+  in favour of the subject brand; a brand occurring only in a citation counts as
+  not mentioned - verified by
   `npm run test -- parse/visible-text` and `npm run test -- parse/mentions`
   against fixtures covering alias variants, casing, accents, punctuation,
   line-wrapped names, markdown links, code fences, overlapping aliases, absence,
   an empty competitor list, a brand at the very first and very last character of
-  the answer (both must match), and a plural of a single-word alias (which must
-  **not** match, per C8).
+  the answer (both must match), a plural of a single-word alias (which must
+  **not** match, per C8), and each address form - bare URL, autolink,
+  reference-link definition, `www.` host and email address - none of which may
+  count, while a bare domain written as prose still may.
 - Commit: `feat: mention parsing`
+- **Scope note, recorded 2026-08-25.** The parser and its persistence both existed
+  before this phase - Phase 0 wrote a minimal `mentions.ts` and `visible-text.ts`,
+  Phase 5 wired `findMentions` into `persistAttempt`. What this phase did was make
+  every clause of C8 actually hold and provable: it widened the Visible text
+  definition after finding four address forms that counted a brand from inside an
+  address (see `SPEC.md` -> Definitions), and it added the seam file
+  `tests/parse/mentions-seam.test.ts`, without which deleting the one line that
+  calls the parser left the whole parser suite green.
+  **What the browser pass measured about the widening: nothing, and that is worth
+  recording.** One real prompt at N=3 against both targets produced six answers
+  containing zero bare URLs, zero autolinks, zero reference definitions and zero
+  email addresses - anthropic emitted no links in its text at all, and openai
+  emitted only markdown links, which the previous parser already handled. Re-parsed
+  under both the old and the new reduction, all six give an identical result. The
+  four gaps are real and each is proved by a test that goes red against the old
+  parser, but they are proved against constructed text; how often a real model
+  emits them is unmeasured, and one question is not a sample. Phase 9's ten real
+  prompts are the first honest opportunity to say.
 
 ## Phase 7 - Aggregation, coverage and cost
 

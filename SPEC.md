@@ -140,8 +140,29 @@ next to which competitors, and which sources the model cited.
   target, which is the number of prompts times N. Computed per target, never for
   the run as a whole. The denominator is the plan, not the number of stored rows:
   a run abandoned after a tenth of its work must not read as fully covered.
-- **Visible text** - the answer text with markdown link targets, image targets and
-  fenced code blocks removed. All brand matching happens on visible text only.
+- **Visible text** - the answer text with markdown link targets, image targets,
+  fenced code blocks, URLs and email addresses removed. All brand matching happens
+  on visible text only.
+  A **URL** here means a token carrying a scheme (`http://`, `https://`) or a
+  leading `www.`, whether it is a markdown target, a bare address in prose, an
+  autolink in angle brackets, or a reference-link definition. A bare domain written
+  as prose - `acme.com`, with neither scheme nor `www.` - is **not** removed, so an
+  operator may use a domain as an alias. That choice has a cost, stated here rather
+  than left to be found: an alias also matches *inside* a surviving bare domain,
+  because the dot is a boundary, so a model that attributes a source as
+  `[acme.nl](https://www.acme.nl/...)` - a form openai was observed producing on
+  2026-08-25 - counts the subject as mentioned even where the prose recommends a
+  rival. This is the residual of the address problem and it is the one case the
+  widening does not reach.
+  *Widened 2026-08-25, and this is a change of measurement basis.* The definition
+  previously named only the three markdown forms, which left four ways for a brand
+  to be counted from inside an address: a bare URL, an autolink, a reference-link
+  definition, and an email address. Answers from a web-searching model are full of
+  addresses and a client's own domain contains its own name, so the subject brand
+  was recorded as mentioned in answers that never named it, and every competitor
+  position after it shifted. Visible text is a reduction made for matching, not a
+  claim about what a reader sees - fenced code was already removed on the same
+  grounds.
 - **Position** - the rank of the brand's first occurrence in the visible text
   among all recognised brands in that one answer. It is ordering in the text, not
   the model's intended ranking.
@@ -286,14 +307,17 @@ next to which competitors, and which sources the model cited.
   Matching SHALL be case-insensitive and Unicode-normalised; SHALL require a
   non-alphanumeric boundary or a string edge on both sides; SHALL tolerate
   additional whitespace and line breaks inside a multi-word alias; SHALL ignore
-  markdown link targets, image targets and fenced code blocks; SHALL prefer the
+  markdown link targets, image targets, fenced code blocks, URLs and email
+  addresses, as **Visible text** defines those; SHALL prefer the
   longest matching alias where aliases overlap; and SHALL resolve a name present in
   both the alias list and the competitor list in favour of the subject brand.
   There is no stemming and no suffix rule: a plural or possessive suffix that is
   itself alphanumeric breaks the boundary, so "Acmes" does not match the alias
   "Acme". An operator who wants such a form counted adds it to the alias list.
-  IF a brand occurs only in a citation and not in the visible text, THEN it SHALL
-  count as not mentioned.
+  IF a brand occurs only in a citation, a URL or an email address, and not in the
+  visible text, THEN it SHALL count as not mentioned. An address is where a brand
+  lives, not a recommendation of it: "contact them at info@acme.nl" names the brand
+  in the prose either way, and `https://acme.nl/prices` on its own does not.
 
 - **C9 - Aggregate on read**: The system SHALL compute mention rate, average
   position, competitor frequency and cited domain frequency from the stored answer
@@ -526,6 +550,24 @@ or higher, producing at least one citation per successful answer.
   trust); expect Hobby plus usage.
 - ~~**[Owner: you]** Create the GitHub repository and add both provider API keys
   as repository secrets.~~ **Resolved 2026-08-23.** `jve89/large`, private.
+- **[Owner: Claude, before the dashboard phase]** Name and present the state this
+  product now has but cannot describe: **cited but not named**. Since 2026-08-25 a
+  brand inside a URL is not a mention, so an answer that cites `acme.nl` as a
+  source while recommending someone else scores zero mentions and one citation.
+  That is not a gap in the instrument, it is one of the more interesting things it
+  can say - the model read your website and recommended a competitor anyway - and
+  the pairing of C8 with C16 already holds the data for it. This line exists so
+  that the phase presenting figures inherits the question rather than rediscovering
+  it, and so nobody later reports a zero-mention-with-citations result as a parser
+  bug and "fixes" it. Nothing is authorised by this line; see Vision -> "How to use
+  this section". **Open.**
+- **[Owner: Claude, before Phase 9]** Decide how a reader tells apart two runs
+  measured under different parser semantics. `basisHash` covers the prompts,
+  targets, aliases and competitors - not the code that decides what counts as a
+  mention - so the widening above left runs from before and after it carrying the
+  same hash while meaning different things, which is what C11 exists to prevent.
+  Phase 9 compares runs across time, so it is the phase this confound would ruin.
+  **Open**, with a proposal recorded in `ARCHITECTURE.md` -> Key decisions.
 - **[Owner: you]** Supply the first real brand: name, aliases, competitor list and
   at least ten buying-moment prompts. Without this the Success criterion above
   cannot be met. Blocks Phase 9. **Still open.**
