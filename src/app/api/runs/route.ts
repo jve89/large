@@ -37,6 +37,11 @@ const bodySchema = z.object({
         modelId: z.string().min(1),
       }),
     )
+    // Rejecting an empty target list is a sensible invention, not a spec rule:
+    // no capability names it. A run with no targets asks nothing of anyone and
+    // would report coverage over an empty denominator, so it is refused. Noted so
+    // the next reader can tell an invention from a requirement - the same reason
+    // MAX_REPETITIONS carries a note in lib/defaults.ts.
     .min(1)
     .default([...DEFAULT_TARGETS]),
 })
@@ -85,5 +90,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     )
   }
 
-  return NextResponse.json({ runId: result.runId, status: result.status }, { status: 201 })
+  return NextResponse.json(
+    { runId: result.runId, status: result.status, plannedCalls: result.plannedCalls },
+    { status: 201 },
+  )
 }

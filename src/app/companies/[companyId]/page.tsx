@@ -61,7 +61,9 @@ export default async function CompanyPage({
           companyId={company.id}
           prompts={company.prompts.map((prompt) => prompt.text)}
         />
-        {company.prompts.length > 0 ? <StartRunDialog companyId={company.id} /> : null}
+        {company.prompts.length > 0 ? (
+          <StartRunDialog companyId={company.id} promptCount={company.prompts.length} />
+        ) : null}
       </section>
 
       <section className="mt-8">

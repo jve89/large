@@ -15,6 +15,7 @@
  */
 import type { PrismaClient, RunStatus } from '@prisma/client'
 import { basisHash } from '../../lib/hash.ts'
+import { priceFor } from '../providers/pricing.ts'
 import { targetKey, type Target } from '../providers/types.ts'
 
 export interface QueueRunInput {
@@ -26,10 +27,25 @@ export interface QueueRunInput {
   readonly targets: readonly Target[]
 }
 
-export type QueueRunFailure = 'unknown-company' | 'no-prompts' | 'duplicate-target'
+export type QueueRunFailure =
+  | 'unknown-company'
+  | 'no-prompts'
+  | 'duplicate-target'
+  | 'unpriceable-target'
 
 export type QueueRunResult =
-  | { readonly ok: true; readonly runId: string; readonly status: RunStatus }
+  | {
+      readonly ok: true
+      readonly runId: string
+      readonly status: RunStatus
+      /**
+       * Prompts x targets x N - the number of provider calls this run will make,
+       * and therefore the number it will be billed for. Stated because this is
+       * the endpoint that actually spends the money: C2's warning is computed
+       * from defaults it admits are hypothetical, while this figure is exact.
+       */
+      readonly plannedCalls: number
+    }
   | { readonly ok: false; readonly reason: QueueRunFailure; readonly message: string }
 
 /**
@@ -61,6 +77,24 @@ export async function queueRun(input: QueueRunInput): Promise<QueueRunResult> {
       message:
         `The target list contains '${duplicate}' more than once. ` +
         'A target is one (provider, model id) pair and a run measures each once.',
+    }
+  }
+
+  // A target with no row in the price table is one this system structurally
+  // cannot measure: `costMicros` cannot be computed for it, and rule 12 forbids
+  // inventing a price anywhere else. A run that cannot cost itself is not a
+  // measurement, so it is refused before it is queued rather than discovered
+  // after every call in it has failed. `priceFor` throws on an unknown id; it is
+  // called here rather than duplicated as a second lookup.
+  const unpriceable = firstUnpriceableTarget(targets)
+  if (unpriceable) {
+    return {
+      ok: false,
+      reason: 'unpriceable-target',
+      message:
+        `No price is on record for '${unpriceable}', so a run against it could ` +
+        'not be costed. Add a dated row to src/core/providers/pricing.ts before ' +
+        'measuring this target.',
     }
   }
 
@@ -135,8 +169,25 @@ export async function queueRun(input: QueueRunInput): Promise<QueueRunResult> {
       select: { id: true, status: true },
     })
 
-    return { ok: true, runId: run.id, status: run.status } as const
+    return {
+      ok: true,
+      runId: run.id,
+      status: run.status,
+      plannedCalls: promptTexts.length * targets.length * repetitions,
+    } as const
   })
+}
+
+/** The first target with no row in the price table, as `provider:modelId`, or null. */
+function firstUnpriceableTarget(targets: readonly Target[]): string | null {
+  for (const target of targets) {
+    try {
+      priceFor(target)
+    } catch {
+      return targetKey(target)
+    }
+  }
+  return null
 }
 
 /** The first target that appears twice, as `provider:modelId`, or null. */

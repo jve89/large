@@ -143,16 +143,25 @@ describe('POST /api/runs - the snapshot', () => {
 
   it('stores the target list it was given, not the default one', async () => {
     const companyId = await createFixture('targets')
-    const run = await loadRun(
-      await queueOk({
-        companyId,
-        targets: [{ provider: 'openai', modelId: 'some-other-model' }],
-      }),
-    )
+    const only = DEFAULT_TARGETS[0]!
+    const run = await loadRun(await queueOk({ companyId, targets: [only] }))
 
     expect(run.targets).toHaveLength(1)
-    expect(run.targets[0]?.provider).toBe('openai')
-    expect(run.targets[0]?.modelId).toBe('some-other-model')
+    expect(run.targets[0]?.provider).toBe(only.provider)
+    expect(run.targets[0]?.modelId).toBe(only.modelId)
+  })
+
+  it('reports the number of provider calls the run will make', async () => {
+    const companyId = await createFixture('planned-calls', {
+      prompts: ['one', 'two', 'three'],
+    })
+
+    const response = await queue({ companyId, repetitions: 4 })
+    expect(response.status).toBe(201)
+    const body = (await response.json()) as { plannedCalls: number }
+
+    // prompts x targets x N - exact, not a default case: this endpoint knows both.
+    expect(body.plannedCalls).toBe(3 * DEFAULT_TARGETS.length * 4)
   })
 })
 
@@ -306,15 +315,21 @@ describe('POST /api/runs - basisHash', () => {
     expect(await hashOf(companyId)).not.toBe(before)
   })
 
-  it('changes when a model id changes', async () => {
-    const companyId = await createFixture('hash-model')
-    const before = await hashOf(companyId, {
-      targets: [{ provider: 'openai', modelId: 'model-a' }],
-    })
-    const after = await hashOf(companyId, {
-      targets: [{ provider: 'openai', modelId: 'model-b' }],
-    })
+  it('changes when the target list changes', async () => {
+    // Every target here must be priced, because an unpriceable one is now refused
+    // at queue time (C3). The model-id-only variation is covered by the unit test
+    // in tests/hash.test.ts, which calls basisHash directly and needs no price.
+    const companyId = await createFixture('hash-targets')
+    const before = await hashOf(companyId, { targets: [DEFAULT_TARGETS[0]!] })
+    const after = await hashOf(companyId, { targets: [DEFAULT_TARGETS[1]!] })
     expect(after).not.toBe(before)
+  })
+
+  it('changes when a target is added to the list', async () => {
+    const companyId = await createFixture('hash-target-added')
+    const one = await hashOf(companyId, { targets: [DEFAULT_TARGETS[0]!] })
+    const both = await hashOf(companyId, { targets: [...DEFAULT_TARGETS] })
+    expect(both).not.toBe(one)
   })
 })
 
@@ -389,34 +404,54 @@ describe('POST /api/runs - targets', () => {
   it('rejects a duplicated target, names it, and creates no run', async () => {
     const companyId = await createFixture('t-dupe')
     const before = await prisma.run.count()
+    const first = DEFAULT_TARGETS[0]!
 
     const response = await queue({
       companyId,
-      targets: [
-        { provider: 'anthropic', modelId: 'model-a' },
-        { provider: 'openai', modelId: 'model-b' },
-        { provider: 'anthropic', modelId: 'model-a' },
-      ],
+      targets: [first, DEFAULT_TARGETS[1]!, first],
     })
 
     expect(response.status).toBe(400)
     const body = (await response.json()) as { error: string }
-    expect(body.error).toContain('anthropic:model-a')
+    expect(body.error).toContain(`${first.provider}:${first.modelId}`)
     expect(await prisma.run.count()).toBe(before)
   })
 
-  it('accepts the same model id under two different providers', async () => {
-    const companyId = await createFixture('t-samemodel')
-    const run = await loadRun(
-      await queueOk({
-        companyId,
-        targets: [
-          { provider: 'anthropic', modelId: 'shared-name' },
-          { provider: 'openai', modelId: 'shared-name' },
-        ],
-      }),
-    )
-    expect(run.targets).toHaveLength(2)
+  it('accepts the full default target list', async () => {
+    const companyId = await createFixture('t-all')
+    const run = await loadRun(await queueOk({ companyId, targets: [...DEFAULT_TARGETS] }))
+    expect(run.targets).toHaveLength(DEFAULT_TARGETS.length)
+  })
+
+  it('rejects a target with no price on record, names it, and creates no run', async () => {
+    const companyId = await createFixture('t-unpriced')
+    const before = await prisma.run.count()
+
+    // A target the price table does not carry cannot be costed, and rule 12
+    // forbids a price living anywhere else - so the run could never report what
+    // it spent. Refused at queue time rather than after every call has failed.
+    const response = await queue({
+      companyId,
+      targets: [{ provider: 'openai', modelId: 'gpt-9-does-not-exist' }],
+    })
+
+    expect(response.status).toBe(400)
+    const body = (await response.json()) as { error: string }
+    expect(body.error).toContain('openai:gpt-9-does-not-exist')
+    expect(await prisma.run.count()).toBe(before)
+  })
+
+  it('rejects the whole request when only one target of several is unpriced', async () => {
+    const companyId = await createFixture('t-unpriced-mixed')
+    const before = await prisma.run.count()
+
+    const response = await queue({
+      companyId,
+      targets: [DEFAULT_TARGETS[0]!, { provider: 'anthropic', modelId: 'claude-nonexistent' }],
+    })
+
+    expect(response.status).toBe(400)
+    expect(await prisma.run.count()).toBe(before)
   })
 })
 

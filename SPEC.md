@@ -211,6 +211,19 @@ next to which competitors, and which sources the model cited.
   competitors - and SHALL return without waiting for the measurement to finish.
   IF the company has no prompts, THEN the system SHALL reject the request and
   create no run.
+  IF any target in the request has no price on record, THEN the system SHALL
+  reject the request and create no run, naming that target. A target the price
+  table does not carry is one the system structurally cannot measure: its
+  `costMicros` cannot be computed, and prices live only in
+  `src/core/providers/pricing.ts`, so there is nowhere else a figure could
+  legitimately come from. A run that cannot cost itself is not a measurement, and
+  refusing it at queue time is the difference between one clear error and a run
+  whose every attempt fails for a reason nobody can see beforehand.
+  WHEN a run is created, the system SHALL state the number of provider calls it
+  will make - prompts x targets x N - and SHALL state it **before** the operator
+  commits to the run, not only afterwards. This is the point at which real money
+  is spent, and unlike C2's warning the figure here is exact rather than a default
+  case, because the N and the target list are known.
 
 - **C4 - Claim and execute**: WHILE a run has status `queued`, the worker SHALL be
   able to claim it exactly once, set it to `running`, and execute one attempt for

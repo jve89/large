@@ -522,8 +522,12 @@ POST   /api/runs
   req: { companyId, repetitions, targets: { provider, modelId }[] }
        # repetitions and targets both default (DEFAULT_REPETITIONS,
        # DEFAULT_TARGETS), so { companyId } alone is a valid request.
-  res: { runId, status: 'queued' }
-  errs: 400 schema, empty prompt list, or a target repeated in the list;
+  res: { runId, status: 'queued', plannedCalls }
+       # plannedCalls = prompts x targets x N. Exact, unlike C2's warning.
+       # The start-run dialog states the same figure BEFORE the button is
+       # pressed - the 201 body is after the operator has committed (C3).
+  errs: 400 schema, empty prompt list, a target repeated in the list, or a
+        target with no row in pricing.ts (it could not be costed, C3);
         404 unknown company (a malformed id is 404, not 400)
   # The handler is an HTTP wrapper only. The capability is
   # src/core/run/queue.ts, which scripts/verify-live.ts calls too, so the live
@@ -632,6 +636,16 @@ empty value and a one-line comment.
 **Dashboard settings that live outside the repo and silently change what users
 get** - enumerate and check these when a deploy behaves unexpectedly:
 
+- **whether each service has a GitHub deploy trigger at all** - this is not the
+  same as the service having a repo as its source, and the difference is invisible
+  from the dashboard's service list. Checked 2026-08-25: `web` carried a trigger on
+  `main` and had been deploying on every push, while `worker` had `source.repo` set
+  to `jve89/large` and **no trigger**, so it had not rebuilt since Phase 0's manual
+  deploy on 2026-08-23 - through three later pushes. "Ships via push-to-main" was
+  therefore true of one service and false of the other. Fixed by creating the
+  missing trigger (`deploymentTriggerCreate`, branch `main`). Query both with:
+  `railway api 'query { project(id: "...") { services { edges { node { name
+  repoTriggers { edges { node { branch repository } } } } } } } }'`
 - the start command per service (they differ; they are not in `package.json`)
 - which service is publicly exposed (web only - the worker must have no domain)
 - the Postgres plugin's injected `DATABASE_URL` and its connection limit
