@@ -4,6 +4,7 @@ import { FigureValue, formatPercent } from '../../../components/figure.tsx'
 import { RunProgress } from '../../../components/run-progress.tsx'
 import { plannedAttemptsPerTarget } from '../../../core/run/plan.ts'
 import { aggregateRun } from '../../../lib/aggregate.ts'
+import { evidenceHref } from '../../../lib/evidence.ts'
 import { prisma } from '../../../lib/db.ts'
 import { validateEnv } from '../../../lib/env.ts'
 import { formatMicrosAsUsd } from '../../../lib/money.ts'
@@ -32,16 +33,26 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
       company: true,
       targets: true,
       prompts: { orderBy: { order: 'asc' } },
+      // Only what the figures need. Raw text and citations are loaded by the
+      // evidence page, for the one target a reader actually opened.
       answers: {
-        include: { citations: { orderBy: { order: 'asc' } }, mentions: true },
-        orderBy: { createdAt: 'asc' },
+        select: {
+          runTargetId: true,
+          runPromptId: true,
+          status: true,
+          inputTokens: true,
+          outputTokens: true,
+          searchCount: true,
+          costMicros: true,
+          mentions: { select: { brand: true, isSubject: true, position: true } },
+          citations: { select: { url: true } },
+        },
       },
     },
   })
 
   if (!run) notFound()
 
-  const targetById = new Map(run.targets.map((t) => [t.id, t]))
   const promptById = new Map(run.prompts.map((p) => [p.id, p]))
   const plannedPerTarget = plannedAttemptsPerTarget(run.prompts.length, run.repetitions)
 
@@ -104,9 +115,25 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
         <h2 className="text-lg font-medium">Figures, per target</h2>
         <ul className="mt-4 space-y-6">
           {aggregate.targets.map((target) => (
-            <li key={target.targetId} className="border-t border-neutral-200 pt-4">
+            <li
+              key={target.targetId}
+              data-target-block={target.targetId}
+              className="border-t border-neutral-200 pt-4"
+            >
               <p className="text-sm font-medium">
                 {target.provider} · {target.modelId}
+              </p>
+
+              <p className="mt-1 text-sm text-neutral-600">
+                Coverage {formatPercent(target.coverage.ratio)} ({target.coverage.successes} of{' '}
+                {target.coverage.planned} planned) ·{' '}
+                <Link
+                  data-evidence-link="coverage"
+                  href={evidenceHref(run.id, target.targetId, 'coverage')}
+                  className="underline underline-offset-4"
+                >
+                  evidence
+                </Link>
               </p>
 
               {target.coverage.reliable ? null : (
@@ -122,18 +149,21 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
                   name="mention-rate"
                   label="Mention rate"
                   figure={target.mentionRate}
+                  evidence={{ runId: run.id, runTargetId: target.targetId }}
                   render={(value) => formatPercent(value)}
                 />
                 <FigureValue
                   name="average-position"
                   label="Average position"
                   figure={target.averagePosition}
+                  evidence={{ runId: run.id, runTargetId: target.targetId }}
                   render={(value) => (Math.round(value * 10) / 10).toString()}
                 />
                 <FigureValue
                   name="competitor-frequency"
                   label="Competitors"
                   figure={target.competitors}
+                  evidence={{ runId: run.id, runTargetId: target.targetId }}
                   render={(counts) =>
                     counts.length === 0
                       ? 'no competitors in this run’s snapshot'
@@ -144,6 +174,7 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
                   name="cited-domains"
                   label="Cited sources"
                   figure={target.citedDomains}
+                  evidence={{ runId: run.id, runTargetId: target.targetId }}
                   render={(domains) =>
                     // An empty list is a measurement: the model cited nothing. It
                     // is rendered as a sentence rather than as blank space so it
@@ -178,7 +209,26 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
                           named in {cell.mentioned} of {cell.succeeded} successful attempt
                           {cell.succeeded === 1 ? '' : 's'} ({cell.planned} planned)
                         </span>
-                      )}
+                      )}{' '}
+                      {/*
+                        A no-data cell needs this link more than any other figure on
+                        the page: the reader most likely to follow it is the one who
+                        disagrees, and what they disagree with is "I do not know".
+                        Without the failed attempts and their reasons behind it, the
+                        instrument says it does not know and cannot say why (C17).
+                      */}
+                      <Link
+                        data-cell-evidence-link={cell.state}
+                        href={evidenceHref(
+                          run.id,
+                          target.targetId,
+                          'mention-rate',
+                          cell.runPromptId,
+                        )}
+                        className="underline underline-offset-4"
+                      >
+                        evidence
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -189,82 +239,33 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-medium">Attempts</h2>
-
-        {run.answers.length === 0 ? (
-          <p className="mt-2 text-neutral-600">No attempts stored yet.</p>
-        ) : (
-          <ul className="mt-4 space-y-6">
-            {run.answers.map((answer) => {
-              const target = targetById.get(answer.runTargetId)
-              return (
-                <li key={answer.id} className="border-t border-neutral-200 pt-4">
-                  <p className="text-sm text-neutral-600">
-                    {target ? `${target.provider} · ${target.modelId}` : 'unknown target'} ·
-                    repetition {answer.repetition} · {answer.httpAttempts} HTTP attempt
-                    {answer.httpAttempts === 1 ? '' : 's'} ·{' '}
-                    <span
-                      className={
-                        answer.status === 'ok' ? 'font-medium' : 'font-medium text-red-700'
-                      }
-                    >
-                      {answer.status}
-                    </span>
-                  </p>
-
-                  {answer.status === 'failed' ? (
-                    // A failed attempt is never rendered as an answer in which the
-                    // brand was absent (CLAUDE.md rule 1).
-                    <p className="mt-2 text-sm text-red-700">
-                      No data — {answer.failureReason ?? 'no reason recorded'}
-                    </p>
-                  ) : (
-                    <>
-                      <p className="mt-2 text-sm">
-                        {answer.mentions.length === 0
-                          ? 'No recognised brand found in the visible text.'
-                          : answer.mentions
-                              .slice()
-                              .sort((a, b) => a.position - b.position)
-                              .map(
-                                (mention) =>
-                                  `${mention.position}/${mention.totalRecognised} ${mention.brand}${
-                                    mention.isSubject ? ' (subject)' : ''
-                                  }`,
-                              )
-                              .join(' · ')}
-                      </p>
-
-                      <details className="mt-2">
-                        <summary className="cursor-pointer text-sm text-neutral-600">
-                          {answer.citations.length} citation
-                          {answer.citations.length === 1 ? '' : 's'} · raw answer
-                        </summary>
-                        <ul className="mt-2 space-y-1 text-sm">
-                          {answer.citations.map((citation) => (
-                            <li key={citation.id}>
-                              <a
-                                href={citation.url}
-                                className="underline underline-offset-4"
-                                rel="noreferrer noopener"
-                                target="_blank"
-                              >
-                                {citation.title ?? citation.url}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded bg-neutral-50 p-3 text-xs">
-                          {answer.rawText}
-                        </pre>
-                      </details>
-                    </>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        <h2 className="text-lg font-medium">Evidence</h2>
+        {/*
+          Phase 12 moved the answers off this page. It used to inline every one -
+          raw text and all - which at the 300-call ceiling was about 1.1 MB, of
+          which roughly 900 KB was answer text. That is zero steps and unusable.
+          C17 requires each answer to be *reachable*, not rendered all at once, and
+          the reader's action is what "one step" is measured in.
+        */}
+        <p className="mt-2 text-sm text-neutral-600">
+          Every figure above links to the answers it was computed from. By target:
+        </p>
+        <ul className="mt-3 space-y-1 text-sm">
+          {aggregate.targets.map((target) => (
+            <li key={target.targetId}>
+              <Link
+                data-target-evidence-link={target.targetId}
+                href={evidenceHref(run.id, target.targetId, 'coverage')}
+                className="underline underline-offset-4"
+              >
+                {target.provider} · {target.modelId}
+              </Link>{' '}
+              <span className="text-neutral-500">
+                — {target.coverage.successes} successful of {target.coverage.planned} planned
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
     </main>
   )

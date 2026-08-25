@@ -612,6 +612,18 @@ GET    /api/runs/:runId
         # nothing, which is an observation and must not render alike.
         # C17's answers arrays are Phase 12 and are not in this payload yet.
   errs: 404 unknown run
+
+GET    /runs/:runId/evidence/:runTargetId?figure=&prompt=      (a page, not JSON)
+  The C17 destination. Loads only that target's answers - and only that prompt's
+  when a cell was followed - so the page is the size of what the reader asked
+  for. `figure` selects the sentence naming which answers the figure was computed
+  from, and marks the ones it used rather than filtering the rest away: C17
+  requires a failed answer to be reachable *beside* the successful ones so that a
+  cell reading "no data" can be explained.
+  A `runTargetId` belonging to another run 404s rather than rendering the wrong
+  evidence, which is the property the seam test exists to hold.
+  Measured at the 300-call ceiling on 2026-08-25: run page 163 KB (it was 1,377 KB
+  when every answer was inlined), one target's evidence 692 KB, one cell's 20 KB.
 ```
 
 Screen 3 polls `GET /api/runs/:runId` every 2 seconds while `run.status` is
@@ -975,6 +987,20 @@ phase. Phase 0 pushes to it.
   Its first value is 2, covering two changes at once - the address widening and the
   link-text-domain rule - which exercised the mechanism on the day it was
   introduced rather than leaving its first real use untested.
+
+- **Evidence is reachable in one step, not rendered in zero.** C17 says every
+  answer behind a figure must be reachable without the reader constructing a URL.
+  Until Phase 12 the run page satisfied that by inlining all of them - 1,377 KB at
+  the 300-call ceiling, most of it raw answer text - which is not one step, it is
+  none, and it is unusable. The figures now link to
+  `/runs/:runId/evidence/:runTargetId`, which loads one target's answers, or one
+  cell's when a cell was followed. The run page is 163 KB; a cell's evidence is
+  20 KB. "One step" is a statement about the reader's action, and the transport was
+  never the question.
+  One target's evidence at that ceiling is still 692 KB. That is the size of what
+  was asked for rather than a surprise, and the cheap path - a disputed cell - is
+  the one a reader actually takes. If it ever needs pagination, that is a change to
+  this page and not to the capability.
 
 - **Two version numbers, stamped in two different places, for the same reason.**
   `MEASUREMENT_SEMANTICS_VERSION` is hashed into `basisHash` at run creation;

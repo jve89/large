@@ -1,4 +1,6 @@
+import Link from 'next/link'
 import type { Figure } from '../lib/aggregate.ts'
+import { evidenceHref, type FigureName } from '../lib/evidence.ts'
 
 /**
  * The only way this application renders an aggregate figure.
@@ -19,11 +21,14 @@ export function FigureValue<T>({
   label,
   figure,
   render,
+  evidence,
 }: {
-  name: string
+  name: FigureName
   label: string
   figure: Figure<T>
   render: (value: T) => string
+  /** C17: where this figure's own evidence lives. */
+  evidence?: { runId: string; runTargetId: string }
 }) {
   const { coverage, repetitions, result } = figure
 
@@ -50,6 +55,21 @@ export function FigureValue<T>({
         planned) · N={repetitions}
         {coverage.reliable ? '' : ' · unreliable'}
       </span>
+      {evidence ? (
+        // C17. One step, and to *this* figure's evidence: the figure name travels
+        // in the link so the destination can say which answers it was computed
+        // from, rather than handing over the pile and leaving the reader to guess.
+        <>
+          {' '}
+          <Link
+            data-evidence-link={name}
+            href={evidenceHref(evidence.runId, evidence.runTargetId, name)}
+            className="underline underline-offset-4"
+          >
+            evidence
+          </Link>
+        </>
+      ) : null}
     </li>
   )
 }

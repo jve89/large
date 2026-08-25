@@ -25,8 +25,8 @@
 | 7 | 6 - Mention parsing | C8 | done |
 | 8 | 7 - Aggregation, coverage and cost | C9, C10, C12, C18 | done |
 | 9 | 11 - Cited domain frequency | C16 | done |
-| 10 | 12 - Traceability to evidence | C17 | next |
-| 11 | 8 - Comparability guard | C11 | |
+| 10 | 12 - Traceability to evidence | C17 | done |
+| 11 | 8 - Comparability guard | C11 | next |
 | 12 | 13 - Mark the client's own cited domain | C16, extended | |
 | 13 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | |
 | 14 | 10 - Ship | SPEC "Success = done when" | |
@@ -482,12 +482,28 @@ reachable from the figure.
     reachable and must not be confused with a failure. Plus by inspecting the run
     page.
 - Commit: `feat: traceability to evidence`
-- **Sizing note, from Phase 7's measurement.** At the 300-call ceiling the run
-  page's payload is about 1.1 MB, of which roughly 900 KB is raw answer text
-  inlined into the attempt list. The aggregate costs nothing; the evidence is what
-  grows. C17 requires every answer to be *reachable* in one step, not rendered all
-  at once, and this phase is where that distinction should be made rather than
-  inherited from Phase 0's list.
+- **Recorded 2026-08-25.** Three things this phase settled.
+  **"One step" is measured in the reader's action, not the transport.** A page that
+  inlined every answer was zero steps and unusable; a link that opens the evidence
+  for the figure in front of you is one step and correct. Measured at the 300-call
+  ceiling: the run page fell from **1,377 KB to 163 KB**, an evidence page for one
+  target is 692 KB - the size of what was actually asked for - and for a single
+  cell it is **20 KB**, which is the path a reader disputing a "no data" cell
+  takes. Query count is unchanged at 7; this was never about queries.
+  **Each figure type reaches a different shape of evidence, and `lib/evidence.ts`
+  states the mapping rather than implying it.** Mention rate reaches the successful
+  answers; average position the narrower set that named the brand; competitor
+  frequency and cited domains the successful answers, with the cited-domain
+  explanation telling a reader *before* they count URLs by hand that the unit is
+  the answer; coverage is the odd one, because its denominator is the plan and its
+  evidence therefore includes attempts that were never made and have no row at all.
+  **The seam test was too weak on the first attempt, and that is worth keeping in
+  the record.** It asserted the healthy target's link reached the healthy target -
+  which stays true when *every* link on the page is wired to the first target.
+  Wiring them all to target 0 left it green. It now asserts per block: every
+  evidence link rendered inside one target's section reaches that target and no
+  other, and the same experiment turns it red. A link that resolves proves nothing
+  about where it resolves to.
 
 ## Phase 8 - Comparability guard
 
