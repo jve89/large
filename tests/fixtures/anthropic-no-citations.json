@@ -1,0 +1,263 @@
+{
+  "$meta": {
+    "provider": "anthropic",
+    "modelId": "claude-sonnet-5",
+    "capturedOn": "2026-08-25",
+    "evidence": "documented",
+    "source": "search results emptied and citations removed. ARCHITECTURE records that a search which succeeds but matches nothing returns an EMPTY RESULT LIST, not an error - the two must never collapse; the surrounding envelope is an observed response captured 2026-08-25; only the error-bearing part is documented. Opaque encrypted_content blobs, which the interpret function never reads, are stripped to keep the fixture legible.",
+    "note": "as researched 2026-08-25; re-check, don't trust - this is a DOCUMENTED shape, not one this system has observed. Replace it with an observed capture the first time a real failure of this kind is seen; src/core/providers/capture.ts logs the raw response of every failed attempt so that becomes possible."
+  },
+  "response": {
+    "model": "claude-sonnet-5",
+    "id": "msg_011CeNys1bcVVMePfzMuU9UN",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "",
+        "signature": "EocFCpABCBEYAipAGplahRRDuAJ0Kw/hsrAlUsx/aF/hidQFZ+wfcYvDiFfR60BxdtbhhZATA09SNufDM12ACzwxZUNlpvoJisXsTjIPY2xhdWRlLXNvbm5ldC01OABCCHRoaW5raW5nWiQ3NjlkYjkwNS01M2MyLTQ0MjUtYmUzYi1hYTNmOGU4YWZkMzGoAd3ntNQGEgxT8EONtlfGrZbuQhwaDPwSQio9/a/dgSqJoCIwGduezs1KtCwa7SjBWEvFNTCMIpoth+oQH2SWYb+VO9LsI+izoGYhrqCiZLddBQCYKqMDD/BXT9nj9hX3NicfFFf/opJStCK1tJ7uD/eQpNYrdoWqKbMxFnM2mmwh7e5+SIEJkbndNYfalrTgKjZYJ5+2VpFHxfPqM9wcNx15+6/aER6SeS7q8n63rfoXDELVOP5MKXjlH465XsmJROkH0OBCTl2ILF5biVinDQOKG47i1YfRnhRkI8sdPAmPv+IRmMdlGx+PE9UjOcSD6KARbwqe9xD1gRxpe2E4b3kah/munzq1YTzLq2U2P+lxRQuYEJbCdr+uvs5d2AYhAfAqCnNBrIeuPDVjqKuz1uGNM2DwcBDLUX2GsQsfHcB9aRoj7hr75YDatNDnugpO13VTv4bB7zqTyHx2IZ3DCsyorH4e8ykUoG41CrDVvRGgj1UkiJ2sr3gGs6O7PjmzSoDCkbRd+wfGm4ApAxgex0jGG6r4Dr/pRNh7fT6FrcKwQA23/y+uf5Dw84r56NJKklQsWn2n4Bxi5N709PpK/gFs5dVv7DeTHUrjReoRwxuU98HiT7bYb1bcxgevsmbKKDbxnWGHv+M53n1N8fq3v5Emp6R9WUZN6ZMYAQ=="
+      },
+      {
+        "type": "server_tool_use",
+        "id": "srvtoolu_01KiJXRPGVbk3X8FkSuEtuvx",
+        "name": "web_search",
+        "input": {
+          "query": "best team chat tools for small business 2026"
+        }
+      },
+      {
+        "type": "server_tool_use",
+        "id": "srvtoolu_01Lq37SnoqBhEtYR8ArPvNRR",
+        "name": "web_search",
+        "input": {
+          "query": "best team communication apps small company comparison"
+        }
+      },
+      {
+        "type": "web_search_tool_result",
+        "tool_use_id": "srvtoolu_01KiJXRPGVbk3X8FkSuEtuvx",
+        "content": [],
+        "caller": {
+          "type": "direct"
+        }
+      },
+      {
+        "type": "web_search_tool_result",
+        "tool_use_id": "srvtoolu_01Lq37SnoqBhEtYR8ArPvNRR",
+        "content": [],
+        "caller": {
+          "type": "direct"
+        }
+      },
+      {
+        "type": "text",
+        "text": "# Best Team Chat Tools for a Small Company\n\nBased on current comparisons, here are the top options depending on your team's needs and existing tools:\n\n## Top All-Around Picks\n\n**Slack** — Widely considered the top choice if budget allows. ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "Slack leads with 800+ integrations"
+      },
+      {
+        "type": "text",
+        "text": ", and it ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "integrates with many popular workplace tools, with the ability to connect to almost any project management system"
+      },
+      {
+        "type": "text",
+        "text": ". Pricing is flexible: ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "it's available as a free download, or you can upgrade to $8/month up to custom-priced plans at the Enterprise level"
+      },
+      {
+        "type": "text",
+        "text": ".\n\n**Microsoft Teams** — Best if you're already in the Microsoft ecosystem. ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "Microsoft Teams integrates seamlessly with Office 365"
+      },
+      {
+        "type": "text",
+        "text": ". It ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "has the same functionality of Slack and more, with solid video chat capabilities and conferencing integrations, making it a compelling all-in-one solution when coupled with the Microsoft fleet of project management products"
+      },
+      {
+        "type": "text",
+        "text": ". That said, some reviewers note ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "it might be a bit too robust for small businesses and casual communications"
+      },
+      {
+        "type": "text",
+        "text": ".\n\n**Google Chat** — Ideal for Google Workspace users, since it ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "works perfectly with Google Workspace"
+      },
+      {
+        "type": "text",
+        "text": ".\n\n## Budget-Friendly / Small-Team-Focused Options\n\n**Pumble** — A strong free option for small and remote teams. ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "Its robust free plan makes it a great option as a team communication app for small businesses, especially remote and distributed teams."
+      },
+      {
+        "type": "text",
+        "text": " Notably, ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "Pumble stands out as one of the few free messaging apps for professional use that don't delete or restrict your chat history."
+      },
+      {
+        "type": "text",
+        "text": "\n\n**Chanty** — Great for lightweight, task-focused teams. It's ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "perfect for teams with a structured workflow that need a lightweight communication tool to keep everyone on track, especially smaller businesses and startups watching their budgets"
+      },
+      {
+        "type": "text",
+        "text": ". It offers ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "AI-powered team chat with built-in task management features, and unlimited message history in the free plan"
+      },
+      {
+        "type": "text",
+        "text": ", though ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "its integration with third-party apps could be more robust, which may be a drawback for teams relying on other productivity tools"
+      },
+      {
+        "type": "text",
+        "text": ".\n\n**Troop Messenger** — Good for small companies wanting security + simplicity. It's ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "built with a simple user face and incredible UI/UX, perfect for small companies who need an easy-to-use platform, with unique features like \"burnout\" and \"respond later,\" plus two-factor authentication and end-to-end encryption"
+      },
+      {
+        "type": "text",
+        "text": ".\n\n## For Deskless/Frontline Teams\n\n**Connecteam** — ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "A strong fit for small to mid-sized businesses in industries like construction, retail, hospitality, and healthcare that rely on frontline or field-based teams, purpose-built for employees who never sit at a desk—like HVAC technicians or cleaning crews"
+      },
+      {
+        "type": "text",
+        "text": ".\n\n## Pricing Expectations\n\nFor budgeting purposes: ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "small businesses typically spend between $3 and $10 per user monthly for team communication software, and many platforms also provide free plans with basic messaging, collaboration, and file-sharing features"
+      },
+      {
+        "type": "text",
+        "text": ". More specifically, ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "per-user pricing often starts around $3–$4 per month, with entry-level plans going up to $7–$8 per user"
+      },
+      {
+        "type": "text",
+        "text": ".\n\n## How to Choose\n\nThe consensus among reviewers is that fit matters more than feature count: ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "for small and medium businesses, choose a team chat app that's easy to use, well-organized, and available on all devices, particularly if the business doesn't have an IT team"
+      },
+      {
+        "type": "text",
+        "text": ". Also factor in your existing software — ",
+        "citations": []
+      },
+      {
+        "citations": [],
+        "type": "text",
+        "text": "since Slack, Teams, and Google Chat each integrate best with different ecosystems, consider your existing tool stack when choosing"
+      },
+      {
+        "type": "text",
+        "text": ".\n\n**Quick recommendation:** If you already use Google Workspace or Microsoft 365, stick with Google Chat or Teams for seamless integration. If you want the most polished experience and can pay per-user, Slack is the gold standard. If budget is tight, Pumble or Chanty offer excellent free tiers without sacrificing core features.",
+        "citations": []
+      }
+    ],
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 18707,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 1796,
+      "service_tier": "standard",
+      "inference_geo": "global",
+      "server_tool_use": {
+        "web_search_requests": 2,
+        "web_fetch_requests": 0
+      },
+      "output_tokens_details": {
+        "thinking_tokens": 115
+      }
+    },
+    "parsed_output": null
+  }
+}

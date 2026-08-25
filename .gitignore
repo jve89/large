@@ -6,3 +6,6 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# Captured raw provider responses (PROVIDER_CAPTURE_DIR) — evidence, not source.
+.captured/

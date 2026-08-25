@@ -248,6 +248,12 @@ next to which competitors, and which sources the model cited.
   IF an attempt fails, THEN the system SHALL persist an answer row with status
   `failed` and a failure reason, and SHALL NOT persist it as an answer in which the
   brand was absent.
+  The provider and the model id are **reached** through the answer's `RunTarget`,
+  not stored as columns on the answer. "Carrying" above means the row identifies
+  them unambiguously, never that it duplicates them: every row reaches its company
+  through a single foreign-key chain, and denormalising two columns v1 never reads
+  was considered and rejected in `ARCHITECTURE.md` -> Key decisions. A later reader
+  must not satisfy this capability by adding those columns.
 
 - **C6 - Retry transient failures**: IF a provider call fails with a rate limit, a
   timeout or a 5xx, THEN the system SHALL make at most three attempts in total -
@@ -264,6 +270,11 @@ next to which competitors, and which sources the model cited.
   The citations of one answer SHALL be de-duplicated: two citations of the same
   URL, differing at most by a URL fragment, SHALL be stored once. A citation list
   must not repeat a source the model drew on once.
+  "In the order the provider first reported it" means the order of **first**
+  report, renumbered contiguously from zero **after** de-duplication: a collapsed
+  duplicate does not hold a slot. Given citations A, B, A#fragment, C the stored
+  orders are A=0, B=1, C=2. The provider's own indices are not preserved, because
+  after a collapse they would no longer be contiguous and nothing reads them.
   IF the provider returns a web search error object instead of a result list, THEN
   the system SHALL record that attempt as failed and SHALL NOT record it as an
   answer containing zero citations.

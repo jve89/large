@@ -240,8 +240,9 @@ large/
       providers/
         types.ts                     # ProviderAdapter interface
         pricing.ts                   # dated per-token and per-search prices
-        anthropic.ts
-        openai.ts
+        capture.ts                   # PROVIDER_CAPTURE_DIR; failure evidence
+        anthropic.ts                 # ask() = transport; interpret*() = pure
+        openai.ts                    #   ditto - the seam fixtures come through
         index.ts                     # registry, configuration-driven
       parse/
         visible-text.ts              # strip link targets, images, code fences
@@ -285,7 +286,11 @@ large/
     traceability.test.ts             # SPEC C17, figure -> its answers
     comparability.test.ts
     hash.test.ts
-    fixtures/                        # real stored provider responses
+    fixtures/                        # stored provider responses, each with a
+                                     #   $meta block: model id, date, and whether
+                                     #   it is `observed` or `documented`
+    fixtures.test.ts                 # anti-rot: a fixture's model id must equal
+                                     #   the pinned one, else recapture
 ```
 
 ## Data model
@@ -621,6 +626,7 @@ cannot.
 | WORKER_POLL_MS | no (default 2000) | zod default |
 | STALE_RUN_SECONDS | no (default 120) | zod default |
 | MAX_RECLAIMS | no (default 3) | zod default |
+| PROVIDER_CAPTURE_DIR | no (off when unset) | zod optional; asserted off in tests |
 | NODE_ENV | all roles | zod enum |
 
 **PostgreSQL version guard.** On startup, after the first connection, every role
@@ -857,6 +863,41 @@ phase. Phase 0 pushes to it.
   in-flight attempts finish before exiting, which is a phase of its own and is
   written into `PLAN.md` -> Roadmap beyond v1, not something to patch in
   incidentally.
+
+- **A provider response is interpreted by a pure function, separate from the SDK
+  call.** `ask()` keeps the request, the error handling and the latency clock;
+  `interpretAnthropicMessage` / `interpretOpenAiResponse` map a response to a
+  `ProviderResult`. Before this split there was no door a stored response could
+  come through, so `tests/fixtures/` stayed empty while the most important rule in
+  the pack - rule 8, a web search error is not an empty result - was checked only
+  by the live gate, which costs money and cannot exercise a failure on demand.
+
+- **Fixtures record their provenance, and rot loudly rather than quietly.** Each
+  file in `tests/fixtures/` carries a `$meta` block naming the model id it came
+  from, the date, and its grade of evidence: `observed` means a provider actually
+  produced it, `documented` means the shape came from this document's notes on the
+  provider's own documentation. Those are different and the directory must not
+  flatten them - only the two success fixtures are observed. `tests/fixtures.test.ts`
+  asserts every fixture's model id equals the currently pinned model for its
+  provider, so changing `DEFAULT_TARGETS` turns a stale fixture red at the moment
+  it goes stale. Without that, a provider could change its response shape and every
+  fixture would keep passing against a provider that no longer exists - the same
+  class of failure as a deploy trigger that reports success while deploying nothing.
+
+- **Recapturing fixtures is a facility, not a debug edit.** `PROVIDER_CAPTURE_DIR`
+  writes every raw provider response to a gitignored directory; it is off by
+  default and the test suite asserts it is off. Recapture is then one command -
+  `PROVIDER_CAPTURE_DIR=.captured npm run verify:live` - which is what makes the
+  anti-rot rule above survivable rather than merely irritating. A debug edit made
+  to the live path during a gate run is exactly the kind of thing that stays in.
+
+- **A failed attempt leaves evidence in the log, because it leaves none in the
+  data.** `Answer` stores `failureReason`, a short string, and nothing of the raw
+  response - so without this the first real web-search error in production would
+  teach us nothing and the error fixtures would stay `documented` forever.
+  `logFailureEvidence` writes the truncated raw response to stderr on every failed
+  attempt, where the host already collects worker stdout. Retaining it properly
+  would need a column on `Answer`, and a schema change is a stop-and-ask.
 
 - **Concurrency rules are tested under real contention, on one shared harness.**
   `tests/helpers/concurrency.ts` gives each actor **its own `PrismaClient`** - actors

@@ -1,0 +1,210 @@
+{
+  "$meta": {
+    "provider": "openai",
+    "modelId": "gpt-5.6-terra",
+    "capturedOn": "2026-08-25",
+    "evidence": "observed",
+    "source": "captured from a real provider response during npm run verify:live, with PROVIDER_CAPTURE_DIR set",
+    "note": "as captured 2026-08-25; re-check, don't trust - recapture when the pinned model id changes"
+  },
+  "response": {
+    "id": "resp_0bc1e730efdf1d94006a8d33db70ac87d2815776aca563f8f5",
+    "object": "response",
+    "created_at": 1787638747,
+    "status": "completed",
+    "background": false,
+    "billing": {
+      "payer": "developer"
+    },
+    "completed_at": 1787638762,
+    "error": null,
+    "frequency_penalty": 0,
+    "incomplete_details": null,
+    "instructions": null,
+    "max_output_tokens": 128000,
+    "max_tool_calls": null,
+    "model": "gpt-5.6-terra",
+    "moderation": null,
+    "output": [
+      {
+        "id": "rs_0bc1e730efdf1d94006a8d33dc898887d296a9244313688d64",
+        "type": "reasoning",
+        "content": [],
+        "encrypted_content": "gAAAAABqjTPqfuayyNdgBDbCP6yk1W8svciliJYCk-4NQ8PL9_CEdc6qtkRN5Sx9ZCjQ81SiVNm8SgA4LvLtRm7Qy_QX9HVZUiFCF3ZVVm8PmBXArerx5x8LMKuN76RxmLISj4BL1nL9ioAZ3FFQ2vfIY4UP2cNR6uqUc5MkCVX__R9XIFBhlOT9wADTLnCDUIjw7TpmbaZtvXjd_L38ui0VCAeWmHLs8artdZZpiTzCn2k5hfvEPAk_5exLCp3f6iXZTn6noAkNkaGP1meai8VgzNsCwS_7tzbaOvJzAov_mgYb48fDjMXCW4DL8Y46anHwdGQGQbtpBaGY5dzyX_Dymay5WCV-U1466dD53s3BhB5fKAGmFJ4KWkDQE7guq0S7jWxER5havJyshsZ0DpHXKbrOvhLAmL8yULSFaxkkzHhuoUS7Ha9RVVXLhQ7mn2GXROqWvEni5O_HKT6Ftqd_HRF3UlbjZR0yLRUibWip9i2-DRKxNdfNs1CIyrcxRC52p7eF0qjO64abkU0MtQTfKXWZDqnQO_rxmeMII0J9iXBHlaW2ESJBuwJmyhHcPyvvGVRUwo7iZMCf5kW-ulC-zszNl7iag2-QCwN3Xzw5oGsLjWfbVeDfzPjHLfBF0twBFb-nq8nGRBE6HDcP0jzjTugac2NyfyBUckzLCSEIROd1vQI0C6rZQ5SnSNL-zwodHfIL5v9Cn71w_oMXZjDWiHcJlGEZoRcqxbbK8pW5RtcqjJpdKg_iGus97UjuaoaRvJiPDmVR2l3y34Bt0R8tlcN3QKJRvTEgYMLL-rtYe71hUgxUFz4v-k4szqUbq8zm792ovZltfFswQ1DDQMgTLlr29QxHBCrjXXLxw1S8WYsxT6_t3SUkh3sIIDF_1u3byPMrLSxFTVhgPNGvh8a2sa377BHGZhj91LVp66as0gnsvLKaQWjHpk4Ts3VDr1ZlKCYgf2ogEh3u1HzpRB6prek9A9dt9iPKKrDe6IsaF2rdjJ6ySfU2TEuUcHSLgHKZok1f45O9kVKw4Z--FvuNp0aAXHoygeNc6yZJAJ4d7yIvepXD7xfGSHNN0UZMZFrrWyUB4CEUrLd0uGPJmwa6_9CK7gP9cgzZIzOKHFhSjQc3-K6XNtYE-aUWS719S2axI1EXxSEoQXc8L4MdLxjGbor-78WWvpOHRIGFS_UIEzoKrZliz_i92-66e_vQf55Xa-B9qK6V1vANEVhYECrYLUXpx7rLI7_iCO9TpjdEwjfFhLXmm1dyXEJijF3G5RL5yex05PzLnfnJPflFPVT5UNQXjnVUL79pq2duRLa_XIO8WZv02mxmluXaS0n4oPku0mld8KISJW6yUcphB4CMS5A8NKAXqw==",
+        "summary": []
+      },
+      {
+        "id": "ws_0bc1e730efdf1d94006a8d33dce82487d288421a33bf153f84",
+        "type": "web_search_call",
+        "status": "completed",
+        "action": {
+          "type": "search",
+          "queries": [
+            "site:slack.com pricing Slack small business plans features",
+            "site:microsoft.com Microsoft Teams business pricing chat collaboration",
+            "site:discord.com Discord server features pricing business team chat",
+            "site:zulip.com pricing features team chat",
+            "site:rocket.chat pricing self-hosted team chat"
+          ],
+          "query": "site:slack.com pricing Slack small business plans features"
+        }
+      },
+      {
+        "id": "rs_0bc1e730efdf1d94006a8d33df118487d2855a9a2cbe850c23",
+        "type": "reasoning",
+        "content": [],
+        "encrypted_content": "gAAAAABqjTPqF2jAzY96G9eC49Hw8VEIdPtYb5xa2yoEkrhtU7ZMqTZimMYxkIG6P47PPczPsZhkw-j1IGbCwyu5gRbDHa8LYy43pUaY6fFokyhOBxyX9avXerrVq5TKMGehDvYVTXLS7Silq7wSzSZv1YP8yW-xcVoUEksG2bAa7HWFibWIdNvI9LxlwaTNqIKKAI4EL1d7TkmFsZqoWf6cTpXI9IWoGrX_biFnsVNnmzP7hSHKEUAZVGDK-yjzXgfEd_hy90BjbBYsiuCt53oEpWDcLqRgFlr6RYxJl_vdrPkAv9ZdR4DWqY5Xw8bCFWjKpgMAIPhxRwFbnSbe2I50FoR7RaXpgnCCpeZIxr8-IJ2IwtV_WW-KmqKKZ-Z-4GUKX9IZaRurbna9EL_7sGkm11pqVPt3W0vYidLsUhK_tnpel_jxE_QLi_fN9Jj3DYUMnjv3_enK4xbWvIFWku3DTxCM3s5ASq2KyZSYKjqi9yguMRTtNx_YIYafNhDcIShXGW8KRJsmR-PUnWl_OBJhe6uHh7WvfHCBr9-FOJEBMa1TSqzNR2oR-aVT1yVujU-iUubSnAORkHe1vYqHc1WToE9Q4S0mqxUPiFVHPLgttKx77l_GEND5FpuvlnDOHfSUJVxQHf8VaqcjHm79Vc-yPVYMl8Ifp39Rg5e67yxxWuElMRE-8e9nKm_6l8sUZihWKn99PaZKSfljQQOSIONKYfYePMiY7WeUZ1UK5PZ0iAGLOBHPFaTLgPotfKLEuhtmBIxjBMQOfpDJcsazVYUJlSrG0gRMlEtXO2xe9WCzmGxzRMEJoYjHHiLojtvqlnUU_Get8MeAUPqkeQmrQ_g_Pa3GUNCyjctMyyBssSmVaaJ529Mou1LSoheu6a3oM3yBuG_xhG6hx-vKIhJCrkU42hFlnp1fyhyyZjzgJ0HXELAB0n9UpxAIzh7yXjdcwHk5EzJ1X0aZUfGUtMUZUxZgG9emyFHkpjiy3Mf8Foi8M_QdV9UBHXqGLQMMDhK9eV3-Ode2Lau7xshO5xd89kQqpHKZX-zDRaPkIKphnJb5HpliZ3-7pReY6CGO6eljCaKje-Zsl7FPTaqxEIrNuCyfTxy59N7Oi3v6vSwsXgBbExLNWfYSrfJXMqah0fdC_-_plFVUT9a_JnzDvMkLLW0PIbrsqofInwavxBJtbG0miCDseLVsFi59ZA-Lb1l_ulTkNlJfx2CKh87h9tbff5be1H6ZtdLkeg==",
+        "summary": []
+      },
+      {
+        "id": "ws_0bc1e730efdf1d94006a8d33df3ac887d2b1c43986a642c95a",
+        "type": "web_search_call",
+        "status": "completed",
+        "action": {
+          "type": "search",
+          "queries": [
+            "site:workspace.google.com pricing Google Chat Business Starter team chat",
+            "site:support.google.com chat spaces Google Chat features business",
+            "site:mattermost.com pricing self hosted team collaboration",
+            "site:zulip.com/help pricing Zulip Cloud features",
+            "site:rocket.chat pricing community edition starter 2026"
+          ],
+          "query": "site:workspace.google.com pricing Google Chat Business Starter team chat"
+        }
+      },
+      {
+        "id": "rs_0bc1e730efdf1d94006a8d33e1ff1887d2ae84e2944dddba8c",
+        "type": "reasoning",
+        "content": [],
+        "encrypted_content": "gAAAAABqjTPqZhj7nub5EIjNinxiTuPiTrr6AFwuOts8fpuCik9aTYwZXStHgNqqnUtdwxlcaIecYGSYrpz5uEyYahM5Axsd-0BlDP_H42hLp9lDMj0-9T1A1pLRJlUbRY6p0m96ea7kdlltP09A3XOAIt6lvyYQoZ-gUNdts3R5uaKwU69rwuyRQygM3aoGnR5J2bOWr8OsK31Y9Q4XbjKfVAQP8R7dITivs_ApAsffPWuKStQvN-r2_nIZ2jss0kRTTcBtFJTdwAuRaLmotTPZK0nnGgiXSV04H06mqACrZyanv2eXlieoVAkDoykkVwoOlsepHrZDoZcjSkv-pUyzbdFqCSIjZWFGFUnNDSoeGJEKujRRTVZb0mH3-b5gzdpwPaFjNDsgtMdGDHTDOVVUY99lp4b3uxC_lCgu-O-t6cuRMZnU9YYq3be_5X7H5fFxXTW8XcP3lT5a1Ukvc6ioZyghquMvF2XacEvHMztJoqAIEqitrrPIJNMMwLxa7QF4FBlh63vx3XsXvoKL3lY_9TQ9Igoh8aJdG6-c0tCzfwMVaFZmh4VThHT1xDFcP84N4dNWpOZsUv6t7naECu7XrFj7-MAQKZdOX78jV5mvOOWGpTTcux-2J0BU13GJk_g6YcVhnAU92gXwKeHO-WWUvt8kGdiozv7fP0S0PgbHWDY_nWtlxbWb_OVpzZbfAmgymNMyoDlFzCrSApJNhrG5oxk3LJhYSEgkoKDkMoCik1Kz_21i-Lm2R1bI6_g9FycB-J0KBUNh1hDb00DOy87Mn9VzKUxZvVFdMk1coAX2MvSSyQvSIS81a71ZKTUC7_BkWDmguk6W4by6S4Qxo_WMuVH_H-PHf84JQzRGPMjYVi-wOHeaYq390BXHizlgIkzMm2w5Xz18AaA2Y32dMnuPRywOfjz__lTJBnXHdg4SYl9md_96Q-hBG31c9nTuU9fRgbbfLu-f9oyqZpB3NBDEPPhQCPL_AIj6MDY74kTZBYdp_rw_KO_UIqEHmbPqWMuerzjuGQoB5sFxQNVFPMDeRa68zWK2H0HYiBQct7eBApc4_de2cTfyCViKrxgLHRl2CPGrmhBcKXHmijjHgOLErLA8Gnv89IKmouxep0gPQvrsrwI9XLQW7z9sHb9P8IUYmQp0XORLnNUnaLEJBQfgIgQU2yL_wGCwoRzupsmPl-CaMlnf6l-SskIvpkPyK0CyxEyt270MtR0A1C6S9BEkt3eWQ7IHnsNrwEREok5iZmkDP4NR87dId1jlohZHtW1jo0EDSQhxKYIK1aFDSLtWVbME7Y0M7X-HOVwWhmijzQzePoMIvtwCiRKXBH6G3Gu1luW_Y2rQUY4kAXQtCEeSA0tfg5UWtpzkh2jl9aWZCBpJKFQ17XLDru3-AHlvbJEy0Xp9q0_xYWrZTbtJ-9hgCUJRH0fZ8GbCpeI1a5c5ldGtj6s8MYb9MQdCXv3CBh8vHWR_TwVjAJMx9afEWZHYHkRBpzX58bR6rjeVMD9OdYGvPH7bQFQN0Zyi9mGnJzNOAuw54kQb7TB43vc5IocdxW2bBrU6XgUXOmRzSUeN8W99KmwGzYrkDy2hhZu9DnUj8y306K2m4l2kHYWo8xAUJNvKB5wt3m35tTPybpdoTg7Sq3UW8bZ3kRea8vzwNy9tCP7TDS3gL6c-BcTpJKrJaeNWg7g8nTY1HlXD5IzuDfVBTdkRUDfuu8PtUhOhbJRIY-l1crZCYNYgnmZzJg9_6esNS-olEYKpnugmdHChHV62kcQyH10pAYBSowHvX4JrkLPFuUfz7QBMWBnHLbNXpFEpfNJBIc3VtD9WXyfqMjA2iNhpGRLktZ79iilNEM0Ds_qDN4iDXHdAOXQbWhfC5TBMJ0GHw7MY3MY3SIZ67870y_qN26tg2SQCJvzruEMc87DObUenXVkgZ4M4uQtOMm3y23VnTc-zZdveRnP7z-BHuNQzv7EIEVX59ZQaXDyKzPnAios6PsXk9GQJ3JiNfgliFc-i8UJJb_KW0wn_fS7M64pq6NHnjLMzuSpeShXX6aulI771n8Ji2SyQ0rOZmxn2gsV1LioN1WU_FDfhQ4zFKJpTGQpccxIH7JJ3N1OzoCUISU_BbSCEclbmYU-FxbHivjSVNg==",
+        "summary": []
+      },
+      {
+        "id": "msg_0bc1e730efdf1d94006a8d33e2b68087d29e981238a5f84d14",
+        "type": "message",
+        "status": "completed",
+        "content": [
+          {
+            "type": "output_text",
+            "annotations": [
+              {
+                "type": "url_citation",
+                "end_index": 568,
+                "start_index": 466,
+                "title": "Slack plans and features | Slack",
+                "url": "https://slack.com/help/articles/115003205446-Slack-plans-and-features?utm_source=openai"
+              },
+              {
+                "type": "url_citation",
+                "end_index": 1173,
+                "start_index": 1007,
+                "title": "Microsoft Teams Pricing for Business: Plans & Features",
+                "url": "https://www.microsoft.com/en-us/microsoft-teams/compare-microsoft-teams-business-options?msockid=19ff77b865aa6ce63920611b64a46d96&utm_source=openai"
+              },
+              {
+                "type": "url_citation",
+                "end_index": 1663,
+                "start_index": 1566,
+                "title": "Learn about spaces - Google Chat Help",
+                "url": "https://support.google.com/chat/answer/7659784?hl=en-EN&utm_source=openai"
+              },
+              {
+                "type": "url_citation",
+                "end_index": 2069,
+                "start_index": 1996,
+                "title": "Zulip Cloud",
+                "url": "https://docs.zulip.com/zulip-cloud/?utm_source=openai"
+              },
+              {
+                "type": "url_citation",
+                "end_index": 2519,
+                "start_index": 2391,
+                "title": "rocket.chat",
+                "url": "https://content.rocket.chat/hubfs/Community-and-Premium-Editions-Feature-Overview.pdf?utm_source=openai"
+              }
+            ],
+            "logprobs": [],
+            "text": "For most small companies, the best choice depends more on your existing work suite than on chat features alone.\n\n| Best for | Tool | Why it stands out | Watch-out |\n|---|---|---|---|\n| **Best overall default** | **Slack** | Excellent channels, threads, search, integrations, quick calls (“huddles”), and easy collaboration with clients/vendors through Slack Connect. | The free plan is limited to 90 days of accessible history; Pro is **$7.25/user/month annually**. ([slack.com](https://slack.com/help/articles/115003205446-Slack-plans-and-features?utm_source=openai)) |\n| **Microsoft-based companies** | **Microsoft Teams** | Best value if you already use Microsoft 365: chat, meetings, files, tasks, and Office collaboration are tightly connected. Teams Essentials is **$4/user/month annually**; Microsoft 365 Business Basic is **$6/user/month annually** and adds business email, web/mobile Office apps, and 1 TB storage per user. | Can feel heavier and more complicated than Slack for a very small team. ([microsoft.com](https://www.microsoft.com/en-us/microsoft-teams/compare-microsoft-teams-business-options?msockid=19ff77b865aa6ce63920611b64a46d96&utm_source=openai)) |\n| **Google Workspace companies** | **Google Chat** | The sensible low-friction option if your work already lives in Gmail, Drive, Docs, Calendar, and Meet. Spaces support threads, file sharing, tasks, and apps. Google Workspace Business Starter is currently **$7/user/month with an annual commitment**. | Less robust as an integration hub and less polished for fast-moving chat than Slack. ([support.google.com](https://support.google.com/chat/answer/7659784?hl=en-EN&utm_source=openai)) |\n| **Async / technical teams** | **Zulip** | Best for keeping conversations organized: each message belongs to a channel *and topic*, which greatly reduces noisy, sprawling threads. Cloud Standard is **$6.67/user/month annually**; its free plan has 10,000 searchable messages. | The topic-based workflow takes a little onboarding. ([docs.zulip.com](https://docs.zulip.com/zulip-cloud/?utm_source=openai)) |\n| **Self-hosting / data control** | **Rocket.Chat** | A strong choice when you need to run chat on your own infrastructure. Its community edition is open source, and its self-managed Starter offering is listed as free for up to 50 users. | Someone on your team must own security, upgrades, backups, and administration. ([content.rocket.chat](https://content.rocket.chat/hubfs/Community-and-Premium-Editions-Feature-Overview.pdf?utm_source=openai)) |\n\n### My practical picks\n\n- **Choose Slack** if you have 5–75 people, use lots of SaaS tools, and want the least-risk “everyone will understand this” option.\n- **Choose Teams** if you already pay for Microsoft 365 or need chat and video meetings tightly paired with Office files.\n- **Choose Google Chat** if you already pay for Google Workspace and want to avoid another app and subscription.\n- **Choose Zulip** if your team is remote, technical, international, or tired of chat becoming an unsearchable firehose.\n- **Choose Rocket.Chat** only if privacy, on-premises hosting, or customization is a real requirement—not merely a preference.\n\n### A simple decision rule\n\n1. **Already on Microsoft 365?** Start with Teams.  \n2. **Already on Google Workspace?** Start with Google Chat.  \n3. **Neither—and integrations/client collaboration matter?** Use Slack Pro.  \n4. **Need calm, highly organized async communication?** Use Zulip.  \n5. **Need control of where data lives?** Evaluate Rocket.Chat.  \n\nFor a typical small U.S. company, I’d shortlist **Slack Pro, Teams, and Google Chat** first, then run a two-week trial using real projects—not a demo channel."
+          }
+        ],
+        "phase": "final_answer",
+        "role": "assistant"
+      }
+    ],
+    "parallel_tool_calls": true,
+    "presence_penalty": 0,
+    "previous_response_id": null,
+    "prompt_cache_key": null,
+    "prompt_cache_retention": "24h",
+    "reasoning": {
+      "context": "all_turns",
+      "effort": "medium",
+      "mode": "standard",
+      "summary": null
+    },
+    "safety_identifier": null,
+    "service_tier": "default",
+    "store": true,
+    "temperature": 1,
+    "text": {
+      "format": {
+        "type": "text"
+      },
+      "verbosity": "medium"
+    },
+    "tool_choice": "auto",
+    "tool_usage": {
+      "image_gen": {
+        "input_tokens": 0,
+        "input_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 0
+        },
+        "output_tokens": 0,
+        "output_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 0
+        },
+        "total_tokens": 0
+      },
+      "web_search": {
+        "num_requests": 2
+      }
+    },
+    "tools": [
+      {
+        "type": "web_search",
+        "return_token_budget": "default",
+        "search_content_types": [
+          "text"
+        ],
+        "search_context_size": "medium",
+        "user_location": {
+          "type": "approximate",
+          "city": null,
+          "country": "US",
+          "region": null,
+          "timezone": null
+        }
+      }
+    ],
+    "top_logprobs": 0,
+    "top_p": 0.98,
+    "truncation": "disabled",
+    "usage": {
+      "input_tokens": 21106,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 4411
+      },
+      "output_tokens": 1160,
+      "output_tokens_details": {
+        "reasoning_tokens": 358
+      },
+      "total_tokens": 22266
+    },
+    "user": null,
+    "metadata": {},
+    "output_text": "For most small companies, the best choice depends more on your existing work suite than on chat features alone.\n\n| Best for | Tool | Why it stands out | Watch-out |\n|---|---|---|---|\n| **Best overall default** | **Slack** | Excellent channels, threads, search, integrations, quick calls (“huddles”), and easy collaboration with clients/vendors through Slack Connect. | The free plan is limited to 90 days of accessible history; Pro is **$7.25/user/month annually**. ([slack.com](https://slack.com/help/articles/115003205446-Slack-plans-and-features?utm_source=openai)) |\n| **Microsoft-based companies** | **Microsoft Teams** | Best value if you already use Microsoft 365: chat, meetings, files, tasks, and Office collaboration are tightly connected. Teams Essentials is **$4/user/month annually**; Microsoft 365 Business Basic is **$6/user/month annually** and adds business email, web/mobile Office apps, and 1 TB storage per user. | Can feel heavier and more complicated than Slack for a very small team. ([microsoft.com](https://www.microsoft.com/en-us/microsoft-teams/compare-microsoft-teams-business-options?msockid=19ff77b865aa6ce63920611b64a46d96&utm_source=openai)) |\n| **Google Workspace companies** | **Google Chat** | The sensible low-friction option if your work already lives in Gmail, Drive, Docs, Calendar, and Meet. Spaces support threads, file sharing, tasks, and apps. Google Workspace Business Starter is currently **$7/user/month with an annual commitment**. | Less robust as an integration hub and less polished for fast-moving chat than Slack. ([support.google.com](https://support.google.com/chat/answer/7659784?hl=en-EN&utm_source=openai)) |\n| **Async / technical teams** | **Zulip** | Best for keeping conversations organized: each message belongs to a channel *and topic*, which greatly reduces noisy, sprawling threads. Cloud Standard is **$6.67/user/month annually**; its free plan has 10,000 searchable messages. | The topic-based workflow takes a little onboarding. ([docs.zulip.com](https://docs.zulip.com/zulip-cloud/?utm_source=openai)) |\n| **Self-hosting / data control** | **Rocket.Chat** | A strong choice when you need to run chat on your own infrastructure. Its community edition is open source, and its self-managed Starter offering is listed as free for up to 50 users. | Someone on your team must own security, upgrades, backups, and administration. ([content.rocket.chat](https://content.rocket.chat/hubfs/Community-and-Premium-Editions-Feature-Overview.pdf?utm_source=openai)) |\n\n### My practical picks\n\n- **Choose Slack** if you have 5–75 people, use lots of SaaS tools, and want the least-risk “everyone will understand this” option.\n- **Choose Teams** if you already pay for Microsoft 365 or need chat and video meetings tightly paired with Office files.\n- **Choose Google Chat** if you already pay for Google Workspace and want to avoid another app and subscription.\n- **Choose Zulip** if your team is remote, technical, international, or tired of chat becoming an unsearchable firehose.\n- **Choose Rocket.Chat** only if privacy, on-premises hosting, or customization is a real requirement—not merely a preference.\n\n### A simple decision rule\n\n1. **Already on Microsoft 365?** Start with Teams.  \n2. **Already on Google Workspace?** Start with Google Chat.  \n3. **Neither—and integrations/client collaboration matter?** Use Slack Pro.  \n4. **Need calm, highly organized async communication?** Use Zulip.  \n5. **Need control of where data lives?** Evaluate Rocket.Chat.  \n\nFor a typical small U.S. company, I’d shortlist **Slack Pro, Teams, and Google Chat** first, then run a two-week trial using real projects—not a demo channel."
+  }
+}

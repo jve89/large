@@ -32,6 +32,14 @@ const tuning = {
   /** Past this many reclaims a run is failed rather than retried forever (C15). */
   MAX_RECLAIMS: z.coerce.number().int().min(0).max(20).default(3),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /**
+   * When set, every raw provider response is written to this directory as JSON,
+   * and failed attempts also append to `failures.jsonl` there. Off by default and
+   * asserted off during the test suite. It exists so recapturing the fixtures in
+   * tests/fixtures/ after a provider or model change is one command - see
+   * src/core/providers/capture.ts.
+   */
+  PROVIDER_CAPTURE_DIR: z.string().optional(),
 }
 
 const REQUIRED_URL = z

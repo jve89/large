@@ -21,8 +21,8 @@
 | 3 | 2 - Prompt list | C2 | done |
 | 4 | 3 - Queue a run | C3 | done |
 | 5 | 4 - Worker: claim, resume, retry, terminal status | C4, C6, C15 | done |
-| 6 | 5 - Answers and citations | C5, C7 | next |
-| 7 | 6 - Mention parsing | C8 | |
+| 6 | 5 - Answers and citations | C5, C7 | done |
+| 7 | 6 - Mention parsing | C8 | next |
 | 8 | 7 - Aggregation, coverage and cost | C9, C10, C12 | |
 | 9 | 11 - Cited domain frequency | C16 | |
 | 10 | 12 - Traceability to evidence | C17 | |
