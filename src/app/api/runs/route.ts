@@ -1,19 +1,39 @@
+import { Provider } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { queueRun } from '../../../core/run/queue.ts'
 import { prisma } from '../../../lib/db.ts'
-import { DEFAULT_REPETITIONS, DEFAULT_TARGETS } from '../../../lib/defaults.ts'
+import {
+  DEFAULT_REPETITIONS,
+  DEFAULT_TARGETS,
+  MAX_REPETITIONS,
+} from '../../../lib/defaults.ts'
 import { validateEnv } from '../../../lib/env.ts'
-import { basisHash } from '../../../lib/hash.ts'
+import { isCompanyId } from '../companies/route.ts'
 
 export const dynamic = 'force-dynamic'
 
 const bodySchema = z.object({
   companyId: z.string().min(1),
-  repetitions: z.coerce.number().int().min(1).max(50).default(DEFAULT_REPETITIONS),
+  /**
+   * `MAX_REPETITIONS` is a cost guardrail rather than a spec rule - see the note
+   * on it in lib/defaults.ts. The lower bound of 1 mirrors the database's
+   * CHECK >= 1, which is normative.
+   */
+  repetitions: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_REPETITIONS)
+    .default(DEFAULT_REPETITIONS),
   targets: z
     .array(
       z.object({
-        provider: z.enum(['anthropic', 'openai']),
+        // Derived from the Prisma enum, never a literal list: a provider name
+        // hard-coded outside src/core/providers/ is CLAUDE.md rule 9, and a
+        // hand-written list here would silently reject a third provider that the
+        // schema, the registry and the target list all already accept.
+        provider: z.enum(Provider),
         modelId: z.string().min(1),
       }),
     )
@@ -22,15 +42,12 @@ const bodySchema = z.object({
 })
 
 /**
- * Queues a run (SPEC C3).
+ * POST /api/runs - queue a run (SPEC C3).
  *
- * The run carries an **immutable snapshot** of the prompt texts, the target list,
- * the brand name, the aliases and the competitor list. Editing the company
- * afterwards must not change any existing run (CLAUDE.md rule 10) — which is why
- * RunPrompt is a copy and never a reference to Prompt.
- *
- * Returns without waiting for the measurement: the trigger is a database row, and
- * the worker claims it.
+ * This handler is the HTTP boundary only: it parses and validates the request and
+ * maps the outcome to a status code. The capability itself is
+ * `src/core/run/queue.ts`, which `scripts/verify-live.ts` calls too - so the live
+ * gate exercises the same code path this endpoint does rather than imitating it.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   validateEnv('web')
@@ -52,55 +69,21 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const { companyId, repetitions, targets } = parsed.data
 
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    include: { prompts: { orderBy: { order: 'asc' } } },
-  })
-
-  if (!company) {
+  // A malformed id cannot match a row. Without this guard Prisma's uuid cast
+  // throws out of the handler and the client gets a 500 - the same answer the
+  // other three handlers on the company resource now give.
+  if (!isCompanyId(companyId)) {
     return NextResponse.json({ error: 'Unknown company' }, { status: 404 })
   }
 
-  if (company.prompts.length === 0) {
+  const result = await queueRun({ prisma, companyId, repetitions, targets })
+
+  if (!result.ok) {
     return NextResponse.json(
-      { error: 'This company has no prompts; nothing would be measured.' },
-      { status: 400 },
+      { error: result.message },
+      { status: result.reason === 'unknown-company' ? 404 : 400 },
     )
   }
 
-  const promptTexts = company.prompts.map((prompt) => prompt.text)
-
-  // basisHash covers exactly four inputs. The brand NAME is snapshotted but not
-  // hashed: renaming a company does not change what was measured, while changing
-  // an alias does. N is excluded and displayed beside every figure instead.
-  const hash = basisHash({
-    prompts: promptTexts,
-    targets,
-    aliases: company.aliases,
-    competitors: company.competitors,
-  })
-
-  const run = await prisma.run.create({
-    data: {
-      companyId: company.id,
-      status: 'queued',
-      repetitions,
-      brandName: company.name,
-      brandAliases: company.aliases,
-      brandCompetitors: company.competitors,
-      basisHash: hash,
-      targets: {
-        create: targets.map((target) => ({
-          provider: target.provider,
-          modelId: target.modelId,
-        })),
-      },
-      prompts: {
-        create: promptTexts.map((text, order) => ({ text, order })),
-      },
-    },
-    select: { id: true, status: true },
-  })
-
-  return NextResponse.json({ runId: run.id, status: run.status }, { status: 201 })
+  return NextResponse.json({ runId: result.runId, status: result.status }, { status: 201 })
 }

@@ -248,6 +248,8 @@ large/
         mentions.ts                  # alias match on visible text, position
         citations.ts                 # normalise + error-object detection
       run/
+        queue.ts                     # SPEC C3 - the capability behind
+                                     #   POST /api/runs AND verify-live.ts
         plan.ts                      # which (prompt,target,repetition) remain
         execute.ts                   # per-provider semaphore, runs the plan
         retry.ts                     # backoff; 3 attempts total (1 + 2 retries)
@@ -518,8 +520,14 @@ PUT    /api/companies/:companyId/prompts
 
 POST   /api/runs
   req: { companyId, repetitions, targets: { provider, modelId }[] }
+       # repetitions and targets both default (DEFAULT_REPETITIONS,
+       # DEFAULT_TARGETS), so { companyId } alone is a valid request.
   res: { runId, status: 'queued' }
-  errs: 400 schema or empty prompt list, 404 unknown company
+  errs: 400 schema, empty prompt list, or a target repeated in the list;
+        404 unknown company (a malformed id is 404, not 400)
+  # The handler is an HTTP wrapper only. The capability is
+  # src/core/run/queue.ts, which scripts/verify-live.ts calls too, so the live
+  # gate exercises this code path instead of inserting its own run row.
 
 GET    /api/runs/:runId
   res: { run,                          # incl. status, N, basisHash, snapshot
@@ -800,3 +808,24 @@ phase. Phase 0 pushes to it.
 
 - **Money as integer micro-dollars.** Floating point currency accumulates error
   across 120 rows per run and is never correct at the point someone is invoiced.
+
+- **One implementation of "queue a run", called by both the endpoint and the
+  gate.** `src/core/run/queue.ts` holds it; `POST /api/runs` is an HTTP wrapper and
+  `scripts/verify-live.ts` calls the same function. Until Phase 3 the script
+  inserted its own `Run` row, so `verify:live` - the gate whose whole purpose is to
+  prove the real path works - went around the code it was certifying, and the two
+  copies had already drifted. The script cannot simply import the route handler:
+  route handlers import `next/server`, which does not resolve under plain `node`.
+  Cost: one more module. Without it every later phase is gated by something that
+  never touches C3.
+
+- **The N ceiling of 50 is a cost guardrail, not a capability.** `MAX_REPETITIONS`
+  in `lib/defaults.ts` bounds the `repetitions` a run may be queued with. No
+  capability, definition or decision names it; it was introduced in Phase 0 as a
+  literal in the route's zod schema and given a name in Phase 3. It exists because
+  N multiplies the call count of every run - at 51 prompts and two targets, N=50 is
+  5,100 provider calls from one careless request - and the database's only
+  normative bound is CHECK >= 1. The quota stage in `PLAN.md` -> Roadmap beyond v1
+  supersedes it, since a run a customer has already paid for needs no arbitrary
+  ceiling. It is recorded here so the next reader neither treats 50 as normative
+  nor deletes it as arbitrary.

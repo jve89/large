@@ -24,7 +24,7 @@ try {
 const { assertDatabaseMajorVersion, prisma } = await import('../src/lib/db.ts')
 const { validateEnv } = await import('../src/lib/env.ts')
 const { DEFAULT_TARGETS } = await import('../src/lib/defaults.ts')
-const { basisHash } = await import('../src/lib/hash.ts')
+const { queueRun } = await import('../src/core/run/queue.ts')
 const { processNextRun } = await import('../src/worker/index.ts')
 
 const COMPANY_NAME = 'verify-live'
@@ -67,27 +67,20 @@ async function main(): Promise<void> {
 
   const targets = [...DEFAULT_TARGETS]
 
-  const run = await prisma.run.create({
-    data: {
-      companyId: company.id,
-      status: 'queued',
-      repetitions: 1,
-      brandName: company.name,
-      brandAliases: ALIASES,
-      brandCompetitors: COMPETITORS,
-      basisHash: basisHash({
-        prompts: [PROMPT],
-        targets,
-        aliases: ALIASES,
-        competitors: COMPETITORS,
-      }),
-      targets: {
-        create: targets.map((t) => ({ provider: t.provider, modelId: t.modelId })),
-      },
-      prompts: { create: [{ text: PROMPT, order: 0 }] },
-    },
-    select: { id: true },
+  // Queued through the same function POST /api/runs calls (SPEC C3). The gate has
+  // to go through the real queue rather than insert its own row: a gate that
+  // imitates the code path it is meant to prove can only ever pass.
+  const queued = await queueRun({
+    prisma,
+    companyId: company.id,
+    repetitions: 1,
+    targets,
   })
+
+  if (!queued.ok) {
+    throw new Error(`verify:live could not queue a run: ${queued.message}`)
+  }
+  const run = { id: queued.runId }
 
   console.log(`verify:live — queued run ${run.id}; ${targets.length} targets at N=1.`)
   console.log('verify:live — this spends real provider calls.')
