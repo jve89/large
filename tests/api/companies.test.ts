@@ -150,6 +150,16 @@ describe('GET /api/companies', () => {
     )
     expect(response.status).toBe(404)
   })
+
+  // A malformed id used to throw a PrismaClientKnownRequestError out of the
+  // handler, which Next renders as a 500. Every handler on this resource now
+  // answers it the same way as PUT .../prompts does.
+  it('returns 404 for a malformed company id rather than throwing', async () => {
+    for (const bad of ['not-a-uuid', '', '123', 'ffffffff-ffff-ffff-ffff']) {
+      const response = await getCompany(new Request('http://localhost'), ctx(bad))
+      expect(response.status).toBe(404)
+    }
+  })
 })
 
 describe('PATCH /api/companies/:companyId', () => {
@@ -218,6 +228,15 @@ describe('PATCH /api/companies/:companyId', () => {
       ctx('00000000-0000-0000-0000-000000000000'),
     )
     expect(response.status).toBe(404)
+  })
+
+  it('returns 404 for a malformed company id and persists nothing', async () => {
+    const before = await prisma.company.count()
+    for (const bad of ['not-a-uuid', '', '123', 'ffffffff-ffff-ffff-ffff']) {
+      const response = await patchCompany(patch({ name: 'whatever' }), ctx(bad))
+      expect(response.status).toBe(404)
+    }
+    expect(await prisma.company.count()).toBe(before)
   })
 
   it('leaves every existing run untouched (C1, CLAUDE.md rule 10)', async () => {

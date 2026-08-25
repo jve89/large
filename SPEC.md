@@ -167,6 +167,13 @@ next to which competitors, and which sources the model cited.
   SHALL persist the change and SHALL leave every existing run untouched.
   IF a company is submitted or edited with an empty name, THEN the system SHALL
   reject it with a validation error and persist nothing.
+  Aliases and competitors are de-duplicated case-insensitively and **silently**,
+  unlike the prompt list in C2, which reports every line it removes. That
+  asymmetry is deliberate, not an oversight: aliases and competitors are a set, so
+  a repeated alias changes no measurement and dropping it costs the operator
+  nothing, whereas a duplicate prompt double-weights one question in that run's
+  mention rate and therefore corrupts a figure. Report the removal where it
+  changes a number; stay quiet where it cannot.
 
 - **C2 - Prompt list**: WHEN the operator saves a prompt list for a company, the
   system SHALL persist each non-empty line as one ordered prompt belonging to that

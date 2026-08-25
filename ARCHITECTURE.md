@@ -48,6 +48,21 @@ Every version above was read from the npm registry and the local machine on
 plus `npm ci` in both CI workflows and in both Railway build commands - an install
 that cannot reproduce these exact versions fails the build rather than drifting.
 
+**`agentRules: false` in `next.config.ts` - do not remove it as unexplained.**
+Next 16 defaults this to `true`, and at that default `next dev` appends a managed
+`<!-- BEGIN:nextjs-agent-rules -->` block to `CLAUDE.md` (and creates `AGENTS.md`)
+instructing whichever agent reads it to consult `node_modules/next/dist/docs/`
+before writing code. `CLAUDE.md` is the file every session reads before doing
+anything and everything in it was written deliberately for this project, so a
+build tool appending to it means a future session follows rules nobody here
+wrote. Reverting by hand does not hold: the block returns on the next `next dev`.
+Verified in Next 16.3.2 (as researched 2026-08-25; re-check, don't trust): the
+option is declared in `next/dist/server/config-shared.d.ts`, the write is gated on
+it at `next/dist/server/lib/start-server.js`, and **`next build` does not perform
+the write** - checked by running a build with the flag absent and finding
+`CLAUDE.md` unchanged, so Railway's deploys were never affected and this flag
+guards `next dev` only.
+
 ### Measurement targets (v1 configuration - two entries in a list of N)
 
 | Provider | Model id | Web search tool |

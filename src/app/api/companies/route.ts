@@ -37,6 +37,21 @@ export function schemaErrorMessage(error: z.ZodError): string {
   return error.issues.map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`).join('; ')
 }
 
+const companyIdSchema = z.uuid()
+
+/**
+ * Every handler on the company resource guards its path parameter with this, so
+ * that all of them answer a malformed id the same way: 404, "unknown company".
+ *
+ * Without it Prisma's uuid cast throws a PrismaClientKnownRequestError out of the
+ * handler and Next renders an unhandled exception as a 500. It lives here rather
+ * than in one route because the three handlers disagreeing about one bad input is
+ * worse than any particular answer to it.
+ */
+export function isCompanyId(value: string): boolean {
+  return companyIdSchema.safeParse(value).success
+}
+
 /** GET /api/companies — the list behind screen 1. */
 export async function GET(): Promise<NextResponse> {
   validateEnv('web')

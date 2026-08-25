@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '../../../../lib/db.ts'
 import { validateEnv } from '../../../../lib/env.ts'
-import { normaliseNames, schemaErrorMessage } from '../route.ts'
+import { isCompanyId, normaliseNames, schemaErrorMessage } from '../route.ts'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +24,12 @@ export async function GET(
   validateEnv('web')
 
   const { companyId } = await context.params
+
+  // A malformed id cannot match a row; without this guard Prisma's uuid cast
+  // throws out of the handler and the client gets a 500 instead of a 404.
+  if (!isCompanyId(companyId)) {
+    return NextResponse.json({ error: 'Unknown company' }, { status: 404 })
+  }
 
   const company = await prisma.company.findUnique({
     where: { id: companyId },
@@ -75,6 +81,10 @@ export async function PATCH(
   validateEnv('web')
 
   const { companyId } = await context.params
+
+  if (!isCompanyId(companyId)) {
+    return NextResponse.json({ error: 'Unknown company' }, { status: 404 })
+  }
 
   let payload: unknown
   try {

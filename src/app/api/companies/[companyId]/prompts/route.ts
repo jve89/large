@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../../../../../lib/db.ts'
 import { DEFAULT_REPETITIONS, DEFAULT_TARGETS } from '../../../../../lib/defaults.ts'
 import { validateEnv } from '../../../../../lib/env.ts'
-import { schemaErrorMessage } from '../../route.ts'
+import { isCompanyId, schemaErrorMessage } from '../../route.ts'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,18 +13,6 @@ export const PROMPT_WARNING_THRESHOLD = 50
 const bodySchema = z.object({
   prompts: z.array(z.string({ error: 'must be a string' }), { error: 'must be an array' }),
 })
-
-/**
- * A company id that is not a UUID cannot reach a row, so it is "unknown company"
- * rather than a bad payload.
- *
- * Phase 1's GET and PATCH on this resource do not handle the case at all - both
- * throw a PrismaClientKnownRequestError out of the handler, which Next renders as
- * a 500 - so there is no existing answer to match here, and 404 is the one chosen.
- * If Phase 1's handlers are ever given the same guard, this is the answer to give
- * them; two endpoints on one resource must not disagree about one bad input.
- */
-const companyIdSchema = z.uuid()
 
 export interface NormalisedPromptList {
   /** The prompts to store, in order, exactly as they will be sent to a provider. */
@@ -153,7 +141,7 @@ export async function PUT(
 
   const { companyId } = await context.params
 
-  if (!companyIdSchema.safeParse(companyId).success) {
+  if (!isCompanyId(companyId)) {
     return NextResponse.json({ error: 'Unknown company' }, { status: 404 })
   }
 
