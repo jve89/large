@@ -259,6 +259,10 @@ large/
   scripts/
     verify-live.ts                   # the gate: one real end-to-end run
   tests/
+    helpers/
+      concurrency.ts               # separate connections + a barrier, so a race
+                                   #   is a real race; see the note below
+      stub-adapter.ts              # recording ProviderAdapter for unit tests
     parse/
       visible-text.test.ts
       mentions.test.ts
@@ -822,6 +826,29 @@ phase. Phase 0 pushes to it.
 
 - **Money as integer micro-dollars.** Floating point currency accumulates error
   across 120 rows per run and is never correct at the point someone is invoiced.
+
+- **Concurrency rules are tested under real contention, on one shared harness.**
+  `tests/helpers/concurrency.ts` gives each actor **its own `PrismaClient`** - actors
+  sharing a pool can be served by one connection, and then `FOR UPDATE SKIP LOCKED`
+  has nothing to skip - and releases them all from **one barrier**, because
+  `Promise.all` starts N functions in sequence within a tick and the first can
+  finish before the last begins. Invariants are asserted over many rounds, since a
+  single race can be won by luck. Both properties were verified by breaking the
+  implementation on purpose and confirming the tests go red: a read-then-update
+  claim gives "expected exactly one winner, got 2", and a prompt replacement
+  without its lock gives a unique violation on (companyId, order). Cost: a handful
+  of extra connections during the test run. Without it every concurrency rule in
+  this project would be asserted by two sequential calls, which pass against an
+  implementation that has no locking at all.
+
+- **`queueRun` reads the company and its prompts as two SQL statements**, because
+  Prisma issues an `include` as two queries - verified against the query log, not
+  assumed. Under PostgreSQL's default READ COMMITTED each statement takes its own
+  snapshot, so the `FOR UPDATE` lock, not the surrounding transaction, is what
+  makes a run's snapshot coherent. It works because `replacePromptList` - the only
+  writer of `Prompt` - takes the same lock. **Any future writer of `Prompt` must
+  take it too**, or a run can silently record aliases from before a save and
+  prompts from after it.
 
 - **One implementation of "queue a run", called by both the endpoint and the
   gate.** `src/core/run/queue.ts` holds it; `POST /api/runs` is an HTTP wrapper and

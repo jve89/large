@@ -26,7 +26,17 @@ function connectionString(): string {
   return url
 }
 
-function createClient(): PrismaClient {
+/**
+ * Builds a client with its **own** connection pool.
+ *
+ * The singleton below is what the application uses. This is exported for tests
+ * that need genuinely concurrent actors: two actors sharing one `PrismaClient`
+ * share its pool and can be served by one connection, which would make
+ * `FOR UPDATE SKIP LOCKED` untestable - the second actor would never contend for
+ * the row at all, and a broken claim would pass. Callers of this own the returned
+ * client and must `$disconnect()` it.
+ */
+export function createPrismaClient(): PrismaClient {
   return new PrismaClient({
     adapter: new PrismaPg({ connectionString: connectionString() }),
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
@@ -35,7 +45,7 @@ function createClient(): PrismaClient {
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
-export const prisma: PrismaClient = globalForPrisma.prisma ?? createClient()
+export const prisma: PrismaClient = globalForPrisma.prisma ?? createPrismaClient()
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 

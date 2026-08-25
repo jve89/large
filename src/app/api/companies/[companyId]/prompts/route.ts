@@ -1,3 +1,4 @@
+import type { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '../../../../../lib/db.ts'
@@ -114,6 +115,60 @@ export function duplicateNotice(list: NormalisedPromptList): string {
 }
 
 /**
+ * Replaces a company's stored prompt list, atomically. Returns false when the
+ * company does not exist.
+ *
+ * **Wholesale replacement against a unique constraint.** `Prompt` carries
+ * UNIQUE (companyId, order). Updating the existing rows in place collides with
+ * itself the moment the new list is shorter, longer or merely reordered, so the
+ * old rows are deleted and the new ones inserted, in that order, inside one
+ * transaction.
+ *
+ * The transaction first takes a row lock on the company. Without it two concurrent
+ * saves each delete rows the other cannot see and then both insert `order = 0`,
+ * and the loser gets a raw unique violation instead of a replaced list. It doubles
+ * as the existence check.
+ *
+ * **The same lock is what makes a run's snapshot coherent** (SPEC C3): `queueRun`
+ * reads the company and its prompts as two separate SQL statements - verified,
+ * Prisma issues an `include` as two queries - and PostgreSQL's default READ
+ * COMMITTED gives each statement its own snapshot. Because this function is the
+ * only writer of `Prompt` and it takes the lock, a run can never record aliases
+ * from before a save and prompts from after it. Any future writer of `Prompt` must
+ * take this lock too, or that guarantee lapses silently.
+ *
+ * `prisma` is a parameter rather than the singleton so that a test can drive two
+ * genuinely concurrent callers on separate connections; see
+ * tests/helpers/concurrency.ts.
+ *
+ * **This cannot disturb an existing run** (CLAUDE.md rule 10). A run holds
+ * `RunPrompt`, a copy taken at queue time, and nothing references `Prompt`.
+ */
+export async function replacePromptList(
+  client: PrismaClient,
+  companyId: string,
+  prompts: readonly string[],
+): Promise<boolean> {
+  // An empty list is a valid save: SPEC -> Explicitly NOT in scope says prompts
+  // are removed by saving a shorter list, so there has to be a way to clear one.
+  // C3 is what refuses to queue a run against a company with no prompts.
+  return client.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "Company" WHERE id = ${companyId}::uuid FOR UPDATE
+    `
+    if (locked.length === 0) return false
+
+    await tx.prompt.deleteMany({ where: { companyId } })
+    if (prompts.length > 0) {
+      await tx.prompt.createMany({
+        data: prompts.map((text, order) => ({ companyId, text, order })),
+      })
+    }
+    return true
+  })
+}
+
+/**
  * PUT /api/companies/:companyId/prompts - replace the whole prompt list (SPEC C2).
  *
  * **Wholesale replacement against a unique constraint.** `Prompt` carries
@@ -159,23 +214,7 @@ export async function PUT(
 
   const list = normalisePrompts(parsed.data.prompts)
 
-  // An empty list is a valid save: SPEC -> Explicitly NOT in scope says prompts
-  // are removed by saving a shorter list, so there has to be a way to clear one.
-  // C3 is what refuses to queue a run against a company with no prompts.
-  const replaced = await prisma.$transaction(async (tx) => {
-    const locked = await tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "Company" WHERE id = ${companyId}::uuid FOR UPDATE
-    `
-    if (locked.length === 0) return false
-
-    await tx.prompt.deleteMany({ where: { companyId } })
-    if (list.prompts.length > 0) {
-      await tx.prompt.createMany({
-        data: list.prompts.map((text, order) => ({ companyId, text, order })),
-      })
-    }
-    return true
-  })
+  const replaced = await replacePromptList(prisma, companyId, list.prompts)
 
   if (!replaced) {
     return NextResponse.json({ error: 'Unknown company' }, { status: 404 })

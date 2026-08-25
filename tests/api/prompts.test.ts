@@ -15,7 +15,9 @@ import { POST as createCompany } from '../../src/app/api/companies/route.ts'
 import {
   PROMPT_WARNING_THRESHOLD,
   PUT as putPrompts,
+  replacePromptList,
 } from '../../src/app/api/companies/[companyId]/prompts/route.ts'
+import { fulfilled, raceWithSeparateConnections } from '../helpers/concurrency.ts'
 import { DEFAULT_REPETITIONS, DEFAULT_TARGETS } from '../../src/lib/defaults.ts'
 import { prisma } from '../../src/lib/db.ts'
 
@@ -502,5 +504,48 @@ describe('PUT /api/companies/:companyId/prompts - existing runs', () => {
     expect(after?.status).toBe('running')
     expect(after?.prompts.map((p) => p.text)).toEqual(['measured'])
     expect(await stored(id)).toEqual([])
+  })
+})
+
+/**
+ * The `FOR UPDATE` lock, deferred from Phase 2 and proved here on Phase 4's
+ * harness (separate connections, started together - see tests/helpers/
+ * concurrency.ts for why both matter).
+ *
+ * `Prompt` carries UNIQUE (companyId, order). Two concurrent replacements each
+ * delete rows the other cannot see and then both insert `order = 0`; without the
+ * lock the loser gets a raw unique violation instead of a replaced list.
+ */
+describe('PUT /api/companies/:companyId/prompts - two concurrent saves', () => {
+  it('both succeed, and the stored list is exactly one of the two - never a mixture', async () => {
+    const id = await createFixture('concurrent')
+    await save(id, ['original one', 'original two', 'original three'])
+
+    const listA = ['A one', 'A two']
+    const listB = ['B one', 'B two', 'B three', 'B four']
+
+    for (let round = 0; round < 8; round += 1) {
+      const results = await raceWithSeparateConnections(2, async (client, index) =>
+        replacePromptList(client, id, index === 0 ? listA : listB),
+      )
+
+      // Neither caller may error. A unique violation here is the bug this lock
+      // exists to prevent, and it would surface as a rejection.
+      expect(
+        results.every((r) => r.status === 'fulfilled'),
+        `round ${round}: ${JSON.stringify(results.map((r) => (r.status === 'rejected' ? String(r.reason) : 'ok')))}`,
+      ).toBe(true)
+      expect(fulfilled(results)).toEqual([true, true])
+
+      const texts = (await stored(id)).map((p) => p.text)
+      const isA = JSON.stringify(texts) === JSON.stringify(listA)
+      const isB = JSON.stringify(texts) === JSON.stringify(listB)
+      expect(isA || isB, `round ${round}: stored a mixture: ${JSON.stringify(texts)}`).toBe(true)
+
+      // Whichever won, `order` is contiguous from 0 - no survivor of the loser's
+      // list is left behind at a higher index.
+      const orders = (await stored(id)).map((p) => p.order)
+      expect(orders).toEqual(orders.map((_, i) => i))
+    }
   })
 })

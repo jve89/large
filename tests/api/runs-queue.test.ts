@@ -13,7 +13,12 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import { POST as createCompany } from '../../src/app/api/companies/route.ts'
 import { PATCH as patchCompany } from '../../src/app/api/companies/[companyId]/route.ts'
-import { PUT as putPrompts } from '../../src/app/api/companies/[companyId]/prompts/route.ts'
+import {
+  PUT as putPrompts,
+  replacePromptList,
+} from '../../src/app/api/companies/[companyId]/prompts/route.ts'
+import { queueRun } from '../../src/core/run/queue.ts'
+import { fulfilled, raceWithSeparateConnections } from '../helpers/concurrency.ts'
 import { POST as postRun } from '../../src/app/api/runs/route.ts'
 import { DEFAULT_REPETITIONS, DEFAULT_TARGETS, MAX_REPETITIONS } from '../../src/lib/defaults.ts'
 import { prisma } from '../../src/lib/db.ts'
@@ -490,5 +495,72 @@ describe('POST /api/runs - rejection', () => {
       }),
     )
     expect(response.status).toBe(400)
+  })
+})
+
+/**
+ * The `FOR UPDATE` lock, deferred from Phase 3 and proved here on Phase 4's
+ * harness.
+ *
+ * `queueRun` reads the company and its prompts as **two separate SQL statements**
+ * - verified against the query log: Prisma issues an `include` as two queries -
+ * and PostgreSQL's default READ COMMITTED gives each statement its own snapshot.
+ * So wrapping them in a transaction is not enough on its own; the lock is what
+ * serialises them against a concurrent prompt replacement, which takes the same
+ * lock.
+ *
+ * The invariant is that a run never records a basis that did not exist at some
+ * instant: either the whole old list, or the request is refused because the list
+ * was cleared first. Never a partial list, and never a run with no prompts at all.
+ */
+describe('POST /api/runs - queued while the prompt list is being replaced', () => {
+  it('snapshots one coherent state, never a partial list or an empty run', async () => {
+    const original = ['original one', 'original two', 'original three']
+
+    for (let round = 0; round < 8; round += 1) {
+      const companyId = await createFixture(`race-${round}`, { prompts: original })
+
+      const results = await raceWithSeparateConnections(2, async (client, index) => {
+        if (index === 0) {
+          // Clear the list entirely - the most destructive concurrent edit.
+          await replacePromptList(client, companyId, [])
+          return { actor: 'replace' as const }
+        }
+        const queued = await queueRun({
+          prisma: client,
+          companyId,
+          repetitions: 1,
+          targets: [...DEFAULT_TARGETS],
+        })
+        return { actor: 'queue' as const, queued }
+      })
+
+      expect(
+        results.every((r) => r.status === 'fulfilled'),
+        `round ${round}: ${JSON.stringify(results.map((r) => (r.status === 'rejected' ? String(r.reason) : 'ok')))}`,
+      ).toBe(true)
+
+      const values = fulfilled(results)
+      const queueResult = values.find((v) => v.actor === 'queue')
+      expect(queueResult).toBeDefined()
+      const queued = queueResult && 'queued' in queueResult ? queueResult.queued : undefined
+
+      if (queued?.ok) {
+        // The run went ahead: its snapshot must be the whole original list.
+        const run = await loadRun(queued.runId)
+        expect(
+          run.prompts.map((p) => p.text),
+          `round ${round}: snapshot was not the whole original list`,
+        ).toEqual(original)
+        expect(run.prompts).not.toHaveLength(0)
+      } else {
+        // Or the replacement won and the list was empty, so C3 refused it.
+        expect(queued?.reason).toBe('no-prompts')
+        expect(await prisma.run.count({ where: { companyId } })).toBe(0)
+      }
+
+      // Either way the company's own list ends up cleared - the replacement ran.
+      expect(await prisma.prompt.count({ where: { companyId } })).toBe(0)
+    }
   })
 })

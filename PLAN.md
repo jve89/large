@@ -20,8 +20,8 @@
 | 2 | 1 - Company registry | C1 | done |
 | 3 | 2 - Prompt list | C2 | done |
 | 4 | 3 - Queue a run | C3 | done |
-| 5 | 4 - Worker: claim, resume, retry, terminal status | C4, C6, C15 | next |
-| 6 | 5 - Answers and citations | C5, C7 | |
+| 5 | 4 - Worker: claim, resume, retry, terminal status | C4, C6, C15 | done |
+| 6 | 5 - Answers and citations | C5, C7 | next |
 | 7 | 6 - Mention parsing | C8 | |
 | 8 | 7 - Aggregation, coverage and cost | C9, C10, C12 | |
 | 9 | 11 - Cited domain frequency | C16 | |
