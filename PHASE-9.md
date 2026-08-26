@@ -896,9 +896,18 @@ session finds the cheap option rather than inventing a fourth company.
 ## 14. Run 2 - Autobedrijf Blom, same basis, same day
 
 Run `76abbe79-0ce3-43a0-be0f-ab40f57e9f90`, basis **`7c3fec1e65c4`** - identical
-to run 1, so C11 draws them as one series. Queued through the deployed UI about
-three hours after run 1. **Coverage 100 percent on both targets, 60 of 60, every
-answer ok.**
+to run 1, so C11 draws them as one series. **Coverage 100 percent on both targets,
+60 of 60, every answer ok.**
+
+> **Correction, 2026-08-26.** This section first said run 2 was queued "about three
+> hours after run 1". **That was wrong.** Read from the stored rows rather than
+> from memory: run 1 was created at `16:45:54Z` and run 2 at `17:10:15Z` - a gap of
+> **24 minutes**, and 21 minutes between run 1 finishing and run 2 starting. Every
+> claim below about the 1-2 pair is a claim about a **24-minute** separation, not a
+> three-hour one, and that is a materially weaker interval. The error is corrected
+> in place and recorded rather than quietly fixed, because a later design was built
+> on it: the locksmith pair was to be separated by "the same interval as Blom runs
+> 1 and 2", which is 24 minutes and not three hours.
 
 ### 14.1 The figures, beside run 1
 
@@ -962,7 +971,10 @@ though it were visibility churn is reporting the wrong number.
 **Owed after run 3, and not before:** if the third run holds, this belongs in
 `SPEC.md` -> Vision under differentiator 3, per PLAN's instruction, rather than
 only in a phase report. It is deliberately not written there on the strength of
-one pair of runs measured three hours apart.
+one pair of runs measured **24 minutes** apart - see the correction at the head of
+this section. Twenty-four minutes is long enough to be more than a determinism
+check and far too short to support a claim about stability over time. Run 3, a day
+later, is what would.
 
 ### 14.3 Cost
 
@@ -976,3 +988,93 @@ Still under the 72,402 the estimator projected, and the difference still tracks
 the search count exactly, which is what section 7 said the driver was. Remaining
 144 calls project to **$9.41**, phase total **$17.25** against the approved
 $19.12.
+
+### 14.4 Where run 2's variance appeared, which is more informative than how much
+
+anthropic was **identical at cell level** - not "close", the same three mentions on
+the same prompt. openai moved by **exactly one answer**, and both halves of that
+move landed on **prompts 8 and 9**: the Audi question and the Mercedes question.
+Prompt 8 went 1 -> 2 and prompt 9 went 1 -> 0.
+
+Variance appeared **nowhere else**. Not one of the eight other prompts moved on
+either provider, in either direction.
+
+Those two prompts are the **marginal candidates** - the only two questions where
+Blom is neither an obvious local answer (prompt 1) nor absent from consideration
+entirely (everything else), and the only two backed by the pages of his site that
+carry real content. That is what **genuine hesitation at a boundary** looks like:
+the model is undecided about the same two cases twice, rather than jittering
+uniformly across the measurement.
+
+A flat variance figure - "mention rate moved 3.3 points" - would have reported the
+same magnitude and hidden all of that. The shape is the information, and it is
+only visible because coverage is 100 percent and the cells are stored per prompt.
+
+---
+
+## 15. P16, committed before any locksmith run is queued
+
+### 15.1 What the Blom result cannot separate
+
+Mention Jaccard of 1.000 across the Blom pair is consistent with **two different
+worlds**, and this evidence cannot tell them apart:
+
+- **mention sets are stable**, or
+- **thin markets are stable.**
+
+Blom's measured market is thin: **3 brands on anthropic, 5 on openai**. A set of
+three is far easier to reproduce exactly than a set of fifteen. The two readings
+have opposite commercial consequences - one says visibility is a measurable
+quantity worth selling, the other says it is measurable only where there was
+barely anything to measure.
+
+The locksmith is the **discriminating case**: urban, dense, many plausible
+candidates, aggregators and national operators competing for the same slot. That
+is why it runs twice, and the pair is to be separated by **the same interval as
+the Blom 1-2 pair, which is 24 minutes** (see the correction in section 14) - so
+that the two markets are compared on the same clock rather than on two different
+ones. It is **not** meant to satisfy PLAN's across-a-day criterion; Blom run 3
+does that.
+
+### 15.2 The prediction
+
+> **P16.** Mention Jaccard between the two locksmith runs is **materially below
+> 1.000** - the operator's estimate is **0.6 to 0.8** - while citation Jaccard sits
+> in the **same 0.4 to 0.6 band** as Blom's.
+
+**If P16 holds:** mention sets are more stable than citation sets, **and stability
+falls as the candidate pool grows**. Real, publishable, and qualified - and the
+qualification is what makes it honest rather than a slogan.
+
+**If P16 is falsified** and mention Jaccard stays near 1.000 in a dense urban
+market too: mention stability is a property of **how these models answer local
+questions**, not an artefact of Blom's small market. That is the version that
+belongs in `SPEC.md` -> Vision.
+
+### 15.3 What this session expects, and why - recorded so it can be wrong
+
+**Directionally P16 holds: mention Jaccard below 1.000.** But **nearer 0.75-0.9
+than 0.6-0.8**, for a reason that is a property of the instrument rather than of
+the market, and which is worth stating before the number arrives:
+
+**v1 does not discover unknown brands** (SPEC -> Definitions -> Recognised brand).
+The measured set can only ever contain the subject plus the competitors on the
+list. Blom's sets of 3 and 5 were drawn from a possible **10**; the locksmith's
+will be drawn from a possible **7** - six businesses after the Veenstra merge, plus
+the subject.
+
+So a denser real market **does not** mechanically produce a larger measured set.
+It produces more named businesses that are **invisible to this measurement**. The
+dense-market effect that P16 is testing for reaches the Jaccard only through the
+recognised subset, and that subset is *smaller* here than it was for Blom. If
+LockTight and MK Slotenmaker are named in both runs - which P14 expects - two of
+at most seven members are already fixed, and the coefficient starts high.
+
+**This cuts both ways and that is the point.** If mention Jaccard does come back
+at 0.6-0.8, it did so despite a *smaller* candidate ceiling, which makes the
+pool-size reading **stronger** than the raw number suggests. If it comes back near
+1.000, the recognised-set cap is a live alternative explanation and must be
+reported as one rather than waved away - the honest conclusion would then be
+"stable across two markets, measured against lists of ten and seven names", and
+the way to break that tie is a run with a deliberately long competitor list, which
+is a later phase and not this one.
