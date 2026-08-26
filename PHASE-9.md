@@ -661,3 +661,112 @@ an apostrophe form is invisible in a printed diff. **There are none**: every sto
 string is pure ASCII, so `Mike's Car Service` and the `'s nachts` in the
 locksmith's second prompt both carry U+0027 and not U+2019, which is what the
 operator typed. Nothing was silently transformed on the way in.
+
+---
+
+## 11. Run 1 - Autobedrijf Blom, 2026-08-26
+
+Run `6177281c-3962-42f4-ae51-ea51647b6b03`, basis `7c3fec1e65c4`, queued through
+the deployed UI at 16:45:54Z, `completed` at 16:48:35Z - two minutes forty-one
+seconds for 60 calls.
+
+**Coverage 100 percent on both targets, 30 of 30 planned, every answer `ok`, no
+answer without a citation, nothing labelled unreliable.** The run is a clean
+measurement, which is what makes everything below readable.
+
+### 11.1 The headline: P1 is wrong, and it is wrong in the most interesting way
+
+| | anthropic `claude-sonnet-5` | openai `gpt-5.6-terra` |
+|---|---|---|
+| Coverage | 100% (30/30) | 100% (30/30) |
+| Mention rate | **measured 10%** (3 of 30) | **measured 16.7%** (5 of 30) |
+| Average position | **measured 1** | **measured 1** |
+
+**Autobedrijf Blom is named, and when he is named he is named first.** P1
+predicted "at or near 0 percent across all ten prompts". That is falsified as
+stated, and the shape of the miss is the finding:
+
+| Prompt | anthropic | openai |
+|---|---|---|
+| 1. *"...in de buurt van **Enspijk**"* | **3 of 3** | **3 of 3** |
+| 2-7, 10 (Geldermalsen, Betuwe, Deil, A2, Rumpt, APK, occasions) | 0 of 3 | 0 of 3 |
+| 8. Audi, non-dealer, Betuwe | 0 of 3 | **1 of 3** |
+| 9. Mercedes, gewone garage | 0 of 3 | **1 of 3** |
+
+Every attempt on the prompt naming **his own village** found him, on both
+providers, unanimously. Every attempt on a prompt naming the **town eight
+kilometres away** missed him, on both providers, unanimously. The models are not
+failing to know he exists - they name him as "mijn meest allround aanbeveling"
+and "Mijn eerste keuze vlak bij Enspijk" - they are answering a *place* question
+with the businesses registered in that place.
+
+That is a sharper commercial finding than a flat zero would have been. A flat zero
+says "you are invisible". This says **"you are visible in a village of a few
+hundred people and invisible in the market town where your customers are"**, which
+is a specific, arguable, and sellable statement.
+
+**P3 is confirmed.** Prompt 8, the Audi specialism - the one thing properly stated
+on the site - is one of only two non-Enspijk hits in the whole run, and the
+Mercedes prompt is the other. Both are the pages that carry real content.
+
+### 11.2 First reading of the other predictions - one run of three
+
+| | Prediction | Run 1 |
+|---|---|---|
+| P1 | mention rate ~0% everywhere | **falsified**: 10% / 16.7%, and 3/3 on his own village |
+| P2 | `autoblom.nl` rarely or never cited | **holds**: 0 answers on anthropic, 2 on openai, both marked `(yours)` |
+| P3 | prompt 8 is his best chance | **confirmed**: one of two non-Enspijk hits |
+| P4 | cited domains skew to chains and aggregators | **holds**: `123auto.nl`, `bovag.nl`, `anwb.nl`, `vakgarage.nl`, `viabovag.nl`, `goudengids.nl` are the top of both lists |
+| P5 | Rivierenland (no website) not named | **holds**: 0 of 30 on both targets |
+| P6 | Koos Pellegrom named more often than Blom | **falsified, and reversed**: Pellegrom 0 of 30 on both targets, Blom 3 and 5 |
+
+P6 reversing matters. The control case was chosen because it holds geography
+nearly constant - also rural, also near the A2, but chain-affiliated with its own
+site. It was named **zero** times while Blom was named eight. So on this evidence
+the chain affiliation did not buy visibility, and rural is not by itself
+disqualifying. What decided it was whether the question named the village.
+
+### 11.3 Criteria that must be reported whether or not they occur
+
+Read per answer from the stored evidence (C17), not from an aggregate, and
+cross-checked against the aggregate: 3 subject-named answers on anthropic and 5 on
+openai, matching the 10% and 16.7% exactly, so the zeros below are real zeros and
+not a failure to detect.
+
+- **"Cited but not named": 0.** In both openai answers where `autoblom.nl` is
+  cited, the answer also names him in prose. The register's row stays open.
+- **The link-text-domain false negative: 0.** Not one recognised brand appears
+  only as the visible text of a self-linking markdown link. The belief that a
+  model naming a business names it in prose held on 60 real answers - and openai
+  emitted exactly that construction, `([autoblom.nl](https://autoblom.nl/onderhoud))`,
+  three times, always beside the name in prose.
+
+### 11.4 The apostrophe fold earned its place in the first run
+
+openai wrote **`Mike’s Car Service`** - U+2019 - and the stored mention reads
+`Mike's Car Service`, the operator's straight apostrophe.
+
+**Both** of that competitor's two mentions in this run exist *only* because of the
+fold: matching the stored alias against the raw answer without folding finds
+nothing in either answer. Without the pre-task, `Mike's Car Service` would have
+read **0 of 30** instead of 2 of 30, and no figure on the page would have hinted
+that anything was missing. This is the class of defect that the pre-task existed
+for, occurring on the first prompt of the first run.
+
+### 11.5 Cost - running under estimate
+
+| | Value |
+|---|---|
+| Answers | 60 of 60 planned |
+| Input tokens | 1,080,453 |
+| Output tokens | 62,503 |
+| Web searches | 97 (**1.62 per call**) |
+| **Cost** | **$3.80** (3,800,800 micro-dollars) |
+
+That is **63,347 micro-dollars per call** against the 72,402 estimated from the
+stored sample - 12 percent under, and consistent with the search count coming in
+at 1.62 rather than 1.86. Section 7 said the driver was searches and the
+correlation was 0.97; the first real sample behaves that way.
+
+Projected at the observed rate, the remaining 204 calls cost **$12.92** and the
+phase lands at **$16.72** against the approved $19.12.
