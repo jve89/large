@@ -419,3 +419,70 @@ message** on the deployed instance will be derived from that smaller sample and
 may differ. The bound itself is on the call count, which is exact either way. The
 production database is not reachable from a developer machine - Railway exposes
 Postgres only on the internal network - so this was not verified against it.
+
+---
+
+## 8. Addendum, same day - what the deployed instance actually held
+
+Written after the two new companies were created, and before anything was queued.
+It corrects section 5 and section 7; **no prediction in sections 2 or 3 changes**,
+which is why it is an addendum rather than an edit.
+
+### 8.1 The companies now on the deployed instance
+
+| Company | id | Prompts | Website |
+|---|---|---|---|
+| Autobedrijf Blom | `b56b1213-3620-4254-9cb6-ad5a9a20db24` | 10 | autoblom.nl |
+| Slotenmaker Nieuwegein | `37249cc2-6cba-4476-8db9-eaaad0aa5536` | 10 | slotenmaker-nieuwegein.nl |
+| Skeleton demo | `d760488c-9dda-4c86-a3cd-217f64e8df9c` | 1 | - |
+
+Both were created through the operator UI at `web-production-15ff2.up.railway.app`,
+and both report "Starting this run makes 60 provider calls - 10 prompts x 2
+targets x N=3" on their own page before anything is pressed.
+
+### 8.2 Coolblue is not on the deployed instance
+
+**The deployed database holds no Coolblue company.** It has `Skeleton demo` and
+the two created above, and one run in total. The Coolblue company - two aliases,
+three competitors, `https://www.coolblue.nl`, and the six answers behind the
+healthy render - is in the **local** database, which is where every gate run this
+project has made has gone.
+
+Two consequences, and the second is the one that moves money:
+
+1. "Reuse the existing company" cannot be literal on the deployed instance. A
+   Coolblue created there is a different row with no history, so its run is a
+   fresh healthy-render control rather than a continuation of anything. That is
+   still enough for what this phase needs Coolblue for - a healthy screen to hold
+   beside Blom's zero - but it is not the same claim.
+2. **Coolblue as it is configured has one prompt, not ten.** A run of it is
+   **6 calls**, not 60. The 300-call arithmetic assumed 60.
+
+This is left for the operator to decide rather than guessed at, because it changes
+the spend and because this system deliberately has no delete button: a company
+created in the wrong place stays there.
+
+### 8.3 The price, restated against what exists
+
+| Plan | Calls | Cost at the measured mean |
+|---|---|---|
+| Blom x3 + Slotenmaker + Coolblue **as configured** (1 prompt, 6 calls) | **246** | **$17.81** |
+| Blom x3 + Slotenmaker + Coolblue **given ten prompts** (60 calls) | **300** | **$21.72** |
+| Blom x3 + Slotenmaker only, Coolblue not re-run | 240 | $17.38 |
+
+The drift band in section 7 applies unchanged and is proportional: at 1 search per
+call the first row is about $12 and at 3 searches about $26.
+
+`MAX_PLANNED_CALLS` at 100 permits every one of these, because the bound is per
+run and the largest run is 60 calls.
+
+### 8.4 CI has not run this commit
+
+Recorded because rule 19 distinguishes it from a failure. The pre-task commit
+`acff121` is on `origin/main` and **both Railway services are running it** -
+`web` and `worker` both report `commitHash acff121`, status SUCCESS. GitHub
+Actions created **no run at all** for that sha: `githubstatus.com` reports Actions
+in **major outage** at the time of writing. So the honest statement is "CI has not
+run this", not "CI failed" and not "CI is green". The full local suite - 441 tests
+- typecheck and lint were all green before the push. `npm run verify:live` was not
+run: this session spends nothing at a provider.
