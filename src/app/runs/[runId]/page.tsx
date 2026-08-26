@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { FigureValue, formatPercent } from '../../../components/figure.tsx'
 import { RunProgress } from '../../../components/run-progress.tsx'
 import { plannedAttemptsPerTarget } from '../../../core/run/plan.ts'
-import { aggregateRun } from '../../../lib/aggregate.ts'
+import { aggregateRun, ownHostOf } from '../../../lib/aggregate.ts'
 import { evidenceHref } from '../../../lib/evidence.ts'
 import { prisma } from '../../../lib/db.ts'
 import { validateEnv } from '../../../lib/env.ts'
@@ -64,10 +64,17 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
     targets: run.targets,
     promptIds: run.prompts.map((prompt) => prompt.id),
     competitors: run.brandCompetitors,
+    // The company's website as it stands NOW, not a snapshot - marking is an
+    // annotation over the measurement rather than part of it (Phase 13).
+    ownWebsite: run.company.website,
     answers: run.answers,
   })
 
   const isTerminal = run.status !== 'queued' && run.status !== 'running'
+  // Null when no website is recorded. Nothing is then marked, and the note below
+  // is not shown either - an absent field must never read as "none of these are
+  // yours", which is the failed-is-not-absent rule one level up.
+  const ownHost = ownHostOf(run.company.website)
 
   return (
     <main>
@@ -113,6 +120,21 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
 
       <section className="mt-8">
         <h2 className="text-lg font-medium">Figures, per target</h2>
+        {ownHost === null ? null : (
+          // The caveat this marking cannot be shown without. Marking is computed
+          // when the run is READ, against the website recorded on the company now -
+          // there is no snapshot of it, deliberately, because it annotates a
+          // measurement rather than forming part of one. Without this sentence a
+          // customer who changes their domain sees an old run's marking move and
+          // reasonably concludes the measurement moved.
+          <p data-own-domain-note className="mt-2 text-sm text-neutral-600">
+            Sources marked <span className="font-medium">(yours)</span> are matched
+            against <span className="font-mono">{ownHost}</span>, the website recorded
+            for this company <span className="font-medium">now</span> — not one stored
+            when this run was measured. Changing it changes the marking on past runs;
+            it changes no figure and breaks no series.
+          </p>
+        )}
         <ul className="mt-4 space-y-6">
           {aggregate.targets.map((target) => (
             <li
@@ -182,7 +204,9 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
                     // absence of measurement looks like, and it is not this.
                     domains.length === 0
                       ? 'the model cited no sources in any successful answer'
-                      : domains.map((d) => `${d.domain} ${d.answers}`).join(' · ')
+                      : domains
+                          .map((d) => `${d.domain} ${d.answers}${d.isOwn ? ' (yours)' : ''}`)
+                          .join(' · ')
                   }
                 />
               </ul>

@@ -224,6 +224,18 @@ next to which competitors, and which sources the model cited.
   A domain is counted **per answer**: an answer citing two pages of one site, or
   the same page twice, has drawn on that domain once. The unit of observation is
   the answer, never the citation row - see C16.
+  **A cited domain is the client's own** when it equals the host of the website
+  recorded for that company, or is a subdomain of it - `acme.nl` marks `acme.nl`
+  and `shop.acme.nl`. No public suffix list is required and none is used: the
+  operator supplies the host, so nothing has to infer where a registrable boundary
+  sits, and the rule works identically for `.nl` and `.co.uk`.
+  *The limitation, stated rather than discovered:* the comparison is one-way. A
+  client who records `blog.acme.nl` will **not** have `acme.nl` marked, because a
+  subdomain of what they gave us is theirs while a parent of it is a host we were
+  not told about. The remedy is to record the apex, and the form says so.
+  *Scope:* only the client's own hosts are marked. Nothing changes about how any
+  other domain is counted - `mediamarkt.nl` and `shop.mediamarkt.nl` remain two
+  rows, because nothing has told us they are one business.
   Ties in the displayed order are broken by domain ascending, compared by **code
   unit** rather than by locale: a locale comparison depends on the runtime's ICU
   data and can order the same two domains differently on a developer's machine and
@@ -245,6 +257,13 @@ next to which competitors, and which sources the model cited.
   that is the whole justification for the mechanism.** A changed alias, prompt,
   competitor or target is visible to whoever made the change; a changed parser is
   visible to nobody. Every other input announces itself.
+
+  **The company's website is not an input, and must not become one.** An alias is
+  in the basis because it changes what counts as a mention, which is a
+  measurement; a website changes what gets marked in a list, which is
+  presentation. Changing it must not break a series, and adding it as a sixth
+  input would do exactly that - the same false negative that folding in the
+  aggregation version would have caused, and for the same reason. See C16.
 
   **Canonical form, per input.** All four operator-editable inputs are **sets, not
   sequences**: reordering any of them does not change what was measured, so none of
@@ -571,9 +590,20 @@ next to which competitors, and which sources the model cited.
   IF a target has no successful answers, THEN the system SHALL display "no data"
   for that target's domains and SHALL NOT display an empty list, which would read
   as "the model cited no sources".
-  C16 counts domains; it deliberately does **not** mark which of them is the
-  client's own site. That needs a website field on `Company` that the data model
-  does not have - see "Explicitly NOT in scope" below.
+  WHEN a website is recorded for the company, the system SHALL mark which of those
+  domains are the client's own. IF no website is recorded, THEN the list SHALL be
+  displayed exactly as this capability otherwise specifies, nothing SHALL be
+  marked, and nothing SHALL imply that none of the domains are the client's - the
+  absence of the field is not a finding about the sources.
+  *Extended 2026-08-26.* The marking is an **annotation over a stored measurement,
+  not part of one**: it is computed when a run is read, against the website
+  recorded on the company at that moment, because no website is snapshotted onto a
+  run. So an old run's marking moves if the client changes their domain, while no
+  figure moves and no series breaks. The system SHALL state on the page what the
+  marking was matched against, or a customer who changes their domain will
+  reasonably conclude the measurement changed.
+  Marking changes no count and no ordering. A client's own site is not promoted up
+  a frequency table for being theirs.
 
 - **C17 - Every figure is traceable to its evidence**: WHEN the system displays an
   aggregate figure for a target, it SHALL make the answers that figure was
@@ -736,12 +766,13 @@ Each entry states what is excluded, why, and the condition under which it return
   everything they need is already derivable from stored rows. Comparison screens
   return on the same condition as trend charts.
 
-- **Marking which cited domain belongs to the client.** C16 counts cited domains;
-  it does not say which of them is the client's own site.
-  *Why:* it needs a website field on `Company` that the data model does not have,
-  and a data model change is a stop-and-ask under `CLAUDE.md` -> Stop points.
-  *Returns:* with the presence-audit stage, which takes the customer's own site as
-  an input anyway and therefore has to carry that field regardless.
+- ~~**Marking which cited domain belongs to the client.**~~ **In scope since
+  2026-08-26**, delivered by `PLAN.md` -> Phase 13 as an extension of C16. The
+  data model change it was waiting on - a nullable `website` on `Company` - was
+  approved, and the public suffix list it was thought to need turned out to be
+  unnecessary: the operator supplies the client's host, so the question is whether
+  a cited host equals it or is a subdomain of it, which needs no list. The
+  presence-audit stage still needs the same field and now inherits it.
 
 - **Identity with the consumer products.** v1 measures the *APIs* of both
   providers with web search enabled. That approximates what a person sees in the

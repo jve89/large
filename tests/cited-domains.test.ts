@@ -22,6 +22,8 @@ import { describe, expect, it } from 'vitest'
 import {
   aggregateRun,
   citedDomainOf,
+  isOwnDomain,
+  ownHostOf,
   type AggregatableAnswer,
   type AggregateInput,
   type DomainCount,
@@ -53,13 +55,14 @@ function answer(
   }
 }
 
-function input(answers: AggregatableAnswer[]): AggregateInput {
+function input(answers: AggregatableAnswer[], ownWebsite: string | null = null): AggregateInput {
   return {
     repetitions: N,
     coverageThreshold: 0.8,
     targets: TARGETS,
     promptIds: PROMPTS,
     competitors: [],
+    ownWebsite,
     answers,
   }
 }
@@ -112,7 +115,7 @@ describe('C16 - counting', () => {
         answer('target-a', 'ok', ['https://www.acme.nl/a']),
         answer('target-a', 'ok', ['https://acme.nl/b']),
       ]),
-    ).toEqual([{ domain: 'acme.nl', answers: 2 }])
+    ).toEqual([{ domain: 'acme.nl', answers: 2, isOwn: false }])
   })
 
   it('counts two pages of one site inside ONE answer only once', () => {
@@ -129,7 +132,7 @@ describe('C16 - counting', () => {
           'https://acme.nl/e',
         ]),
       ]),
-    ).toEqual([{ domain: 'acme.nl', answers: 1 }])
+    ).toEqual([{ domain: 'acme.nl', answers: 1, isOwn: false }])
   })
 
   it('counts the same domain across two answers twice', () => {
@@ -138,15 +141,15 @@ describe('C16 - counting', () => {
         answer('target-a', 'ok', ['https://acme.nl/a']),
         answer('target-a', 'ok', ['https://acme.nl/a']),
       ]),
-    ).toEqual([{ domain: 'acme.nl', answers: 2 }])
+    ).toEqual([{ domain: 'acme.nl', answers: 2, isOwn: false }])
   })
 
   it('counts a subdomain separately from its parent', () => {
     expect(
       domainsOfA([answer('target-a', 'ok', ['https://acme.nl/a', 'https://blog.acme.nl/b'])]),
     ).toEqual([
-      { domain: 'acme.nl', answers: 1 },
-      { domain: 'blog.acme.nl', answers: 1 },
+      { domain: 'acme.nl', answers: 1, isOwn: false },
+      { domain: 'blog.acme.nl', answers: 1, isOwn: false },
     ])
   })
 
@@ -161,7 +164,7 @@ describe('C16 - counting', () => {
       answer('target-a', 'failed', ['https://globex.nl/b']),
       answer('target-a', 'failed', ['https://globex.nl/c']),
     ]
-    expect(domainsOfA(answers)).toEqual([{ domain: 'acme.nl', answers: 2 }])
+    expect(domainsOfA(answers)).toEqual([{ domain: 'acme.nl', answers: 2, isOwn: false }])
   })
 })
 
@@ -217,7 +220,7 @@ describe('C16 - absence', () => {
 
   it('skips a citation whose URL is unusable rather than counting it as a domain', () => {
     expect(domainsOfA([answer('target-a', 'ok', ['not a url', 'https://acme.nl/a'])])).toEqual([
-      { domain: 'acme.nl', answers: 1 },
+      { domain: 'acme.nl', answers: 1, isOwn: false },
     ])
   })
 })
@@ -236,11 +239,11 @@ describe('C16 - two targets in one run', () => {
     const [a, b] = result.targets
     expect(a!.citedDomains.result).toEqual({
       kind: 'measured',
-      value: [{ domain: 'acme.nl', answers: 2 }],
+      value: [{ domain: 'acme.nl', answers: 2, isOwn: false }],
     })
     expect(b!.citedDomains.result).toEqual({
       kind: 'measured',
-      value: [{ domain: 'globex.nl', answers: 1 }],
+      value: [{ domain: 'globex.nl', answers: 1, isOwn: false }],
     })
   })
 
@@ -263,5 +266,104 @@ describe('C16 - nothing is persisted', () => {
   it('is a pure function of its input, computed on every read', () => {
     const answers = [answer('target-a', 'ok', ['https://acme.nl/a', 'https://globex.nl/b'])]
     expect(aggregateRun(input(answers))).toEqual(aggregateRun(input(answers)))
+  })
+})
+
+describe('Phase 13 - marking the client’s own cited domains', () => {
+  it('reads a host out of whatever form the operator typed', () => {
+    for (const written of [
+      'acme.nl',
+      'ACME.NL',
+      'www.acme.nl',
+      'https://acme.nl',
+      'https://www.acme.nl/prices?x=1',
+      '  acme.nl  ',
+    ]) {
+      expect(ownHostOf(written), written).toBe('acme.nl')
+    }
+  })
+
+  it('records nothing for an absent or unusable website', () => {
+    for (const written of [null, undefined, '', '   ', 'not a website']) {
+      expect(ownHostOf(written as string | null), String(written)).toBeNull()
+    }
+  })
+
+  it('marks the host itself and any subdomain of it', () => {
+    // The operator supplies the answer, so no public suffix list is needed: the
+    // question is "does this cited host equal, or end with a dot plus, the host
+    // the client gave us" - which works identically for .nl and .co.uk.
+    expect(isOwnDomain('acme.nl', 'acme.nl')).toBe(true)
+    expect(isOwnDomain('shop.acme.nl', 'acme.nl')).toBe(true)
+    expect(isOwnDomain('a.b.acme.co.uk', 'acme.co.uk')).toBe(true)
+  })
+
+  it('does not mark a host that merely ends with the same letters', () => {
+    expect(isOwnDomain('notacme.nl', 'acme.nl')).toBe(false)
+    expect(isOwnDomain('acme.nl.example.com', 'acme.nl')).toBe(false)
+  })
+
+  it('does not mark the parent of the host it was given - the stated limitation', () => {
+    // A client who records blog.acme.nl will not have acme.nl marked. The
+    // comparison is one-way by design: a subdomain of what they gave us is
+    // theirs, a parent of it is a host we were not told about. Recorded rather
+    // than discovered; the remedy is to enter the apex.
+    expect(isOwnDomain('acme.nl', 'blog.acme.nl')).toBe(false)
+  })
+
+  it('marks nothing at all when no website is recorded', () => {
+    const answers = [answer('target-a', 'ok', ['https://acme.nl/a', 'https://globex.nl/b'])]
+    const marked = domainsOfA(answers)
+    expect(marked!.every((d) => d.isOwn === false)).toBe(true)
+    // ...and the list is otherwise byte-for-byte what C16 alone produces.
+    expect(marked!.map((d) => [d.domain, d.answers])).toEqual([
+      ['acme.nl', 1],
+      ['globex.nl', 1],
+    ])
+  })
+
+  it('marks the client’s hosts and nobody else’s', () => {
+    const answers = [
+      answer('target-a', 'ok', [
+        'https://www.acme.nl/a',
+        'https://shop.acme.nl/b',
+        'https://mediamarkt.nl/c',
+        'https://shop.mediamarkt.nl/d',
+      ]),
+    ]
+    const result = aggregateRun(input(answers, 'acme.nl')).targets[0]!.citedDomains.result
+    const value = result.kind === 'measured' ? result.value : []
+
+    expect(value.filter((d) => d.isOwn).map((d) => d.domain).sort()).toEqual([
+      'acme.nl',
+      'shop.acme.nl',
+    ])
+    // Scope: nothing here changes how C16 counts anybody else. mediamarkt.nl and
+    // shop.mediamarkt.nl stay two rows, because nothing told us they are one
+    // business.
+    expect(value.filter((d) => !d.isOwn).map((d) => d.domain).sort()).toEqual([
+      'mediamarkt.nl',
+      'shop.mediamarkt.nl',
+    ])
+  })
+
+  it('does not let the marking change the count or the order', () => {
+    // The marking is an annotation. A client's own site is not promoted up a
+    // frequency table for being theirs.
+    const answers = [
+      answer('target-a', 'ok', ['https://zzz.nl/a']),
+      answer('target-a', 'ok', ['https://zzz.nl/b']),
+      answer('target-a', 'ok', ['https://acme.nl/c']),
+    ]
+    const unmarked = aggregateRun(input(answers)).targets[0]!.citedDomains.result
+    const marked = aggregateRun(input(answers, 'acme.nl')).targets[0]!.citedDomains.result
+    const strip = (r: typeof unmarked) =>
+      r.kind === 'measured' ? r.value.map((d) => [d.domain, d.answers]) : null
+
+    expect(strip(marked)).toEqual(strip(unmarked))
+    expect(strip(marked)).toEqual([
+      ['zzz.nl', 2],
+      ['acme.nl', 1],
+    ])
   })
 })

@@ -52,6 +52,7 @@ export default async function CompanyPage({
             name: company.name,
             aliases: company.aliases,
             competitors: company.competitors,
+            website: company.website,
           }}
         />
       </details>

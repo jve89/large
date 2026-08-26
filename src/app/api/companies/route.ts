@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { ownHostOf } from '../../../lib/aggregate.ts'
 import { prisma } from '../../../lib/db.ts'
 import { validateEnv } from '../../../lib/env.ts'
 
@@ -27,10 +28,29 @@ export function normaliseNames(values: readonly string[]): string[] {
   return out
 }
 
+/**
+ * The client's own site (Phase 13). Optional, and an empty string means "not
+ * recorded" rather than an error - clearing the field must be possible.
+ *
+ * A value that yields no host is **refused** rather than stored, because a
+ * website that never matches anything would silently mark nothing and give the
+ * operator no way to tell that from a model that simply never cited them. The
+ * absence of a website and a broken one look identical on the page, so they must
+ * not look identical at the door.
+ */
+export const websiteSchema = z
+  .string({ error: 'must be a string' })
+  .trim()
+  .refine((value) => value === '' || ownHostOf(value) !== null, {
+    error: 'must be a website address, such as acme.nl or https://www.acme.nl',
+  })
+  .transform((value) => (value === '' ? null : value))
+
 const createSchema = z.object({
   name: z.string({ error: 'must be a string' }).trim().min(1, 'must not be empty'),
   aliases: z.array(z.string()).optional().default([]),
   competitors: z.array(z.string()).optional().default([]),
+  website: websiteSchema.optional(),
 })
 
 export function schemaErrorMessage(error: z.ZodError): string {
@@ -99,6 +119,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       name: parsed.data.name,
       aliases: normaliseNames(parsed.data.aliases),
       competitors: normaliseNames(parsed.data.competitors),
+      website: parsed.data.website ?? null,
     },
     select: { id: true },
   })

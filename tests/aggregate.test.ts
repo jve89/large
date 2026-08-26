@@ -76,6 +76,7 @@ function input(overrides: Partial<AggregateInput> = {}): AggregateInput {
     targets: TARGETS,
     promptIds: PROMPTS,
     competitors: ['Globex', 'Initech'],
+    ownWebsite: null,
     answers: [],
     ...overrides,
   }

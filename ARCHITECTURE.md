@@ -319,11 +319,18 @@ never used anywhere in this codebase.
 | name | text | NOT NULL |
 | aliases | text[] | NOT NULL, default `{}` |
 | competitors | text[] | NOT NULL, default `{}` |
+| website | text | NULL |
 | createdAt | timestamptz | NOT NULL |
 | updatedAt | timestamptz | NOT NULL |
 
 An empty `competitors` array is valid; the run then measures presence and a
 position of 1 of 1. Companies are never deleted through the application.
+
+`website` was added 2026-08-26 for Phase 13, nullable and never backfilled. NULL
+means "we were not told", never "none of these sources are the client's", and the
+run page renders nothing at all about ownership in that case. It is the only
+column on this table that is not part of the measurement basis - see Key
+decisions.
 
 ### Prompt
 
@@ -1001,6 +1008,32 @@ phase. Phase 0 pushes to it.
   was asked for rather than a surprise, and the cheap path - a disputed cell - is
   the one a reader actually takes. If it ever needs pagination, that is a change to
   this page and not to the capability.
+
+- **The client's website is data, and nothing versions it.** `Company.website` is
+  nullable, never backfilled, and deliberately **not** an input to `basisHash`: an
+  alias changes what counts as a mention, which is a measurement, while a website
+  changes what gets marked in a list, which is presentation. Adding it to the hash
+  would break a series whenever a client changed domain - the same false negative
+  as folding in the aggregation version.
+  The consequence has to be stated rather than inherited. A run's figures are
+  frozen; the **marking** is computed at read time against the website recorded
+  now, so an old run's marking moves when a client changes domain. That is right -
+  it annotates a stored measurement rather than forming part of one - but neither
+  `basisHash` nor `AGGREGATION_SEMANTICS_VERSION` covers it, because the version
+  governs changes to the *rules* and this is mutable *data*. It is the first
+  read-time input of that kind in the system, and the only protection is the note
+  the run page prints naming what the marking was matched against.
+
+- **No public suffix list, because this capability is told the answer.** Grouping
+  hosts by organisation in general needs to know where the registrable boundary
+  sits, and a naive last-two-labels rule breaks on `.co.uk`. Marking the client's
+  own domains does not need it: the operator supplies the host, so the rule is
+  "equal to, or a subdomain of, what we were given", which works identically for
+  `.nl` and `.co.uk`. The dependency was refused as well as unnecessary - a public
+  suffix list is data that ages, and this is a read-time rule, so a routine
+  dependency update would silently change what counts as one business without
+  anything bumping. The limitation is one-way and stated in `SPEC.md`: a client who
+  records `blog.acme.nl` will not have `acme.nl` marked.
 
 - **C11's surface is the company's run list, and asking that first was the point.**
   A capability with no observable behaviour is what C18 turned out to be. There is

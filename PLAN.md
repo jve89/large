@@ -27,8 +27,8 @@
 | 9 | 11 - Cited domain frequency | C16 | done |
 | 10 | 12 - Traceability to evidence | C17 | done |
 | 11 | 8 - Comparability guard | C11 | done |
-| 12 | 13 - Mark the client's own cited domain | C16, extended | next |
-| 13 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | |
+| 12 | 13 - Mark the client's own cited domain | C16, extended | done |
+| 13 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | next |
 | 14 | 10 - Ship | SPEC "Success = done when" | |
 
 Phases 11 and 12 are new work and therefore take new numbers, but both belong
@@ -84,6 +84,7 @@ of these behaviours has this instrument only ever performed against fixtures".
 | **The same host cited with and without `www.`** in one target's answers, which must group as one domain (C16) | Never: **0** hosts have appeared in both forms | Nothing forces a model to vary the form it cites | More answers, or a provider that normalises differently from the other |
 | ~~Two pages of one site inside one answer~~ | **Observed, 12 times.** This one is real | - | - |
 | **The long-context price tier** - over 272,000 input tokens at openai (`pricing.ts`) | Never: **0** answers. A buying-moment prompt runs about 20,000 input tokens | Nothing in v1's shape approaches it | Not v1. The branch guards against a provider changing the threshold rather than against this product's own traffic |
+| **"Cited but not named"** - a client's own domain in the citations of an answer that named somebody else (Phase 13) | Never, and it cannot have been: **0** `ok` answers have ever had the subject go unnamed, so there has never been an answer for it to happen in | Every brand measured so far is one the models name readily, so the subject is named in every successful answer | Phase 9's deliberately absent brand. It is the first realistic chance, and Phase 9 now carries a criterion to report the count **even when it is zero** |
 | **C11 firing at all** - two runs of one company differing in basis | Never. Production holds **one** run; no two runs have ever differed in basis outside tests | Nothing in a gate changes a company's prompts, aliases, competitors or targets between runs | An operator editing a company between runs, which is ordinary use and will happen the first week a real client exists |
 | **A series interrupted and resumed** - basis A, then B, then A again, which must be two series and not three | Never | As above, and it needs three runs across two bases | The same operator changing something and changing it back - likelier than it sounds, since a prompt list is edited by re-pasting |
 | **C3's prompt-maximum and C19's planned-call refusals** | Never triggered by a real request | Both refuse before a run exists; no operator has yet asked for one that large | An operator pasting a long list, which is what they are for |
@@ -438,23 +439,61 @@ is "cited but not named" made visible on the page, and it is one of the more
 sellable things this instrument can say - see `SPEC.md` -> Open questions, where
 that state is already named and reserved.
 
-It is a phase of its own rather than part of C16 because it needs a website field
-on `Company` that the data model does not have, somewhere to enter it, and a rule
-for deciding that two hosts belong to the same organisation - which is the first
-thing in this project that needs a public suffix list, since `acme.nl` and
-`shop.acme.nl` are one business and the C16 rule deliberately counts them as two.
-Folding a migration and a new dependency into C16 would have made one phase do
-three things.
+It is a phase of its own rather than part of C16 because it needed a website field
+on `Company` and somewhere to enter it, and folding a migration into C16 would have
+made one phase do two things.
 
 - Delivers: C16, extended
-- Blocked on: a data model change (a website field on `Company`) and a new
-  dependency (a public suffix list). **Both are stop-and-ask** under
-  `CLAUDE.md` -> Stop points, so this phase begins with a proposal, not with code.
+- **Both stop-and-asks were answered 2026-08-26. One yes, one no.**
+  *The website field: approved.* One nullable column, no backfill, no existing run
+  changed meaning. It is not speculative - it unlocks "cited but not named", and
+  the presence-audit stage at roadmap stage 5 needs the same field.
+  *The public suffix list: refused, and it turned out not to be needed.* The
+  reasoning in the paragraph above was wrong in a way worth keeping: it assumed
+  the phase had to decide that `acme.nl` and `shop.acme.nl` are one business, which
+  in general requires knowing where the registrable boundary sits. It does not have
+  to decide, because **the operator supplies the answer** - the client gives their
+  website. The question is not "what is the registrable domain of
+  `shop.acme.co.uk`" but "does this cited host equal, or end with a dot plus, the
+  host the client gave us", which needs `new URL`, a `www.` strip and a suffix
+  comparison. It works identically for `.nl` and `.co.uk`.
+  Two further reasons the dependency was refused rather than merely unnecessary. A
+  public suffix list is data that ages, and this is a **read-time** rule - so a
+  routine dependency update would silently change what counts as one business,
+  which is precisely the drift `AGGREGATION_SEMANTICS_VERSION` exists to catch and
+  precisely the kind of change nobody thinks to version. And it would have arrived
+  without any capability needing its general case.
 - Done when: WHEN a target's cited-domain list is displayed, the domains belonging
   to the client's own site are marked as such; IF a company has no website
   recorded, THEN the list is displayed exactly as C16 specifies and nothing is
   marked - the absence of the field is never rendered as "none of these are yours".
 - Commit: `feat: mark the client's own cited domain`
+- **Recorded 2026-08-26.** The inconsistency this phase creates, named rather than
+  inherited: a run's **figures** are frozen - a run is a measurement taken at a
+  time, not a query standing over stored text - but the **marking** is computed at
+  read time, so an old run's domain list is marked against today's website. That is
+  correct and stays: the marking annotates a stored measurement exactly as every
+  other read-time aggregate does, and the alternative - snapshotting a website onto
+  each run - would make changing a domain break a series, which is the false
+  negative this project has now avoided three times. What it requires is that the
+  page **say so**, and it does: the note names the host being matched against and
+  that it is the one recorded now. Without it a customer who changes their domain
+  sees an old run's marking move and reasonably concludes the measurement moved.
+  Neither `basisHash` nor `AGGREGATION_SEMANTICS_VERSION` covers this, and that is
+  worth knowing: the version governs changes to the **rules**, while a website is
+  mutable **data**. It is the first read-time input of that kind, and the only
+  protection against it is the sentence on the page.
+  **Browser pass, 2026-08-26, $0.00** - the Coolblue run already cited the client's
+  own site, so no provider call was needed. Recording `https://www.coolblue.nl`
+  through the form marked `coolblue.nl 3 (yours)` on both targets and marked
+  nothing else - `mediamarkt.nl`, `expatinfoholland.nl`, `ikea.com`,
+  `en.wikipedia.org`, `consumentenbond.nl`, `expert.nl` and `kieskeurig.nl` all
+  unmarked - with the note naming `coolblue.nl` as what it was matched against and
+  saying it is the website recorded **now**. The order was untouched:
+  `coolblue.nl`, `expatinfoholland.nl` and `ikea.com` all at 3, still in ascending
+  domain order. The absent case was checked on a second real run whose company has
+  no website: zero occurrences of "(yours)", zero of the note, and the cited list
+  rendered in full.
 
 ## Phase 12 - Traceability to evidence
 
@@ -612,6 +651,31 @@ this product's whole risk is a number being misread.
     you are not there" is the single most important thing this instrument
     communicates, and only one side of it has ever been on screen.** Verify it on
     the page, not only in the figures.
+  - **A third brand, whose name is also an ordinary word.** Bakkerij De Zon,
+    optician Vision, cafe Het Anker. A large minority of small businesses are named
+    this way and the mention parser has only ever been tested against distinctive
+    proper nouns - Acme, Coolblue, Globex - which is a selection effect in the
+    evidence rather than a property of the parser.
+    The failure mode is the **mirror image** of the address problem fixed on
+    2026-08-25. There the parser counted citations as mentions; here it would count
+    ordinary language as a mention - "de zon scheen die dag" scoring as a
+    recommendation. Word boundaries and longest-alias-first do not touch it,
+    because the match is a genuine word match; what is wrong is that the word is
+    not being used as a name.
+    **This criterion is a measurement, not a fix.** Run it, count how often a
+    recognised brand is matched where the words are not naming the business, and
+    record the number. If it is common it becomes a phase; if it is rare it becomes
+    a row in the register with a count behind it. Either way it stops being a
+    hunch. Three brands - one named readily, one absent, one an ordinary word - and
+    all three cases that occur in practice are covered by one run.
+  - **"Cited but not named" is watched for, and reported whether or not it
+    occurs.** The register records that no `ok` answer has ever had the subject go
+    unnamed, so a client's own domain appearing in the citations of an answer that
+    recommends somebody else has never happened in real data either. The absent
+    brand above is the first realistic chance to see it. Count the answers where
+    the client's own domain is cited and the subject is not named, and report the
+    figure **even when it is zero** - a zero here is a finding about the market,
+    not a gap in the run.
   - **Citation churn and mention churn are measured separately, on the same runs.**
     This is a distinct criterion from the stability check below, and the two must
     not be merged. The published volatility figures in this category - see Roadmap
@@ -838,9 +902,11 @@ is never deleted.
   is adequate while one operator writes and checks every screen and stops being
   adequate the moment it is not. Adding it means a jsdom environment and a
   component-testing library, which is a stack change and therefore a stop-and-ask.
-- **A public suffix list.** *Triggered by:* the first capability that needs to know
-  two hosts belong to the same **organisation** - which is Phase 13, marking the
-  client's own cited domain. It is explicitly **not** triggered by adding a
+- **A public suffix list.** *Triggered by:* the first capability that must group
+  hosts by organisation **without being told which organisation** - which is
+  shared-dataset work, not any phase now scheduled. Phase 13 was expected to be the
+  trigger and was not: the operator supplies the client's host, so that capability
+  never has to infer a registrable boundary. It is explicitly **not** triggered by adding a
   country: C16's domain rule never groups by registrable domain, so `acme.co.uk`
   and `blog.acme.co.uk` are simply two hosts and no multi-label suffix can defeat
   it. A naive last-two-labels rule would break on `.co.uk` and `.com.au`, which is

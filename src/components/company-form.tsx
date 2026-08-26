@@ -19,6 +19,8 @@ export interface CompanyFormValues {
   readonly name: string
   readonly aliases: readonly string[]
   readonly competitors: readonly string[]
+  /** The client's own site. Optional; absent means "not recorded" (Phase 13). */
+  readonly website?: string | null
 }
 
 function toLines(values: readonly string[]): string {
@@ -42,6 +44,7 @@ export function CompanyForm({
   const [name, setName] = useState(company?.name ?? '')
   const [aliases, setAliases] = useState(toLines(company?.aliases ?? []))
   const [competitors, setCompetitors] = useState(toLines(company?.competitors ?? []))
+  const [website, setWebsite] = useState(company?.website ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,6 +57,7 @@ export function CompanyForm({
       name,
       aliases: fromLines(aliases),
       competitors: fromLines(competitors),
+      website,
     })
 
     try {
@@ -79,6 +83,7 @@ export function CompanyForm({
         setName('')
         setAliases('')
         setCompetitors('')
+        setWebsite('')
       }
       onDone?.()
       router.refresh()
@@ -102,6 +107,28 @@ export function CompanyForm({
           className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
           placeholder="Acme Ltd"
         />
+      </div>
+
+      <div>
+        <label htmlFor="company-website" className="block text-sm font-medium">
+          Website <span className="font-normal text-neutral-600">(optional)</span>
+        </label>
+        <input
+          id="company-website"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+          placeholder="acme.nl"
+        />
+        <p className="mt-1 text-xs text-neutral-600">
+          Used only to mark which cited sources are the client&rsquo;s own. It is not
+          part of the measurement basis, so adding or changing it never breaks a
+          series &mdash; but the marking is applied when a run is read, so it marks
+          against whatever is recorded here now. Enter the apex:{' '}
+          <span className="font-mono">acme.nl</span> also marks{' '}
+          <span className="font-mono">shop.acme.nl</span>, while{' '}
+          <span className="font-mono">blog.acme.nl</span> marks only itself.
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

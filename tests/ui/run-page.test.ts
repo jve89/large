@@ -55,6 +55,10 @@ afterAll(async () => {
 /** `[promptIndex, targetIndex, status, namesSubject, citedUrls?]` per attempt. */
 type Attempt = readonly [number, number, AnswerStatus, boolean, (readonly string[])?]
 
+async function setWebsite(website: string | null): Promise<void> {
+  await prisma.company.update({ where: { id: companyId }, data: { website } })
+}
+
 async function renderRun(attempts: readonly Attempt[], status: RunStatus = 'completed') {
   const run = await prisma.run.create({
     data: {
@@ -353,6 +357,53 @@ describe('C16 on the page - cited domains', () => {
       expect(block.text).toContain('cited no sources')
       expect(block.text).not.toContain('no data')
     }
+  })
+})
+
+describe('Phase 13 on the page - marking the client’s own cited sources', () => {
+  const CITING: Attempt[] = [
+    [0, 0, 'ok', true, ['https://www.acme.nl/a', 'https://mediamarkt.nl/b']],
+    [0, 0, 'ok', true, ['https://shop.acme.nl/c']],
+    [1, 0, 'ok', false, ['https://mediamarkt.nl/d']],
+    [1, 0, 'ok', false, []],
+    [0, 1, 'ok', true, ['https://acme.nl/e']],
+    [0, 1, 'ok', true, []],
+    [1, 1, 'ok', true, []],
+    [1, 1, 'ok', true, []],
+  ]
+
+  it('marks the client’s hosts on the page, and says what they are matched against', async () => {
+    await setWebsite('https://www.acme.nl')
+    try {
+      const html = await renderRun(CITING)
+      const domains = figureBlocks(html).filter((b) => b.name === 'cited-domains')
+
+      expect(domains[0]!.text).toContain('acme.nl 1 (yours)')
+      expect(domains[0]!.text).toContain('shop.acme.nl 1 (yours)')
+      // Somebody else's host is never marked.
+      expect(domains[0]!.text).toMatch(/mediamarkt\.nl \d(?! \(yours\))/)
+
+      // The caveat the marking cannot be shown without: it is computed when the
+      // run is read, against today's website, and a customer who changes their
+      // domain would otherwise think the measurement moved.
+      expect(html).toContain('data-own-domain-note')
+      expect(html).toContain('the website recorded for this company')
+    } finally {
+      await setWebsite(null)
+    }
+  })
+
+  it('marks nothing, and says nothing, when no website is recorded', async () => {
+    // An absent field must never render as "none of these are yours" - the same
+    // rule as failed-is-not-absent, one level up. So the note goes too: with
+    // nothing marked, a sentence about marking is worse than silence.
+    const html = await renderRun(CITING)
+    expect(html).not.toContain('(yours)')
+    expect(html).not.toContain('data-own-domain-note')
+    // ...and the list is otherwise exactly what C16 renders.
+    expect(figureBlocks(html).filter((b) => b.name === 'cited-domains')[0]!.text).toContain(
+      'acme.nl',
+    )
   })
 })
 

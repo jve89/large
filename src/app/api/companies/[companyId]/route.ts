@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { groupIntoSeries } from '../../../../lib/comparability.ts'
 import { prisma } from '../../../../lib/db.ts'
 import { validateEnv } from '../../../../lib/env.ts'
-import { isCompanyId, normaliseNames, schemaErrorMessage } from '../route.ts'
+import { isCompanyId, normaliseNames, schemaErrorMessage, websiteSchema } from '../route.ts'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +15,7 @@ const patchSchema = z.object({
   name: z.string({ error: 'must be a string' }).trim().min(1, 'must not be empty').optional(),
   aliases: z.array(z.string()).optional(),
   competitors: z.array(z.string()).optional(),
+  website: websiteSchema.optional(),
 })
 
 /** GET /api/companies/:companyId — the company with its prompts and its runs. */
@@ -52,6 +53,7 @@ export async function GET(
       name: company.name,
       aliases: company.aliases,
       competitors: company.competitors,
+      website: company.website,
       createdAt: company.createdAt,
       updatedAt: company.updatedAt,
     },
@@ -120,7 +122,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unknown company' }, { status: 404 })
   }
 
-  const { name, aliases, competitors } = parsed.data
+  const { name, aliases, competitors, website } = parsed.data
 
   const company = await prisma.company.update({
     where: { id: companyId },
@@ -128,6 +130,10 @@ export async function PATCH(
       ...(name !== undefined ? { name } : {}),
       ...(aliases !== undefined ? { aliases: normaliseNames(aliases) } : {}),
       ...(competitors !== undefined ? { competitors: normaliseNames(competitors) } : {}),
+      // `null` clears it; omitting the key leaves it alone. Both are needed: a
+      // client can stop having a site on record, and a PATCH that only renames
+      // must not silently erase one.
+      ...(website !== undefined ? { website } : {}),
     },
     select: {
       id: true,

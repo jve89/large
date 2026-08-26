@@ -123,6 +123,22 @@ export interface DomainCount {
   readonly domain: string
   /** In how many successful answers this domain was cited. Never a citation count. */
   readonly answers: number
+  /**
+   * Whether this domain belongs to the client's own site (Phase 13).
+   *
+   * **An annotation over a stored measurement, not part of one.** It is computed
+   * against the website recorded on the company **now**, not one snapshotted when
+   * the questions were asked - there is no such snapshot, deliberately. So an old
+   * run's marking moves if a client changes their domain, and the page has to say
+   * what it is marked against or a customer reasonably concludes the measurement
+   * moved. Nothing else about C16 changes: the counts and the ordering are
+   * identical whether a website is recorded or not.
+   *
+   * `false` where no website is recorded, which the page must never render as
+   * "none of these are yours" - the same rule as failed-is-not-absent, one level
+   * up.
+   */
+  readonly isOwn: boolean
 }
 
 export interface CompetitorCount {
@@ -221,6 +237,13 @@ export interface AggregateInput {
   readonly promptIds: readonly string[]
   /** The run's competitor snapshot, so a competitor that never appeared still shows. */
   readonly competitors: readonly string[]
+  /**
+   * The client's own website as recorded on the company **today**, or null.
+   *
+   * Not from the run snapshot, because there is none: marking is presentation over
+   * a stored measurement rather than part of it. See `DomainCount.isOwn`.
+   */
+  readonly ownWebsite: string | null
   readonly answers: readonly AggregatableAnswer[]
 }
 
@@ -263,6 +286,49 @@ export function citedDomainOf(url: string): string | null {
 }
 
 /**
+ * The host of the client's own website, normalised the same way a cited domain is,
+ * or null when none is recorded or the value yields no host.
+ */
+export function ownHostOf(website: string | null | undefined): string | null {
+  if (website === null || website === undefined) return null
+  const trimmed = website.trim()
+  if (trimmed === '') return null
+  return citedDomainOf(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`)
+}
+
+/**
+ * Whether a cited domain belongs to the client's own site.
+ *
+ * **No public suffix list, and none is needed here** - which is a property of the
+ * question rather than luck. Grouping hosts by organisation in general requires
+ * knowing where the registrable boundary sits; this capability does not have to
+ * infer it, because **the operator supplies the answer**. The question is not
+ * "what is the registrable domain of shop.acme.co.uk" but "does this cited host
+ * equal, or end with a dot plus, the host the client gave us".
+ *
+ * Two further reasons the dependency was refused rather than merely unnecessary.
+ * A public suffix list is data that ages, and this is a read-time rule - so a
+ * routine dependency update would silently change what counts as one business,
+ * which is exactly the drift `AGGREGATION_SEMANTICS_VERSION` exists to catch and
+ * exactly the kind of change nobody thinks to version. And it would have arrived
+ * without any capability needing its general case.
+ *
+ * **The limitation, stated rather than discovered:** a client who records
+ * `blog.acme.nl` as their website will not have `acme.nl` marked. The comparison
+ * is one-way by design - a subdomain of what they gave us is theirs, a parent of
+ * it is a different host we were not told about. That is an input problem with an
+ * obvious remedy: record the apex.
+ *
+ * **Scope:** only the client's own hosts are marked. Nothing here changes how C16
+ * counts anybody else's - `mediamarkt.nl` and `shop.mediamarkt.nl` remain two
+ * rows, because nothing has told us they are one business.
+ */
+export function isOwnDomain(domain: string, ownHost: string | null): boolean {
+  if (ownHost === null) return false
+  return domain === ownHost || domain.endsWith(`.${ownHost}`)
+}
+
+/**
  * Orders two strings by UTF-16 code unit.
  *
  * Deliberately **not** `localeCompare`, which depends on the runtime's ICU data
@@ -284,6 +350,7 @@ function coverageFor(successes: number, planned: number, threshold: number): Cov
 export function aggregateRun(input: AggregateInput): RunAggregate {
   const { repetitions, coverageThreshold, targets, promptIds, competitors, answers } = input
   const planned = promptIds.length * repetitions
+  const ownHost = ownHostOf(input.ownWebsite)
 
   const targetAggregates = targets.map((target) => {
     const mine = answers.filter((answer) => answer.runTargetId === target.id)
@@ -325,7 +392,9 @@ export function aggregateRun(input: AggregateInput): RunAggregate {
     }
 
     const domains: DomainCount[] = [...domainAnswerCounts.entries()]
-      .map(([domain, answers]) => ({ domain, answers }))
+      .map(([domain, answers]) => ({ domain, answers, isOwn: isOwnDomain(domain, ownHost) }))
+      // The marking never touches the order: it is an annotation, and a client's
+      // own site does not get promoted up a frequency table for being theirs.
       .sort((a, b) => b.answers - a.answers || byCodeUnit(a.domain, b.domain))
 
     return {

@@ -26,6 +26,7 @@ export async function GET(
   const run = await prisma.run.findUnique({
     where: { id: runId },
     include: {
+      company: { select: { website: true } },
       targets: true,
       prompts: { orderBy: { order: 'asc' } },
       _count: { select: { answers: true } },
@@ -61,6 +62,7 @@ export async function GET(
     targets: run.targets,
     promptIds: run.prompts.map((prompt) => prompt.id),
     competitors: run.brandCompetitors,
+    ownWebsite: run.company?.website ?? null,
     answers: run.answers,
   })
 

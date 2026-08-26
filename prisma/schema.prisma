@@ -43,6 +43,12 @@ model Company {
   name        String
   aliases     String[] @default([])
   competitors String[] @default([])
+  // The client's own site, for marking which cited domains are theirs (Phase 13).
+  // Nullable and never backfilled: a company without one is not "no domains are
+  // yours", it is "we were not told". Deliberately NOT part of basisHash - an
+  // alias changes what counts as a mention, which is a measurement, while a
+  // website changes what gets marked in a list, which is presentation.
+  website     String?
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
