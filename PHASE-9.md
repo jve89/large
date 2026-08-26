@@ -890,3 +890,89 @@ all`) that nothing has ever produced.
 
 **Do not do this before the locksmith run.** It is recorded here so that a later
 session finds the cheap option rather than inventing a fourth company.
+
+---
+
+## 14. Run 2 - Autobedrijf Blom, same basis, same day
+
+Run `76abbe79-0ce3-43a0-be0f-ab40f57e9f90`, basis **`7c3fec1e65c4`** - identical
+to run 1, so C11 draws them as one series. Queued through the deployed UI about
+three hours after run 1. **Coverage 100 percent on both targets, 60 of 60, every
+answer ok.**
+
+### 14.1 The figures, beside run 1
+
+| | anthropic run 1 | anthropic run 2 | openai run 1 | openai run 2 |
+|---|---|---|---|---|
+| Coverage | 100% (30/30) | 100% (30/30) | 100% (30/30) | 100% (30/30) |
+| Mention rate | 10% (3) | **10% (3)** | 16.7% (5) | **13.3% (4)** |
+| Average position | 1 | **1** | 1 | **1** |
+
+Per prompt, mentions of the subject out of 3 attempts:
+
+| Prompt | anth 1 | anth 2 | oai 1 | oai 2 |
+|---|---|---|---|---|
+| 1. Enspijk | 3 | **3** | 3 | **2** |
+| 2-7, 10 | 0 | **0** | 0 | **0** |
+| 8. Audi | 0 | **0** | 0 | **2** |
+| 9. Mercedes | 0 | **0** | 1 | **0** |
+
+**anthropic is bit-for-bit identical at cell level.** openai moved by one answer
+in total, redistributed between prompts 8 and 9 - both of which are the
+content-bearing pages, which is P3's territory rather than noise elsewhere.
+
+**Against PLAN's stability criterion:** the largest movement in a mention rate is
+16.7 to 13.3 percent, which is 5 answers to 4 - **exactly one step of N**, and the
+criterion is "more than one step". **N=3 stands so far.** Run 3, tomorrow, is what
+settles it, because two runs on one day cannot distinguish a stable quantity from
+a quantity that is stable within a day.
+
+### 14.2 The churn figures - and this is the finding PLAN said nobody has published
+
+Computed by the definition committed in section 9, before either run existed.
+Merge list applied: the two Veenstra spellings (not applicable to Blom's list).
+
+| Target | Mention **J** | Citation **J** |
+|---|---|---|
+| anthropic `claude-sonnet-5` | **1.000** | **0.529** |
+| openai `gpt-5.6-terra` | **1.000** | **0.525** |
+
+The plainer pair (section 9.2), across the two runs:
+
+| Target | Distinct brands named | Named in **every** run |
+|---|---|---|
+| anthropic | 3 | **3** |
+| openai | 5 | **5** |
+
+- anthropic: `Autobedrijf Blom`, `Vakgarage Van der Klij`, `Autobedrijf Ruud den Hartog`
+- openai: `Autobedrijf Blom`, `Vakgarage Van der Klij`, `Vermeer Automotive`,
+  `Mike's Car Service`, `Van Ooijen Automotive`
+
+**Every brand named in run 1 was named again in run 2, on both providers, and no
+new one appeared.** Meanwhile the cited domains turned over by roughly half: 47
+against 60 with 37 shared on anthropic, 46 against 44 with 31 shared on openai.
+
+That is the empirical claim `PLAN.md` -> Phase 9 asks for and says nobody has
+published: **the published volatility figures in this category measure how fast
+cited sources change, and they are not measuring visibility.** On this evidence
+the two quantities move at completely different rates - one did not move at all
+while the other churned about half - and a product that reports citation churn as
+though it were visibility churn is reporting the wrong number.
+
+**Owed after run 3, and not before:** if the third run holds, this belongs in
+`SPEC.md` -> Vision under differentiator 3, per PLAN's instruction, rather than
+only in a phase report. It is deliberately not written there on the strength of
+one pair of runs measured three hours apart.
+
+### 14.3 Cost
+
+| | Calls | Searches / call | Cost | Per call |
+|---|---|---|---|---|
+| Run 1 | 60 | 1.62 | $3.80 | 63,347 |
+| Run 2 | 60 | 1.77 | $4.04 | 67,332 |
+| **So far** | **120** | **1.69** | **$7.84** | **65,340** |
+
+Still under the 72,402 the estimator projected, and the difference still tracks
+the search count exactly, which is what section 7 said the driver was. Remaining
+144 calls project to **$9.41**, phase total **$17.25** against the approved
+$19.12.
