@@ -770,3 +770,123 @@ correlation was 0.97; the first real sample behaves that way.
 
 Projected at the observed rate, the remaining 204 calls cost **$12.92** and the
 phase lands at **$16.72** against the approved $19.12.
+
+### 11.6 The finding against P1 - a mechanism, not a score
+
+P1 said "mention rate at or near 0 percent across all ten prompts". **Falsified,
+and the replacement is stronger.** Blom is named **8 of 60**, and the eight are
+not scattered: they are unanimously concentrated on the one prompt that names his
+own village, plus one attempt each on prompts 8 and 9.
+
+Every prompt naming the market town eight kilometres away, the region, a
+neighbouring village or the motorway: **zero, on both models, every attempt**.
+
+The models are **not missing data about this business.** They name him with
+address, founding year, brands served and review count. What they do is answer a
+**place** question with the businesses **registered in that place**. His catchment
+is roughly twenty-five villages; exactly one of them returns him, and it is the
+one with a few hundred inhabitants rather than the town his customers drive to.
+
+**The citations say the same thing from the other side.** The top of both cited
+lists is `123auto.nl`, `bovag.nl`, `anwb.nl`, `vakgarage.nl`, `goudengids.nl` -
+directories. So the model reads a directory and then **selects by place match**.
+That is a far more precise mechanism than "web presence wins", and it points at a
+cheap intervention rather than an expensive one: being listed under the places you
+serve, rather than rebuilding a website.
+
+### 11.7 The finding against P6 - the control removed the other explanations
+
+P6 said Koos Pellegrom would be named more often than Blom. **Falsified and
+reversed**: Pellegrom **0 of 30 on both targets**, Blom 8.
+
+That is the more useful half of the run, because of what the control holds
+constant. Pellegrom is also rural, also near the A2, chain-affiliated, and has his
+own site. He scored zero.
+
+- **Chain affiliation bought nothing.**
+- **Site quality bought nothing.**
+- The variable that moved the result was **whether the question named the
+  village.**
+
+A single control cannot prove a mechanism, but it can remove candidate
+explanations, and it removed the two most expensive ones.
+
+### 11.8 The diagnosis - he is not losing the comparison, he is not in it
+
+**Average position is a measured 1.** On both providers. Every time Blom is named
+he is named **first**, and in prose that recommends him: *"mijn meest allround
+aanbeveling"*, *"Mijn eerste keuze vlak bij Enspijk"*.
+
+So his problem is **not** that he comes third. It is that on nine questions out of
+ten he is not a candidate at all.
+
+That is a different diagnosis from "improve your website", it follows from two
+figures that this instrument already puts side by side - a mention rate of 10
+percent and an average position of 1 - and it is the sentence that would open a
+conversation with him. A product that reported only the mention rate could not
+say it.
+
+---
+
+## 12. Three new predictions, committed before the locksmith runs
+
+Run 1 turned a guess into a **mechanism**: the models read directories and then
+select by **place match**, and neither chain affiliation nor site quality moved
+the result. The locksmith is the **first independent test** of that mechanism -
+different trade, different geography, a city instead of a village - and it is only
+a test if the prediction is committed first. A mechanism written down *after* the
+next result is not a finding, it is pattern-matching.
+
+Committed 2026-08-26, before the Slotenmaker Nieuwegein run is queued.
+
+- **P13. Place match, city edition.** The locksmith's mentions **concentrate on
+  the prompts naming Nieuwegein** and are **near-absent on prompts 3, 4 and 9**,
+  which name IJsselstein, regio Utrecht and Vianen. Same mechanism as Blom, with a
+  city in place of a village.
+- **P14. What selection keys on.** Which businesses get named tracks **directory
+  presence carrying the queried place name** - not chain affiliation and not site
+  quality. Concretely: **LockTight**, which has a Nieuwegein street address and
+  roughly eight independent listings, is named **more often than QuickBlue**,
+  which has a poor site, and **more often than Veenstra**, which publishes no
+  address at all.
+- **P15. Candidacy, not quality.** When the locksmith **is** named, he is named
+  **at or near position 1**, repeating Blom's pattern - the problem being
+  candidacy rather than ranking. **If instead he appears late in the list, the
+  diagnosis for him is different from Blom's**, and that difference matters more
+  than the confirmation would.
+
+**P14 and P12 are not the same prediction and can both be true or both be false.**
+P12 asks whether **review volume** overrides the model's own stated warning about
+unverified claims. P14 asks what the **selection** actually keys on. One is about
+what a model says it trusts; the other is about what it demonstrably retrieves.
+
+---
+
+## 13. The absent screen - decided after the locksmith, and not with a fourth brand
+
+The register row is still open. Blom's average position is a measured **1**, not
+`not-applicable`, so the run-level screen a **genuinely absent** business would see
+has still never rendered from real data. Nine of ten prompts do read a measured
+**0** per cell, which exercises "measured zero, never no-data" at cell level, but
+that is not the screen a plumber sees.
+
+**The locksmith may produce it for free.** Decide after that run, not now.
+
+**If it does not, do not source a fourth brand.** There is a cheaper and more
+honest option:
+
+> Run **Blom again on a new basis that omits prompt 1** - five prompts, none of
+> them naming Enspijk. **30 calls, under two dollars.**
+
+That is guaranteed to produce the absent screen, on a **real** business, with
+**real** data. And it is a finding in its own right rather than a test fixture:
+*the same garage, measured on the questions his customers actually type, appearing
+nowhere.* The screen and the sales argument in one run.
+
+It is a **different basis**, so it does not touch the three-run series, and C11
+will say so on the page - which incidentally is the first exercise of the
+comparability guard against real data, another row of the register (`C11 firing at
+all`) that nothing has ever produced.
+
+**Do not do this before the locksmith run.** It is recorded here so that a later
+session finds the cheap option rather than inventing a fourth company.

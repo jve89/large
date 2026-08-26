@@ -94,6 +94,24 @@ of these behaviours has this instrument only ever performed against fixtures".
 | **A series interrupted and resumed** - basis A, then B, then A again, which must be two series and not three | Never | As above, and it needs three runs across two bases | The same operator changing something and changing it back - likelier than it sounds, since a prompt list is edited by re-pasting |
 | **C3's prompt-maximum and C19's planned-call refusals** | Never triggered by a real request | Both refuse before a run exists; no operator has yet asked for one that large | An operator pasting a long list, which is what they are for |
 
+**Tested against real data for the first time on 2026-08-26**, in Phase 9's run 1
+(60 real answers, coverage 100 percent on both targets). Three rows above were
+directly exercised and **none of them changed**:
+
+- *Average position `not-applicable`* - **still never produced.** Blom was named 8
+  of 60 and his average position is a measured **1**, so the run-level screen a
+  genuinely absent business would see has still never rendered. Nine of ten prompts
+  did read a measured **0** per cell, which exercises "measured zero, never no
+  data" at cell level but is not the same screen. `PHASE-9.md` -> 13 records the
+  cheap way to produce it - the same garage on a basis without the one prompt that
+  names his village - and defers the decision until after the locksmith run.
+- *"Cited but not named"* - **still never produced, and now measured rather than
+  assumed.** `autoblom.nl` was cited in 2 answers; both of them also named him in
+  prose. Reported as zero because a zero here is a finding about the market.
+- *C11 firing at all* - still never. The three Blom runs share one basis by design,
+  so nothing in the series can produce it. The reduced-basis run in `PHASE-9.md` ->
+  13 would.
+
 Two notes on reading this table. The `www.` row and the struck-through row beneath
 it were flagged together as "likely, and invisible if wrong" - one of them turned
 out to be happening already, which is the argument for counting rather than
