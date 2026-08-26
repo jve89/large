@@ -239,13 +239,49 @@ The list is designed, not collected:
 
 ## 4. Brand 3 - Coolblue
 
-Reuse the existing company. It is the **healthy-render control**: 100 percent
-coverage, a real average position, a full cited-domain list. Nothing new to
-collect and nothing to configure.
+The **healthy-render control**: full coverage, a real average position, a
+populated cited-domain list. Its purpose in this phase is comparative. Every
+judgement about whether Blom's zero "reads as a measurement rather than a
+failure" is a judgement about two screens side by side, and this is the other
+screen.
 
-Its purpose in this phase is comparative. Every judgement about whether Blom's
-zero "reads as a measurement rather than a failure" is a judgement about two
-screens side by side, and this is the other screen.
+*Revised 2026-08-26, before run one.* The original plan said "reuse the existing
+company", which turned out not to be possible: the Coolblue company lives in the
+local database and the deployed instance had never held it (section 8.2). It was
+therefore created on the deployed instance - and given **four** prompts rather
+than ten, on the operator's decision. The control has to render a healthy screen;
+it does not have to be a complete analysis, and paying $4.34 for six invented
+questions to prove a rendering that has already rendered many times locally is
+not a good use of the budget. Four real consumer questions cost $1.74 and prove
+the same thing on real output.
+
+| Field | Value |
+|---|---|
+| Name | Coolblue |
+| Website | coolblue.nl |
+
+**Aliases**
+
+    Coolblue
+    coolblue.nl
+
+**Competitors**
+
+    MediaMarkt
+    Bol
+    Amazon.nl
+    Expert
+    BCC
+
+**Prompts** - four, in Dutch, consumer buying-moment.
+
+    1.  Waar kan ik het beste een nieuwe wasmachine kopen in Nederland?
+    2.  Ik zoek een goede laptop voor mijn studie. Bij welke winkel kan ik die het beste kopen?
+    3.  Welke webshop in Nederland heeft de beste klantenservice voor elektronica?
+    4.  Ik wil een televisie kopen en wil hem morgen in huis hebben. Waar kan dat?
+
+No predictions are recorded for Coolblue. It is a control, and the thing being
+checked is the **rendering**, not the result.
 
 ---
 
@@ -253,12 +289,12 @@ screens side by side, and this is the other screen.
 
 | # | Company | Prompts | Targets | N | Calls | When |
 |---|---|---|---|---|---|---|
-| 1 | Autobedrijf Blom | 10 | 2 | 3 | 60 | morning |
-| 2 | Autobedrijf Blom | 10 | 2 | 3 | 60 | afternoon |
-| 3 | Autobedrijf Blom | 10 | 2 | 3 | 60 | evening or next day |
+| 1 | Autobedrijf Blom | 10 | 2 | 3 | 60 | day one |
+| 2 | Autobedrijf Blom | 10 | 2 | 3 | 60 | day one, later |
+| 3 | Autobedrijf Blom | 10 | 2 | 3 | 60 | **day two** |
 | 4 | Slotenmaker Nieuwegein | 10 | 2 | 3 | 60 | once |
-| 5 | Coolblue | - | 2 | 3 | 60 | once |
-| | | | | | **300** | |
+| 5 | Coolblue | 4 | 2 | 3 | 24 | once |
+| | | | | | **264** | |
 
 **Why the Blom basis is repeated in full rather than reduced.** The three runs are
 the stability check and the presentation pass at the same time. Repeating the
@@ -276,9 +312,13 @@ how fast cited *sources* change and are reported as though they measured
 visibility. They are not the same quantity, and this instrument stores the two
 separately on immutable hashed runs, so one pair of runs answers both.
 
-**The three runs must be separated in time.** Morning, afternoon, evening, or
-across two days. Three runs inside one minute measure how deterministic a model is
-inside a minute, which is not the question being asked.
+**The three runs must be separated in time, and one of them must be on a
+different day.** Three runs inside one minute measure how deterministic a model is
+inside a minute, which is not the question being asked - but three runs inside one
+*day* do not satisfy `PLAN.md` either, which requires the repeat to be "at least a
+day later". Runs 1 and 2 on day one and run 3 on day two satisfies the criterion
+and yields both the within-day and the across-day comparison from the same three
+runs. *Settled 2026-08-26, before run one: PLAN wins over the original wording.*
 
 **Runs 2 and 3 are triggered by the operator through the UI**, which exercises the
 flow a customer would use.
@@ -458,23 +498,54 @@ Two consequences, and the second is the one that moves money:
 2. **Coolblue as it is configured has one prompt, not ten.** A run of it is
    **6 calls**, not 60. The 300-call arithmetic assumed 60.
 
-This is left for the operator to decide rather than guessed at, because it changes
-the spend and because this system deliberately has no delete button: a company
-created in the wrong place stays there.
+This was left for the operator to decide rather than guessed at, because it
+changes the spend and because this system deliberately has no delete button: a
+company created in the wrong place stays there.
+**Decided the same day:** create Coolblue on the deployed instance with **four**
+prompts, not ten. Section 4 carries the configuration and the reasoning; its id is
+`ec0a6f26-f8bd-4914-b911-c11886b6d2d0`.
 
 ### 8.3 The price, restated against what exists
 
-| Plan | Calls | Cost at the measured mean |
+**The approved plan, and what it costs.**
+
+| Run | Calls | Cost at the measured mean |
 |---|---|---|
-| Blom x3 + Slotenmaker + Coolblue **as configured** (1 prompt, 6 calls) | **246** | **$17.81** |
-| Blom x3 + Slotenmaker + Coolblue **given ten prompts** (60 calls) | **300** | **$21.72** |
-| Blom x3 + Slotenmaker only, Coolblue not re-run | 240 | $17.38 |
+| Blom, three times | 180 | $13.03 |
+| Slotenmaker Nieuwegein | 60 | $4.34 |
+| Coolblue, four prompts | 24 | $1.74 |
+| **Total** | **264** | **$19.11** |
+
+Exactly: 264 x 72,402 = 19,114,128 micro-dollars = **$19.114**. The operator
+approved **$19.12**; the one-cent difference is rounding, and the approved figure
+is the ceiling.
 
 The drift band in section 7 applies unchanged and is proportional: at 1 search per
-call the first row is about $12 and at 3 searches about $26.
+call the phase is about $12.70 and at 3 searches about $27.70.
 
-`MAX_PLANNED_CALLS` at 100 permits every one of these, because the bound is per
+`MAX_PLANNED_CALLS` at 100 permits every run in the plan, because the bound is per
 run and the largest run is 60 calls.
+
+### 8.5 Both pre-run gates, green
+
+Recorded here because the point of a gate is that somebody can check it ran.
+
+- **Linux.** GitHub Actions recovered from its outage and ran `ci` on **both**
+  shas. On `acff121`, the commit carrying the apostrophe fold:
+  run `32987629210`, runner `ubuntu-latest`, containerised `postgres:18`,
+  every step success - `npm ci`, `prisma migrate deploy`, `typecheck`, `lint`,
+  and `npm run test` with **441 passed (441)** on Linux. On `0bf2c1e`:
+  run `32988743781`, also success. The container bisect was therefore not needed;
+  the canonical Linux environment ran the suite against the exact sha.
+- **`npm run verify`, including `verify:live`.** Passed 2026-08-26. One real
+  end-to-end run, `de0e7c32-8e07-4247-9c7f-6b6ece37dc6f`, two targets at N=1: run
+  reached `completed`, 2 of 2 successful answers, 0 answers without a citation, 8
+  mentions parsed. `openai:gpt-5.6-terra` ok, 4 citations, 5 mentions, 2 searches,
+  70,584 micro-dollars; `anthropic:claude-sonnet-5` ok, 10 citations, 3 mentions,
+  2 searches, 87,332 micro-dollars. **Cost: $0.158**, against a $19.12 phase.
+  This is what exercises the fold, the lowered ceiling and the version bump
+  through the real queue, worker, adapters and parser rather than through
+  fixtures.
 
 ### 8.4 CI has not run this commit
 
@@ -486,3 +557,107 @@ in **major outage** at the time of writing. So the honest statement is "CI has n
 run this", not "CI failed" and not "CI is green". The full local suite - 441 tests
 - typecheck and lint were all green before the push. `npm run verify:live` was not
 run: this session spends nothing at a provider.
+
+---
+
+## 9. The churn metrics, defined before run one
+
+`PLAN.md` -> Phase 9 requires citation churn and mention churn to be measured
+**separately, on the same runs**. Until now that was a sentence rather than a
+quantity, and a quantity defined after seeing the results is not a measurement of
+anything. This section is committed **before run one is queued**, and it is what
+the numbers will be computed by.
+
+Everything below is computed over the three Blom runs, which share one
+`basisHash`. If C11 says the basis changed, the comparison is void and is
+reported as void rather than computed anyway.
+
+### 9.1 The two similarity figures
+
+For each **target** and each **pair** of runs (1-2, 1-3, 2-3), two Jaccard
+similarities over sets:
+
+- **Mention churn.** `J = |A ∩ B| / |A ∪ B|` where A and B are the sets of
+  **recognised brands named in at least one successful answer** of that target in
+  each run. The subject brand is included; a brand named in zero successful
+  answers is absent from the set.
+- **Citation churn.** The identical figure over the sets of **cited domains** of
+  that target's successful answers, using the cited-domain rule already in
+  `SPEC.md` -> Definitions (host, lower-cased, trailing dot and leading `www.`
+  removed, a subdomain its own source).
+
+They are deliberately the same statistic over two different sets, so that
+"citations churn faster than mentions" is a comparison of two numbers on one
+scale rather than an impression. Reported per target, never pooled: one degraded
+provider must not contaminate the other's figure.
+
+`J = 1` is identical sets; `J = 0` is disjoint. Where a target has **no**
+successful answers in one of the two runs, the pair is reported as "no data" and
+not as `J = 0` (CLAUDE.md rule 1).
+
+### 9.2 The plain figures, reported alongside
+
+Jaccard decides the thesis; it is not the sentence a customer understands. So for
+each target, also report:
+
+- **how many distinct competitors were named across all three runs**, and
+- **how many of them were named in every one of the three.**
+
+"The models named seven different garages across three runs and only two appeared
+in all three" is what a report eventually prints, and it is worth having in the
+same table as the coefficient that justifies it.
+
+### 9.3 The alias trap, and the correction applied
+
+`Slotenmaker Veenstra` and `Slotenmakers Veenstra` are **one business entered
+under two names**, because the trade name is singular and the domain is plural
+and there is no way to know in advance which a model will write. v1 does not
+group competitor aliases, so they will produce two rows.
+
+For **frequency** that is merely untidy - two rows a reader can add up. For a
+**set-similarity** figure it is wrong: one business counted as two members of a
+set inflates every union it appears in and distorts every comparison, in a
+direction that depends on which form each run happened to use. Worst case, a
+model that names the same business in both runs but spells it differently reads
+as complete churn.
+
+**So: the two Veenstra forms are merged by hand into one set member before any
+Jaccard figure is computed, and the report says that this was done.** The same
+correction is applied to any other pair discovered to be two spellings of one
+business - the merge list is written into the results report, not applied
+silently. Nothing about the stored rows changes; this is a correction made at
+read time, on figures that are computed at read time anyway (C9).
+
+This is a v1 limitation being worked around, not a defect being hidden. Grouping
+competitor aliases is a data-model change and belongs to a later phase; it is
+recorded as an engineering item rather than done here.
+
+---
+
+## 10. The read-back receipt
+
+Taken 2026-08-26, after all three companies existed and **before run one was
+queued**. Every alias, competitor and prompt was read back out of
+`GET /api/companies/:id` on the deployed instance and compared
+character-for-character, in order, against the lists in sections 2, 3 and 4 of
+this document - not eyeballed against them.
+
+The check exists because of a defect in the form rather than a doubt about the
+data: the alias and competitor boxes are about five lines tall, do not grow,
+de-duplicate silently and report no count, which is a way to lose a line without
+noticing (`PLAN.md` -> Engineering items). That risk sits directly upstream of a
+$19 spend.
+
+**Result: no differences.**
+
+| Company | id | Website | Aliases | Competitors | Prompts |
+|---|---|---|---|---|---|
+| Autobedrijf Blom | `b56b1213-3620-4254-9cb6-ad5a9a20db24` | match | 6/6 match | 9/9 match | 10/10 match |
+| Slotenmaker Nieuwegein | `37249cc2-6cba-4476-8db9-eaaad0aa5536` | match | 3/3 match | 7/7 match | 10/10 match |
+| Coolblue | `ec0a6f26-f8bd-4914-b911-c11886b6d2d0` | match | 2/2 match | 5/5 match | 4/4 match |
+
+The comparison also listed every non-ASCII character in everything stored, because
+an apostrophe form is invisible in a printed diff. **There are none**: every stored
+string is pure ASCII, so `Mike's Car Service` and the `'s nachts` in the
+locksmith's second prompt both carry U+0027 and not U+2019, which is what the
+operator typed. Nothing was silently transformed on the way in.

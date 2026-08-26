@@ -860,6 +860,49 @@ is never deleted.
 
 ### Engineering items, each with its trigger
 
+- **The company form loses a line without saying so.** *Triggered by:* the
+  dashboard work, and it is a **measurement risk rather than a usability
+  complaint** - it sits directly upstream of a run's spend. Found on 2026-08-26
+  while entering the three Phase 9 brands through the real UI. Four defects, one
+  shape:
+  1. **The alias and competitor boxes are about five lines tall and do not grow.**
+     A nine-competitor list scrolls inside a small window while half the page below
+     it is empty, so the operator cannot see what was pasted without scrolling
+     inside the box - which is exactly the moment a duplicated or dropped line goes
+     unnoticed.
+  2. **They give no count and no report.** The prompt editor says "10 non-empty
+     lines" and names every line it removed (C2). Aliases and competitors are
+     de-duplicated case-insensitively and **silently** (C1), and the form never
+     says how many were stored. Silent de-duplication is right - C1 says so - but
+     an unreported *count* is not the same thing, and one number under each box
+     would close it.
+  3. **Creating a company drops you nowhere.** The form clears and the new company
+     appears at the bottom of a list the operator then has to find and click.
+     Entering a business is two pages and a scroll, and the second page is where
+     the real work is. Redirect to the new company.
+  4. **No confirmation on create.** The prompt editor says "10 prompts saved.";
+     the company form says nothing at all.
+  The mitigation used for Phase 9 was to read the stored aliases, competitors and
+  prompts back out of the API and diff them character-for-character against
+  `PHASE-9.md`. That is the right check and the wrong place for it: it should not
+  take a script to know that what was typed is what was stored.
+  **The website field's help text is the model for the rest of this form** -
+  apex versus subdomain, explained under the field where the decision is made,
+  rather than in a document nobody has open. So are "the first alias labels its
+  mentions" and "there is no stemming".
+
+- **Group a competitor's aliases.** *Triggered by:* the first set-similarity figure
+  computed over competitors, which is Phase 9's churn metric. v1 stores competitors
+  as flat names, so one business entered under two spellings - `Slotenmaker
+  Veenstra` and `Slotenmakers Veenstra`, the trade name singular and the domain
+  plural - is two rows. For **frequency** that is untidy and a reader can add them
+  up. For a **set** figure it is wrong: one business counted as two members inflates
+  every union and makes a model that named the same business in both runs, spelled
+  differently, read as complete churn. Phase 9 works around it by merging the forms
+  by hand and saying so in the report (`PHASE-9.md` -> 9.3). Doing it properly is a
+  data model change - a competitor becomes a name plus its aliases, exactly as the
+  subject brand already is - and therefore a stop-and-ask.
+
 - **An N and target-list control in the start-run dialog.** *Triggered by:* anyone
   needing to run at an N other than the default. The dialog states the exact call
   count before the button is pressed (C3), but it always submits
