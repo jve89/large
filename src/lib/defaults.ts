@@ -115,16 +115,33 @@ export const FALLBACK_MICROS_PER_CALL = 80_000n
  * without starting to refuse ordinary work.
  *
  * Raising it is one edit here. Do that in preference to weakening the check.
+ *
+ * **Temporarily 100 for Phase 9, 2026-08-26, on the operator's instruction.**
+ * Every run Phase 9 plans is 60 calls - ten prompts x two targets x N=3 - so
+ * nothing legitimate is refused, while a mis-click that would have cost three
+ * times as much is refused before a single provider call. The Phase 9 runs are
+ * the first real spend against a real client's prompts and the first this project
+ * has queued from the UI rather than from a script, which is exactly when a
+ * wrong N or a doubled prompt list is plausible.
+ *
+ * **Raise it back to 300 after Phase 9.** Two consequences are live while it is
+ * lowered, and both are intended: `MAX_PROMPTS` is now unreachable at every N
+ * against the current two targets, so a maximal prompt list is refused by the
+ * ceiling rather than by its own limit; and a 20-prompt client run at N=3 - 120
+ * calls, the ordinary case this ceiling was sized for - is refused too. That
+ * second one is why this is temporary and not a decision.
  */
-export const MAX_PLANNED_CALLS = 300
+export const MAX_PLANNED_CALLS = 100
 
 /**
  * The largest prompt list a run may be queued against.
  *
  * **This is a list-shape limit and no longer a cost one. Read that literally.**
  * `MAX_PLANNED_CALLS` subsumes it entirely for cost: at the current two targets
- * this bound binds only at N=1, because 100 prompts at N=2 is already 400 calls
- * and refused by the ceiling before this check could matter.
+ * and a ceiling of 300 this bound binds only at N=1, because 100 prompts at N=2
+ * is already 400 calls and refused by the ceiling before this check could matter.
+ * While the ceiling is temporarily 100 for Phase 9 it does not bind at any N at
+ * all, and the check below is reached only when fewer targets are measured.
  *
  * It stays for the one thing the ceiling cannot say: a list of more than a hundred
  * prompts is a paste accident rather than a measurement, whatever it would have

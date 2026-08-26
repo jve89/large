@@ -29,7 +29,9 @@ import { createStubAdapters, okResult } from '../helpers/stub-adapter.ts'
 
 const PREFIX = `test-c8-seam-${process.pid}-`
 const ALIASES = ['Acme', 'Acme Corp']
-const COMPETITORS = ['Globex', 'Initech']
+// The third competitor carries a straight apostrophe deliberately: the fold that
+// lets it match a model's typographic one is only observable at this seam.
+const COMPETITORS = ['Globex', 'Initech', "Mike's Car Service"]
 
 let companyId: string
 
@@ -146,6 +148,21 @@ describe('C8 at the seam - what executeRun actually stores', () => {
     expect(answer.failureReason).toBeNull()
     expect(answer.rawText).toContain('trade association')
     expect(answer.mentions).toEqual([])
+  })
+
+  it('folds the apostrophe for the match and stores the answer text unfolded', async () => {
+    // Quote folding is a reduction made inside the comparison (SPEC -> Definitions
+    // -> Quote folding). Both halves of that are only observable here: that a
+    // typographic apostrophe in a provider's answer reaches a stored mention for a
+    // straight-apostrophe alias at all, and that `rawText` still holds what the
+    // provider actually sent (CLAUDE.md rule 15).
+    const answer = await answerFor('I would use Mike\u2019s Car Service in Geldermalsen.')
+
+    // The competitor is stored with the operator's straight apostrophe...
+    expect(answer.mentions.map((m) => m.brand)).toEqual(["Mike's Car Service"])
+    // ...while the answer keeps the character the provider actually sent.
+    expect(answer.rawText).toContain('Mike\u2019s')
+    expect(answer.rawText).not.toContain("Mike's")
   })
 
   it('matches against the run snapshot, not against the company as it stands now', async () => {

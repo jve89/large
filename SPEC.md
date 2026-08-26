@@ -196,6 +196,26 @@ next to which competitors, and which sources the model cited.
   position after it shifted. Visible text is a reduction made for matching, not a
   claim about what a reader sees - fenced code was already removed on the same
   grounds.
+- **Quote folding** - the typographic apostrophes and quotation marks
+  (`‘ ’ ‚ ‛ ʹ ʼ ′ ´` and `“ ” „ ‟ ″ ʺ`) rewritten as the ASCII `'` and
+  `"`, applied to the answer's visible text and to every alias and competitor
+  name **at the moment of comparison and nowhere else**. Stored answer text keeps
+  what the provider sent and a stored mention keeps the name the operator typed.
+  It exists because the two characters are not two encodings of one thing:
+  Unicode normalisation will never map `'` onto `’`, an operator's keyboard
+  produces the first and a model's renderer produces the second, and the
+  resulting miss is total and silent. Both sides are folded, because folding one
+  side only trades one direction of the failure for the other.
+  Dutch is why this is a definition rather than a footnote. `'t`, `'s` and
+  ordinary possessives are everywhere in business and place names - `'t Hoekje`,
+  `'s-Hertogenbosch`, `Jan's Autoservice` - so an unfolded match would fail most
+  often on the most local-sounding businesses, which is precisely this product's
+  customer.
+  Every folded character is one UTF-16 code unit replaced by one, so folding
+  cannot move a character offset and therefore cannot change a **Position**.
+  A backtick is deliberately not folded: in a model's markdown it is syntax
+  rather than an apostrophe.
+
 - **Position** - the rank of the brand's first occurrence in the visible text
   among all recognised brands in that one answer. It is ordering in the text, not
   the model's intended ranking.
@@ -320,6 +340,7 @@ next to which competitors, and which sources the model cited.
   | 2 (canonical form) | 2026-08-25 | No semantics change and **no bump**. The canonical form of `basisHash` changed: prompts and targets became sets rather than ordered lists. | Recorded because hashes computed before this date differ from ones after it for an identical basis, and a reader comparing across it needs to know why. Bumping the constant would not have helped - future hashes already differ - and would have implied a change to what counts as a mention, which this is not. Production held one run, so the cost was as close to nothing as it will ever be. |
   | 3 | 2026-08-25 | A domain-shaped link label is removed only when it is that link's **own address**, compared by host after stripping `www.` and allowing a deeper target host. An address-shaped label pointing elsewhere is kept. | Version 2 merged two error classes. `[acme.nl](https://acme.nl)` is an attribution and dropping it is a conservative measurement choice; `[Node.js](https://nodejs.org)` is a brand that merely contains a dot, and dropping it was a parsing artifact with no compensating benefit. Taken the same day as version 2 rather than after Phase 9's count, because each bump invalidates every series recorded under the version before it and production held one run. |
   | 4 | 2026-08-25 | The label-versus-target comparison stopped being symmetric: a label **deeper** than its target, `[blog.acme.nl](https://acme.nl)`, is now kept. | Version 3's code dropped that case and no document described it, so the parser was quietly stricter than its own definition. The rule is that a label is dropped only when shown to be the target's own address, and a subdomain of the target is a different host. Third bump in two days, taken deliberately: every bump invalidates every series recorded under the version before it, production holds nothing, and these are free today and never will be again. |
+  | 5 | 2026-08-26 | Typographic apostrophes and quotation marks are folded to their ASCII equivalents on **both sides of the match** - the answer's visible text and the alias alike. Stored text is untouched. | The operator types `Mike's` because a keyboard makes a straight apostrophe; a model writes `Mike’s` because a renderer makes a typographic one. NFC maps neither onto the other, so the alias could never match and nothing would say so. This is not an edge case in Dutch, where `'t Hoekje`, `'s-Hertogenbosch` and `Jan's Autoservice` are ordinary forms - the miss would fall hardest on the most Dutch-sounding businesses. Taken before Phase 9 rather than after it, because Phase 9's numbers are meant to be evidence and measuring them under a rule already known to be wrong would waste the spend. |
 
 - **Aggregation semantics** - how stored rows are summarised into the figures a
   reader sees, as distinct from what was measured. `AGGREGATION_SEMANTICS_VERSION`
@@ -488,7 +509,9 @@ next to which competitors, and which sources the model cited.
   SHALL determine which recognised brands occur in its visible text and SHALL
   persist, for each, its 1-based position by first occurrence together with the
   total number of recognised brands found.
-  Matching SHALL be case-insensitive and Unicode-normalised; SHALL require a
+  Matching SHALL be case-insensitive and Unicode-normalised; SHALL fold
+  typographic apostrophes and quotation marks to their ASCII equivalents on both
+  sides of the comparison, as **Quote folding** defines those; SHALL require a
   non-alphanumeric boundary or a string edge on both sides; SHALL tolerate
   additional whitespace and line breaks inside a multi-word alias; SHALL ignore
   markdown link targets, image targets, fenced code blocks, URLs and email

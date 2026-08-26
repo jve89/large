@@ -912,7 +912,13 @@ phase. Phase 0 pushes to it.
   checked in `queueRun` before the run row exists and therefore before any provider
   call can be made for it. 300 calls is about $24 at the measured average, which
   allows a 20-prompt client run at N=3 and a 50-prompt list at N=3 exactly, and
-  refuses the 100-prompt list at N=3. The refusal is C19, and the estimate in its
+  refuses the 100-prompt list at N=3.
+  **Temporarily 100 for Phase 9, 2026-08-26, and to be raised back to 300 after
+  it.** Every Phase 9 run is 60 calls, so nothing that phase plans is refused,
+  while a mis-click costing three times as much is stopped before a provider call.
+  At 100 the ceiling binds ahead of `MAX_PROMPTS` at every N against two targets,
+  and it also refuses the ordinary 120-call client run - which is why it is a
+  temporary ceiling for one phase's spend and not a change of the bound. The refusal is C19, and the estimate in its
   message is **derived at read time** by `src/core/run/estimate.ts` from the mean
   of recent stored answers, never from a literal - a per-call cost written down as
   a constant goes stale, and stale low, which is the direction that hides exposure.

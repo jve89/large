@@ -51,8 +51,13 @@ answers it came from, so it cannot precede the figures themselves (Phases 7 and
 - ~~GitHub repository created, with both API keys added as repository secrets~~ -
   **done 2026-08-23.** `jve89/large`, private, both secrets set. Railway's GitHub
   App had to be granted access to the repository by hand before it could build.
-- **A real brand: name, aliases, competitors, and at least ten buying-moment
-  prompts** - blocks Phase 9 and therefore Phase 10. **Still open.**
+- ~~A real brand: name, aliases, competitors, and at least ten buying-moment
+  prompts~~ - **done 2026-08-26.** Three brands, not one: Autobedrijf Blom (the
+  absent case), Slotenmaker Nieuwegein (the ordinary-word case, its name being its
+  trade plus its city), and the existing Coolblue company as the healthy-render
+  control. Every alias, competitor, prompt and piece of recorded context is in
+  `PHASE-9.md`, together with the twelve predictions, committed **before** the
+  first run was queued so that they are checkable against a sha.
 
 ## Register of behaviour reality has never produced
 
@@ -597,6 +602,11 @@ reachable from the figure.
   the case the guard was written for and the one still unexercised.
 
 ## Phase 9 - Presentation pass against a real brand
+
+**The brands, prompts, recorded context, predictions and costed run plan are in
+`PHASE-9.md`**, committed before the first run was queued. Read it with this
+section: this one is the criterion, that one is what was actually configured and
+what was expected of it.
 
 The first phase that uses real client data rather than fixtures. Screens 1 to 3
 are made readable against figures that actually came out of the system, because

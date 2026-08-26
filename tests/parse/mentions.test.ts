@@ -287,3 +287,99 @@ describe('findMentions', () => {
     expect(brands('We build on [Node.js](https://nodejs.org) here.', dotted)).toEqual(['Node.js'])
   })
 })
+
+/**
+ * Quote folding (SPEC -> Definitions -> Quote folding; C8; measurement semantics
+ * version 5).
+ *
+ * Every test here goes red if `foldQuotes` is removed from either side of the
+ * comparison, which is the point of the block: the defect it guards is invisible
+ * on screen - the two apostrophes render almost identically - and total when it
+ * occurs, because an alias that cannot match matches nothing at all.
+ */
+describe('findMentions - typographic apostrophes and quotation marks', () => {
+  const CURLY = '’'
+  const STRAIGHT = "'"
+
+  it('matches a straight-apostrophe alias against typographic answer text', () => {
+    // The operator's keyboard against the model's renderer. This is the case that
+    // actually happens, and without folding it can never match.
+    const mikes = { aliases: ["Mike's Car Service"], competitors: [] }
+    expect(brands(`I would try Mike${CURLY}s Car Service in Geldermalsen.`, mikes)).toEqual([
+      "Mike's Car Service",
+    ])
+  })
+
+  it('matches a typographic-apostrophe alias against straight answer text', () => {
+    // The reverse. Folding one side only would trade one silent miss for the other.
+    const mikes = { aliases: [`Mike${CURLY}s Car Service`], competitors: [] }
+    expect(brands(`I would try Mike${STRAIGHT}s Car Service.`, mikes)).toEqual([
+      `Mike${CURLY}s Car Service`,
+    ])
+  })
+
+  it('matches the Dutch forms this rule exists for', () => {
+    // 't, 's and possessives are ordinary in Dutch business and place names, so an
+    // unfolded match fails most often on the most local-sounding businesses.
+    // Three separate businesses, so they are competitors: every alias of the
+    // subject collapses to one entry, which would hide two of the three.
+    const dutch = {
+      aliases: ['Acme'],
+      competitors: ["'t Hoekje", "'s-Hertogenbosch", "Jan's Autoservice"],
+    }
+    const answer =
+      `Ga naar ${CURLY}t Hoekje in ${CURLY}s-Hertogenbosch, of naar Jan${CURLY}s Autoservice.`
+    expect(brands(answer, dutch)).toEqual(["'t Hoekje", "'s-Hertogenbosch", "Jan's Autoservice"])
+  })
+
+  it('folds double quotation marks as well as apostrophes', () => {
+    const quoted = { aliases: ['Café "De Zon"'], competitors: [] }
+    expect(brands('We raden Café “De Zon” aan.', quoted)).toEqual(['Café "De Zon"'])
+  })
+
+  it('reports the brand exactly as the operator typed it, not the folded form', () => {
+    // Folding is a reduction made inside the comparison. What is stored and shown
+    // is the operator's own text.
+    const mikes = { aliases: ["Mike's Car Service"], competitors: [] }
+    const result = findMentions(`Mike${CURLY}s Car Service is open.`, mikes)
+    expect(result[0]?.brand).toBe("Mike's Car Service")
+    expect(result[0]?.brand).not.toContain(CURLY)
+  })
+
+  it('does not move a position: a brand after a folded character keeps its rank', () => {
+    // Every folded character is one code unit replaced by one, so an offset cannot
+    // shift. A length-changing fold would renumber every brand after an apostrophe.
+    const overlapping = { aliases: ["Jan's Autoservice"], competitors: ['Globex', 'Initech'] }
+    const curly = findMentions(
+      `Globex, dan Jan${CURLY}s Autoservice, dan Initech.`,
+      overlapping,
+    )
+    const straight = findMentions(
+      `Globex, dan Jan${STRAIGHT}s Autoservice, dan Initech.`,
+      overlapping,
+    )
+    expect(curly.map((m) => [m.brand, m.position, m.totalRecognised])).toEqual([
+      ['Globex', 1, 3],
+      ["Jan's Autoservice", 2, 3],
+      ['Initech', 3, 3],
+    ])
+    expect(curly).toEqual(straight)
+  })
+
+  it('counts one brand, not two, when both apostrophe forms are listed', () => {
+    // An operator who pastes a name twice in the two forms must not double the
+    // total recognised, which is the denominator of a position.
+    const both = {
+      aliases: [],
+      competitors: ["Mike's Car Service", `Mike${CURLY}s Car Service`],
+    }
+    const result = findMentions(`Mike${CURLY}s Car Service is open.`, both)
+    expect(result).toHaveLength(1)
+    expect(result[0]?.totalRecognised).toBe(1)
+  })
+
+  it('does not fold a backtick, which is markdown syntax rather than an apostrophe', () => {
+    const tick = { aliases: ["Jan's Autoservice"], competitors: [] }
+    expect(brands('Jan`s Autoservice', tick)).toEqual([])
+  })
+})

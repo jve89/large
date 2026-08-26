@@ -384,8 +384,18 @@ describe('POST /api/runs - N', () => {
   })
 
   it('accepts the guardrail maximum', async () => {
-    const companyId = await createFixture('n-max')
-    const run = await loadRun(await queueOk({ companyId, repetitions: MAX_REPETITIONS }))
+    // One prompt against one target, so that N alone is what is being checked.
+    // The default fixture's two prompts against both targets is 200 calls at
+    // N=50, which the planned-call ceiling refuses first while it is temporarily
+    // 100 for Phase 9 - a refusal about the product, not about N.
+    const companyId = await createFixture('n-max', { prompts: ['only prompt'] })
+    const run = await loadRun(
+      await queueOk({
+        companyId,
+        repetitions: MAX_REPETITIONS,
+        targets: [DEFAULT_TARGETS[0]],
+      }),
+    )
     expect(run.repetitions).toBe(MAX_REPETITIONS)
   })
 
@@ -591,8 +601,17 @@ describe('POST /api/runs - the prompt-list ceiling', () => {
   }
 
   it('queues a run at exactly the maximum', async () => {
+    // Against as few targets and as low an N as the planned-call ceiling needs,
+    // because this test is about the prompt-list limit and not about the cost
+    // bound: the two are independent checks and either can refuse first. With
+    // `MAX_PLANNED_CALLS` temporarily at 100 for Phase 9 the maximal list only
+    // fits against one target at N=1; at 300 it fits against both.
     const companyId = await createFixture('at-max-prompts', { prompts: lines(MAX_PROMPTS) })
-    const run = await loadRun(await queueOk({ companyId, repetitions: 1 }))
+    const targets = DEFAULT_TARGETS.slice(
+      0,
+      Math.max(1, Math.floor(MAX_PLANNED_CALLS / MAX_PROMPTS)),
+    )
+    const run = await loadRun(await queueOk({ companyId, repetitions: 1, targets }))
     expect(run.prompts).toHaveLength(MAX_PROMPTS)
   })
 
@@ -648,6 +667,29 @@ describe('POST /api/runs - the cost bound', () => {
     return Array.from({ length: count }, (_, i) => `prompt number ${i}`)
   }
 
+  /**
+   * A (prompts, N) pair whose product with the target list is **exactly**
+   * `MAX_PLANNED_CALLS`.
+   *
+   * Derived rather than assumed, because `MAX_PLANNED_CALLS / (TARGETS * N)` is
+   * only a whole number for some ceilings: 300 divides by six and 100 - the
+   * temporary Phase 9 value - does not. A test that hard-codes the default N
+   * therefore fails on a ceiling change for a reason that has nothing to do with
+   * the behaviour it checks. The highest N that divides is preferred, so the case
+   * stays as close to a real run as the ceiling allows.
+   */
+  function exactlyAtLimit(): { prompts: number; repetitions: number } {
+    for (let repetitions = DEFAULT_REPETITIONS; repetitions >= 1; repetitions -= 1) {
+      const prompts = MAX_PLANNED_CALLS / (TARGETS * repetitions)
+      if (Number.isInteger(prompts) && prompts >= 1 && prompts <= MAX_PROMPTS) {
+        return { prompts, repetitions }
+      }
+    }
+    throw new Error(
+      `No prompt count reaches exactly ${MAX_PLANNED_CALLS} calls against ${TARGETS} targets`,
+    )
+  }
+
   it('refuses the run that passes every other limit: MAX_PROMPTS x targets x MAX_REPETITIONS', async () => {
     // 100 prompts is exactly MAX_PROMPTS and 50 is exactly MAX_REPETITIONS, so
     // neither of those checks fires. The product is 10,000 calls.
@@ -669,13 +711,12 @@ describe('POST /api/runs - the cost bound', () => {
   })
 
   it('queues a run at exactly the limit', async () => {
-    const prompts = MAX_PLANNED_CALLS / (TARGETS * DEFAULT_REPETITIONS)
-    expect(Number.isInteger(prompts)).toBe(true)
+    const { prompts, repetitions } = exactlyAtLimit()
 
     const companyId = await createFixture('at-max-calls', { prompts: lines(prompts) })
-    const runId = await queueOk({ companyId, repetitions: DEFAULT_REPETITIONS })
+    const runId = await queueOk({ companyId, repetitions })
 
-    const response = await queue({ companyId, repetitions: DEFAULT_REPETITIONS })
+    const response = await queue({ companyId, repetitions })
     expect(response.status).toBe(201)
     expect((await response.json()) as { plannedCalls: number }).toMatchObject({
       plannedCalls: MAX_PLANNED_CALLS,
@@ -686,19 +727,21 @@ describe('POST /api/runs - the cost bound', () => {
   })
 
   it('refuses one prompt past the limit, names all three factors, and creates no run', async () => {
-    const prompts = MAX_PLANNED_CALLS / (TARGETS * DEFAULT_REPETITIONS) + 1
+    const atLimit = exactlyAtLimit()
+    const prompts = atLimit.prompts + 1
+    const { repetitions } = atLimit
     const companyId = await createFixture('over-max-calls', { prompts: lines(prompts) })
     const before = await prisma.run.count()
 
-    const response = await queue({ companyId, repetitions: DEFAULT_REPETITIONS })
+    const response = await queue({ companyId, repetitions })
     expect(response.status).toBe(400)
 
     const body = (await response.json()) as { error: string }
-    expect(body.error).toContain(String(prompts * TARGETS * DEFAULT_REPETITIONS))
+    expect(body.error).toContain(String(prompts * TARGETS * repetitions))
     // All three factors, because a reader cannot otherwise tell which to change.
     expect(body.error).toContain(`${prompts} prompts`)
     expect(body.error).toContain(`${TARGETS} targets`)
-    expect(body.error).toContain(`N=${DEFAULT_REPETITIONS}`)
+    expect(body.error).toContain(`N=${repetitions}`)
 
     expect(await prisma.run.count()).toBe(before)
   })
@@ -718,17 +761,18 @@ describe('POST /api/runs - the cost bound', () => {
   })
 
   it('counts targets as a factor: the same list runs when fewer targets are measured', async () => {
-    const prompts = MAX_PLANNED_CALLS / (TARGETS * DEFAULT_REPETITIONS) + 1
+    const { prompts: atLimit, repetitions } = exactlyAtLimit()
+    const prompts = atLimit + 1
     const companyId = await createFixture('fewer-targets', { prompts: lines(prompts) })
 
     // Refused against the full target list...
-    expect((await queue({ companyId, repetitions: DEFAULT_REPETITIONS })).status).toBe(400)
+    expect((await queue({ companyId, repetitions })).status).toBe(400)
 
     // ...and allowed against one, because the bound is on the product and not on
     // any single factor.
     const runId = await queueOk({
       companyId,
-      repetitions: DEFAULT_REPETITIONS,
+      repetitions,
       targets: [DEFAULT_TARGETS[0]],
     })
     const run = await loadRun(runId)
@@ -740,12 +784,14 @@ describe('POST /api/runs - the cost bound', () => {
     // eleven percent between this project's first two measurements; a literal in
     // the code or the message would have gone stale, and stale low, which is the
     // direction that hides exposure. The refusable bound stays the call count.
-    const prompts = MAX_PLANNED_CALLS / (TARGETS * DEFAULT_REPETITIONS) + 1
+    const atLimit = exactlyAtLimit()
+    const prompts = atLimit.prompts + 1
+    const { repetitions } = atLimit
     const companyId = await createFixture('derived-estimate', { prompts: lines(prompts) })
-    const plannedCalls = prompts * TARGETS * DEFAULT_REPETITIONS
+    const plannedCalls = prompts * TARGETS * repetitions
 
     const before = await estimateMicrosPerCall(prisma)
-    const firstMessage = ((await (await queue({ companyId, repetitions: DEFAULT_REPETITIONS })).json()) as {
+    const firstMessage = ((await (await queue({ companyId, repetitions })).json()) as {
       error: string
     }).error
     expect(firstMessage).toContain(formatMicrosAsUsd(BigInt(plannedCalls) * before.micros))
@@ -779,7 +825,7 @@ describe('POST /api/runs - the cost bound', () => {
       const after = await estimateMicrosPerCall(prisma)
       expect(after.micros).toBeGreaterThan(before.micros)
 
-      const secondMessage = ((await (await queue({ companyId, repetitions: DEFAULT_REPETITIONS })).json()) as {
+      const secondMessage = ((await (await queue({ companyId, repetitions })).json()) as {
         error: string
       }).error
 

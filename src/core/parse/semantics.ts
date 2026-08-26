@@ -26,5 +26,9 @@
  * Bumping is cheapest while the dataset is small, because each bump invalidates
  * every series recorded under the version before it. Version 3 was taken on the
  * day version 2 shipped, deliberately: production held one run.
+ *
+ * Version 5 was taken on 2026-08-26, immediately before Phase 9's first real
+ * client run, for the same reason: a bump costs nothing while no series exists
+ * and costs a customer's history once one does.
  */
-export const MEASUREMENT_SEMANTICS_VERSION = 4
+export const MEASUREMENT_SEMANTICS_VERSION = 5
