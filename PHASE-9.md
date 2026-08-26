@@ -813,12 +813,25 @@ explanations, and it removed the two most expensive ones.
 
 ### 11.8 The diagnosis - he is not losing the comparison, he is not in it
 
-**Average position is a measured 1.** On both providers. Every time Blom is named
-he is named **first**, and in prose that recommends him: *"mijn meest allround
-aanbeveling"*, *"Mijn eerste keuze vlak bij Enspijk"*.
+**Average position is a measured 1.** On both providers.
+
+> **Qualified 2026-08-26 by section 16.5, and the qualification is load-bearing.**
+> Every subject mention in this phase is recorded as **"1 of 1"** - he was the only
+> *recognised* brand in every answer that named him. So position 1 means "no
+> competitor we were told to look for appeared beside him", **not** "he was
+> recommended first". openai's run 1, prompt 1, repetition 3 ranked *Autobedrijf De
+> Vos* first and Blom second, and the instrument still recorded 1 of 1, because De
+> Vos is not on the competitor list. The sentence this section originally carried -
+> "when he is named he is named first" - is **withdrawn**. The prose quoted below
+> is real and he is genuinely recommended in it; what cannot be claimed from the
+> figure is a rank against rivals.
+
+He is recommended in prose when he appears: *"mijn meest allround aanbeveling"*,
+*"Mijn eerste keuze vlak bij Enspijk"*.
 
 So his problem is **not** that he comes third. It is that on nine questions out of
-ten he is not a candidate at all.
+ten he is not a candidate at all. **That half rests on the mention rate, which is
+sound, and it survives the qualification above unchanged.**
 
 That is a different diagnosis from "improve your website", it follows from two
 figures that this instrument already puts side by side - a mention rate of 10
@@ -1078,3 +1091,179 @@ reported as one rather than waved away - the honest conclusion would then be
 "stable across two markets, measured against lists of ten and seven names", and
 the way to break that tie is a run with a deliberately long competitor list, which
 is a later phase and not this one.
+
+---
+
+## 16. Locksmith run 1 - Slotenmaker Nieuwegein, 2026-08-26
+
+Run `8f076dc3-9d86-4447-9fe7-6f885207d972`, basis **`3121891056ea`** - a different
+basis from Blom's, as it must be. Created `17:30:23Z`, completed `17:33:28Z`.
+**Coverage 100 percent on both targets, 60 of 60, every answer ok.** $4.19.
+
+Kept separate from the Blom narrative deliberately: the two answer different
+questions and merging them would lose both.
+
+### 16.1 The figures as the instrument reports them - before verification
+
+| | anthropic | openai |
+|---|---|---|
+| Coverage | 100% (30/30) | 100% (30/30) |
+| Mention rate **as reported** | 16.7% (5) | 6.7% (2) |
+| Average position | 1 | 1 |
+| Competitors named | QuickBlue 2, Slotenmaker Veenstra 1 | Slotenmaker LockTight 4 |
+
+**Do not read the mention rates above.** They are the raw figures, and P9 exists
+because for this brand the raw figure is not the measurement.
+
+### 16.2 P9 - the false-positive rate, hand-verified against the stored raw text
+
+All **7** subject mentions were read individually against the answer text via C17,
+against the visible-text reduction rather than the raw string, and classified only
+after reading. This is C17's first real use and its most important one.
+
+| # | Target | Prompt | What the answer actually says | Verdict |
+|---|---|---|---|---|
+| 1 | anthropic | 2 | "De Slotenmaker Nieuwegein – 0318-240 299" | **false** |
+| 2 | anthropic | 2 | "De Slotenmaker Nieuwegein – 0318-240299" | **false** |
+| 3 | anthropic | 2 | "Slotenmaker Nieuwegein 24uur ... (030 7771264)" | **false** |
+| 4 | anthropic | 10 | "Slotenmaker Nieuwegein (met Vincent/Luuk): 9,5 uit 492 ervaringen" | **TRUE** |
+| 5 | anthropic | 8 | "Slotenmaker Nieuwegein 24 uur - biedt 24/7 slotenservice" | **false** |
+| 6 | openai | 2 | "Slotenmaker Nieuwegein 24 uur - 030 777 1264" | **false** |
+| 7 | openai | 1 | "Slotenmaker Nieuwegein: 085 760 25 17 ... binnen circa 20 minuten", cited to `slotenmaker-nieuwegein.nl` | **TRUE** |
+
+The two true positives are identified by marks that belong to **this** business and
+to no other: the **9,5 out of 492 reviews** its own site claims, and the phone
+number **085 760 25 17** with the **20-minute** arrival claim, cited to its own
+domain.
+
+| | Raw | True | False | **False-positive rate** | **Corrected mention rate** |
+|---|---|---|---|---|---|
+| anthropic | 5 | 1 | 4 | **80.0%** | 16.7% -> **3.3%** (1 of 30) |
+| openai | 2 | 1 | 1 | **50.0%** | 6.7% -> **3.3%** (1 of 30) |
+| **Both** | **7** | **2** | **5** | **71.4%** | **3.3%** |
+
+**P9 is confirmed, emphatically.** Nearly three quarters of this brand's mentions
+are not this brand.
+
+### 16.3 The false positives are not the failure P9 expected, and that is worse
+
+P9 anticipated the ordinary-word failure: "slotenmaker" and "Nieuwegein" landing
+next to each other in a heading or a sentence. **Not one of the five is that.**
+
+Every false positive is a **different, real, competing business whose trade name
+contains the client's name in full**:
+
+- **De Slotenmaker Nieuwegein** - phone `0318-240299`, a Veenendaal number.
+- **Slotenmaker Nieuwegein 24 uur** / **24uur** - phone `030 777 1264`, domain
+  `slotenmakernieuwegein24uur.nl`.
+
+The client's entire name is a **prefix or an infix of a rival's name**. Word
+boundaries hold, longest-alias-first has nothing longer to prefer, and quote
+folding is irrelevant. **No parser change fixes this**, exactly as P9 said, and the
+reason is that nothing is being parsed wrongly: the string really is there and it
+really is naming somebody else.
+
+The commercial reading is sharper than the technical one. **A business that names
+itself after its category and its city cannot be measured, because its competitors
+can and do adopt the same name with a suffix.** That is a finding about the name,
+not about the instrument, and it is the kind of thing a customer would want told
+to them before they buy a report.
+
+**There is a remedy inside v1, and it needs no code.** Add the colliding names to
+the **competitor list**. `Slotenmaker Nieuwegein 24 uur` (29 characters) sorts
+ahead of `Slotenmaker Nieuwegein` (22) under longest-alias-first, claims the
+characters, and the subject then cannot match inside it - and the rival gets
+counted as what it is. Same for `De Slotenmaker Nieuwegein`. **This is not applied
+retrospectively**: run `8f076dc3` is immutable and its figures stand as measured,
+with this document carrying the correction. Applying it would change the basis and
+start a new series, which is a decision for the operator.
+
+### 16.4 P13, P14, P15
+
+Recognised brands per prompt, both targets, all 60 answers:
+
+| Prompt | Place named | anthropic | openai |
+|---|---|---|---|
+| 1 | Nieuwegein | - | subject |
+| 2 | Nieuwegein | subject x3 *(all false)* | subject *(false)* |
+| 3 | IJsselstein | QuickBlue, Veenstra | - |
+| 4 | regio Utrecht | QuickBlue | - |
+| 5 | Nieuwegein | - | - |
+| 6 | **no place at all** | **-** | **-** |
+| 7 | omgeving Utrecht | - | LockTight |
+| 8 | Nieuwegein | subject *(false)* | LockTight |
+| 9 | Vianen | - | - |
+| 10 | Nieuwegein | subject *(true)* | LockTight x2 |
+
+- **P13 - holds, on both the raw and the verified reading.** Every subject mention,
+  true or false, falls on a prompt naming **Nieuwegein**. Prompts 3, 4 and 9 -
+  IJsselstein, regio Utrecht, Vianen - return the subject **zero** times on both
+  providers. The verified sample is only 2 answers and cannot carry much weight by
+  itself, but the raw distribution is 7 of 7 on Nieuwegein prompts, and the
+  competitor distribution points the same way: anthropic surfaced QuickBlue and
+  Veenstra **only** on the IJsselstein and Utrecht prompts, and the subject **only**
+  on Nieuwegein ones. Different place, different businesses. The Blom mechanism
+  reproduces in a city.
+- **P14 - confirmed on openai, falsified on anthropic.** openai: LockTight **4**,
+  QuickBlue **0**, Veenstra **0** - exactly as predicted. anthropic: LockTight
+  **0**, QuickBlue **2**, Veenstra **1** - the reverse. The prediction is
+  provider-dependent, which neither the prediction nor the mechanism behind it
+  allowed for, and that is the more useful half of the result: **whatever the
+  selection keys on, the two models do not key on the same thing.** A finding that
+  held on one provider and reversed on the other cannot be sold as "how AI answers
+  this question".
+- **P12 gets its first data point, and it holds** - on anthropic. **Slotenmaker
+  Veenstra, which publishes no address, was named once**, on the IJsselstein
+  prompt. One occurrence is not a rate, but the sharpest question in the run now
+  has a non-zero answer on one provider and a zero on the other.
+- **P11 - confirmed.** Prompt 6, which names no place at all, returned **zero**
+  recognised brands on **both** providers. It is the only prompt of which that is
+  true on both.
+- **P15 - technically holds and is uninformative.** See below.
+
+### 16.5 The finding that qualifies every position figure in this phase
+
+**Every subject mention in this entire phase - all 8 for Blom across two runs, all
+7 for the locksmith, on both providers - is recorded as "1 of 1".**
+
+The subject has been, in every single answer where he appeared, **the only
+recognised brand in that answer**.
+
+So "average position 1" does not mean "he was recommended first". It means **"he
+was the only name on our list that the answer contained"**. In openai's Blom run 1,
+prompt 1 repetition 3, the model wrote *"1. **Autobedrijf De Vos** - mijn eerste
+keuze"* and put Blom second - and the instrument recorded position **1 of 1**,
+because De Vos is not on the competitor list.
+
+**This qualifies section 11.8.** "He is not losing the comparison, he is not in it"
+survives - it rests on the mention rate, and the mention rate is sound. But the
+supporting sentence "when he is named he is named first" **does not survive**, and
+is withdrawn. What the data supports is only: *when he is named, no competitor we
+were told to look for was named in the same answer.*
+
+**And it is a presentation defect, which is what this phase is for.** The page
+renders `Average position: 1 · coverage 100% · N=3`. A reader cannot tell "1 of 1"
+from "1 of 8", and those are completely different claims - the first is nearly
+vacuous, the second is a strong result. PLAN's criterion for this phase is that
+**every figure on screens 1 to 3 is readable without ambiguity**, and this one is
+not.
+
+*Proposed, not implemented, because it is a display change and the operator
+decides:* average position should carry **the population it was taken over**, the
+way C10 already makes coverage and N travel with every figure - `1 of 1 recognised`
+rather than `1`. The obligation has the exact shape rule 21 describes, so if it is
+adopted it belongs in `Figure<T>` and not in a renderer.
+
+### 16.6 Cost
+
+| Run | Calls | Searches / call | Cost | Per call |
+|---|---|---|---|---|
+| Blom 1 | 60 | 1.62 | $3.80 | 63,347 |
+| Blom 2 | 60 | 1.77 | $4.04 | 67,332 |
+| Locksmith 1 | 60 | 1.68 | $4.19 | 69,763 |
+| **To date** | **180** | **1.69** | **$12.03** | **66,814** |
+
+Remaining 144 calls - Blom run 3, locksmith run 2, Coolblue - project to **$9.62**,
+phase total **$21.65** against the ~$21.17 the operator confirmed. Still tracking
+the estimator: 66,814 observed against 72,402 projected, the gap still sitting on
+the search count.
