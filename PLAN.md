@@ -878,6 +878,37 @@ is never deleted.
 
 ### Engineering items, each with its trigger
 
+- **THE CAPABILITY GAP: this instrument cannot see a business that is on neither
+  the target list nor the competitor list.** *Triggered by:* nothing yet, and that
+  is the problem - it has been raised as a question, never pursued, and has now
+  bitten twice in one phase. Recorded here so it is **found rather than
+  rediscovered**. It is not a Phase 9 job and is not scheduled.
+  v1 measures against a **closed list**: the subject's aliases plus the
+  competitors an operator typed. Every other business in an answer is invisible.
+  Two consequences, and they are different sizes.
+  1. **It corrupts average position.** Every subject mention in Phase 9 - fifteen,
+     two brands, two providers - was "1 of 1", because the subject was the only
+     *listed* brand in each answer. openai ranked `Autobedrijf De Vos` first and
+     the subject second and the figure still read 1. Phase 9 made the population
+     visible beside the number (C10, `AveragePosition`), which makes the blindness
+     **legible**. It does not remove it.
+  2. **It hides who is actually winning the answer.** Blom's runs named
+     `Autobedrijf De Vos`, `Autobedrijf F.C. van Asch`, `Autocenter Geldermalsen`,
+     `RéZo Carservice`, `Autotechniek Leenders`, `BMR Tiel` and more; the locksmith's
+     named `U-Sloten`, `Locksmith.nl`, `Slotenmaker Holland`, `Albina Secure`,
+     `Slotenmakersnel`. **Not one of them is counted anywhere**, because nobody
+     typed them in. "Which businesses does the model actually name" is arguably the
+     most valuable thing this instrument could report - it is the competitor list a
+     client would pay to be given rather than asked for - and v1 cannot report it.
+  The two are the same blindness from opposite ends, and `PHASE-9.md` -> 15.3 notes
+  a third face of it: a denser market does not produce a larger *measured* set, it
+  produces more invisible businesses, which is precisely what makes a set-similarity
+  figure hard to interpret across markets.
+  *Shape of the fix, not a design:* it needs brand **discovery** - naming entities
+  in an answer that are on no list - which is a different kind of operation from
+  matching a known string, is what the v2 judge exists for, and is a data model
+  change. Hence a stop-and-ask when it is scheduled, and hence not now.
+
 - **The company form loses a line without saying so.** *Triggered by:* the
   dashboard work, and it is a **measurement risk rather than a usability
   complaint** - it sits directly upstream of a run's spend. Found on 2026-08-26

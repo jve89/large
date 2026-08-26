@@ -34,6 +34,14 @@ interface AnswerSpec {
   readonly subjectPosition?: number
   /** Competitor names to put in every ok answer. */
   readonly competitorsIn?: readonly string[]
+  /**
+   * `totalRecognised` to stamp on every mention row, overriding the count this
+   * helper would otherwise derive. Real rows carry what the parser found in that
+   * one answer, and Phase 9 showed the two can differ in the way that matters:
+   * a subject alone in the recognised set is "1 of 1" however many businesses the
+   * prose actually named.
+   */
+  readonly totalRecognisedIn?: number
 }
 
 /** Builds answers spread across prompts in run order, N per prompt. */
@@ -54,16 +62,29 @@ function answersFor(spec: AnswerSpec): AggregatableAnswer[] {
       citations: (spec.citing ?? []).map((url) => ({ url })),
       mentions: !isOk
         ? []
-        : [
-            ...(namesSubject
-              ? [{ brand: 'Acme', isSubject: true, position: spec.subjectPosition ?? 1 }]
-              : []),
-            ...(spec.competitorsIn ?? []).map((brand, index) => ({
-              brand,
-              isSubject: false,
-              position: index + 2,
-            })),
-          ],
+        : (() => {
+            const found =
+              spec.totalRecognisedIn ??
+              (namesSubject ? 1 : 0) + (spec.competitorsIn ?? []).length
+            return [
+              ...(namesSubject
+                ? [
+                    {
+                      brand: 'Acme',
+                      isSubject: true,
+                      position: spec.subjectPosition ?? 1,
+                      totalRecognised: found,
+                    },
+                  ]
+                : []),
+              ...(spec.competitorsIn ?? []).map((brand, index) => ({
+                brand,
+                isSubject: false,
+                position: index + 2,
+                totalRecognised: found,
+              })),
+            ]
+          })(),
     })
   }
   return rows
@@ -149,10 +170,56 @@ describe('mention rate', () => {
 describe('average position', () => {
   it('averages only the answers that named the brand', () => {
     const answers = [
-      ...answersFor({ targetId: 'target-a', ok: 10, subjectIn: 10, subjectPosition: 3 }),
+      ...answersFor({
+        targetId: 'target-a',
+        ok: 10,
+        subjectIn: 10,
+        subjectPosition: 3,
+        totalRecognisedIn: 5,
+      }),
       ...answersFor({ targetId: 'target-a', ok: 10, subjectIn: 0 }),
     ]
-    expect(targetA(answers).averagePosition.result).toEqual({ kind: 'measured', value: 3 })
+    expect(targetA(answers).averagePosition.result).toEqual({
+      kind: 'measured',
+      value: { position: 3, outOf: 5 },
+    })
+  })
+
+  it('carries the population the position was taken over', () => {
+    // The pairing exists because a bare 1 was actively misleading on real data:
+    // every subject mention in Phase 9 was "1 of 1", which reads as "recommended
+    // first" and means "the only brand we were told to look for".
+    const alone = targetA(
+      answersFor({ targetId: 'target-a', ok: 6, subjectIn: 6, totalRecognisedIn: 1 }),
+    )
+    expect(alone.averagePosition.result).toEqual({
+      kind: 'measured',
+      value: { position: 1, outOf: 1 },
+    })
+
+    // Same position, a completely different claim, and the two must not render
+    // alike.
+    const amongRivals = targetA(
+      answersFor({ targetId: 'target-a', ok: 6, subjectIn: 6, totalRecognisedIn: 8 }),
+    )
+    expect(amongRivals.averagePosition.result).toEqual({
+      kind: 'measured',
+      value: { position: 1, outOf: 8 },
+    })
+  })
+
+  it('takes both means over the same answers, so they cannot drift apart', () => {
+    // Three answers naming the subject at 1 of 1, three at 3 of 6; the six answers
+    // that never named it contribute to neither mean.
+    const answers = [
+      ...answersFor({ targetId: 'target-a', ok: 3, subjectIn: 3, subjectPosition: 1, totalRecognisedIn: 1 }),
+      ...answersFor({ targetId: 'target-a', ok: 3, subjectIn: 3, subjectPosition: 3, totalRecognisedIn: 6 }),
+      ...answersFor({ targetId: 'target-a', ok: 6, subjectIn: 0 }),
+    ]
+    expect(targetA(answers).averagePosition.result).toEqual({
+      kind: 'measured',
+      value: { position: 2, outOf: 3.5 },
+    })
   })
 
   it('distinguishes "never named" from "nothing came back"', () => {

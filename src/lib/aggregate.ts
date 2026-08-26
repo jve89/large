@@ -72,7 +72,7 @@ import { formatMicrosAsUsd } from './money.ts'
  * Bumping it requires a row in `SPEC.md` -> Definitions -> Aggregation semantics
  * log. The number alone is uninterpretable.
  */
-export const AGGREGATION_SEMANTICS_VERSION = 1
+export const AGGREGATION_SEMANTICS_VERSION = 2
 
 /** How much of one target's plan actually came back. */
 export interface Coverage {
@@ -116,6 +116,38 @@ export interface Figure<T> {
   readonly coverage: Coverage
   /** The run's N. Displayed beside every figure, per C10. */
   readonly repetitions: number
+}
+
+/**
+ * An average position **and the population it was taken over**.
+ *
+ * The two travel together for the same reason coverage and N travel with every
+ * figure (C10, CLAUDE.md rule 21), and this pairing was added because the bare
+ * number was actively misleading on real data rather than merely thin.
+ *
+ * **Phase 9, 2026-08-26.** Every subject mention in that phase - fifteen of them,
+ * two brands, two providers - was position **1 of 1**: the subject was the only
+ * *recognised* brand in every answer that named it. Rendered as "1", that reads as
+ * "recommended first". It does not mean that. In one openai answer the model wrote
+ * "1. Autobedrijf De Vos - mijn eerste keuze" and put the subject **second**, and
+ * this figure still said 1, because De Vos was not on the competitor list.
+ *
+ * `position` alone is therefore not a rank against rivals; it is a rank among the
+ * brands this run was told to look for. `outOf` is what lets a reader tell "1 of
+ * 1", which is nearly vacuous, from "1 of 8", which is a strong result. Both are
+ * means over the same answers - the ones that named the subject - so both can be
+ * fractional.
+ *
+ * The deeper limitation this exposes is **not** fixed here and is not fixable at
+ * read time: v1 cannot see a business that is on neither the target nor the
+ * competitor list (`PLAN.md` -> Engineering items). `outOf` makes the blindness
+ * legible rather than removing it.
+ */
+export interface AveragePosition {
+  /** Mean 1-based position of the subject among the recognised brands. */
+  readonly position: number
+  /** Mean number of recognised brands in those same answers. Never less than `position`. */
+  readonly outOf: number
 }
 
 export interface DomainCount {
@@ -170,8 +202,8 @@ export interface TargetAggregate {
   readonly coverage: Coverage
   /** Successful answers naming the subject, over successful answers. 0..1. */
   readonly mentionRate: Figure<number>
-  /** Mean 1-based position of the subject, over the answers that named it. */
-  readonly averagePosition: Figure<number>
+  /** Mean 1-based position of the subject, with the population it was taken over. */
+  readonly averagePosition: Figure<AveragePosition>
   /** Every competitor in the run's snapshot, with its answer count. */
   readonly competitors: Figure<readonly CompetitorCount[]>
   /** C16. Which sources this target drew on, and in how many answers. */
@@ -224,7 +256,13 @@ export interface AggregatableAnswer {
   readonly outputTokens: number | null
   readonly searchCount: number | null
   readonly costMicros: bigint | null
-  readonly mentions: readonly { readonly brand: string; readonly isSubject: boolean; readonly position: number }[]
+  readonly mentions: readonly {
+    readonly brand: string
+    readonly isSubject: boolean
+    readonly position: number
+    /** How many recognised brands were found in that one answer. */
+    readonly totalRecognised: number
+  }[]
   /** Stored citation rows. Only the URL is needed; C16 counts answers, not rows. */
   readonly citations: readonly { readonly url: string }[]
 }
@@ -358,9 +396,11 @@ export function aggregateRun(input: AggregateInput): RunAggregate {
     const coverage = coverageFor(ok.length, planned, coverageThreshold)
 
     const withSubject = ok.filter((answer) => answer.mentions.some((m) => m.isSubject))
-    const positions = withSubject
-      .map((answer) => answer.mentions.find((m) => m.isSubject)?.position)
-      .filter((position): position is number => position !== undefined)
+    // Position and population are read from the **same** mention row, so the two
+    // means are always taken over the same answers and cannot drift apart.
+    const placings = withSubject
+      .map((answer) => answer.mentions.find((m) => m.isSubject))
+      .filter((mention): mention is NonNullable<typeof mention> => mention !== undefined)
 
     const wrap = <T>(result: FigureResult<T>): Figure<T> => ({ result, coverage, repetitions })
 
@@ -407,17 +447,22 @@ export function aggregateRun(input: AggregateInput): RunAggregate {
           ? { kind: 'no-data' }
           : { kind: 'measured', value: withSubject.length / ok.length },
       ),
-      averagePosition: wrap<number>(
+      averagePosition: wrap<AveragePosition>(
         ok.length === 0
           ? { kind: 'no-data' }
-          : positions.length === 0
+          : placings.length === 0
             ? // Measured, and the answer is that it was never named. Reporting 0
               // here would read as "position zero", which is better than every
               // rival rather than absent from all of them.
               { kind: 'not-applicable', why: 'the brand was not named in any successful answer' }
             : {
                 kind: 'measured',
-                value: positions.reduce((sum, p) => sum + p, 0) / positions.length,
+                value: {
+                  position:
+                    placings.reduce((sum, m) => sum + m.position, 0) / placings.length,
+                  outOf:
+                    placings.reduce((sum, m) => sum + m.totalRecognised, 0) / placings.length,
+                },
               },
       ),
       competitors: wrap<readonly CompetitorCount[]>(

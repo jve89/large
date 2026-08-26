@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { FigureValue, formatPercent } from '../../../components/figure.tsx'
+import { FigureValue, formatMean, formatPercent } from '../../../components/figure.tsx'
 import { RunProgress } from '../../../components/run-progress.tsx'
 import { plannedAttemptsPerTarget } from '../../../core/run/plan.ts'
 import { aggregateRun, ownHostOf } from '../../../lib/aggregate.ts'
@@ -44,7 +44,9 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
           outputTokens: true,
           searchCount: true,
           costMicros: true,
-          mentions: { select: { brand: true, isSubject: true, position: true } },
+          mentions: {
+            select: { brand: true, isSubject: true, position: true, totalRecognised: true },
+          },
           citations: { select: { url: true } },
         },
       },
@@ -179,7 +181,14 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
                   label="Average position"
                   figure={target.averagePosition}
                   evidence={{ runId: run.id, runTargetId: target.targetId }}
-                  render={(value) => (Math.round(value * 10) / 10).toString()}
+                  // The population travels with the number, per C10's clause on
+                  // average position. "1" reads as "recommended first" and does
+                  // not mean that; "1 of 1 recognised" says what was actually
+                  // measured, and "1 of 8 recognised" is the strong result a bare
+                  // 1 was being mistaken for.
+                  render={({ position, outOf }) =>
+                    `${formatMean(position)} of ${formatMean(outOf)} recognised`
+                  }
                 />
                 <FigureValue
                   name="competitor-frequency"

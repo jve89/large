@@ -66,6 +66,16 @@ being shown as a measurement. A run whose measurement basis changed says so
 rather than extending a series. The prompt library is not a secret.
 This is commercially uncomfortable and that is the point: a competitor who has
 sold a confident single score cannot start qualifying it later.
+**Every figure is per target, and none is ever averaged across providers into one
+score.** That was decided on principle, before any data existed, because mixing
+distributions that behave differently destroys the number.
+*It now has evidence, 2026-08-26, Phase 9.* On one locksmith question set, one
+provider named `Slotenmaker LockTight` **4** times and `QuickBlue` **0**; the
+other named LockTight **0** and QuickBlue **2**. Same prompts, same run, same
+basis, opposite orderings. A single blended score would have reported both as
+roughly equal and destroyed the only finding in the data. **A future session
+tempted to "simplify" the per-target breakdown into one headline number should
+read this paragraph as the reason not to.**
 
 **3. The causal dataset.** Measure, change something, measure again, on an
 identical basis, across thousands of businesses. Nobody in this category can
@@ -217,10 +227,43 @@ next to which competitors, and which sources the model cited.
   rather than an apostrophe.
 
 - **Position** - the rank of the brand's first occurrence in the visible text
-  among all recognised brands in that one answer. It is ordering in the text, not
+  among all recognised brands in that one answer. **It is a rank among the brands
+  the run was told to look for, and not a rank against the field**: a business on
+  neither the target nor the competitor list is invisible to it, so an answer that
+  recommends three businesses of which one is recognised yields position 1 of 1.
+  This is why C10 requires the population to be displayed with any average of it. It is ordering in the text, not
   the model's intended ranking.
 - **Recognised brand** - the subject brand (via its aliases) or a competitor from
   the run's competitor snapshot. v1 does not discover unknown brands.
+
+- **Name collision** - a client whose name is contained, in full, inside the trade
+  name of a competitor. **This instrument cannot measure such a client by name
+  alone, and the limitation is stated here rather than discovered per client.**
+  *Observed on real data 2026-08-26, Phase 9.* A locksmith trading as
+  **Slotenmaker Nieuwegein** - its category plus its city - was measured at a
+  **71 percent false-positive rate**: five of seven mentions were rival
+  businesses named **De Slotenmaker Nieuwegein** and **Slotenmaker Nieuwegein 24
+  uur**, each with its own phone number and its own domain. The raw figure on one
+  provider was **16.7 percent against a true 3.3 percent**, a five-fold overstatement.
+  **Nothing is parsed wrongly.** The string is present in the visible text and it
+  is naming somebody else. Word boundaries hold, longest-alias-first has nothing
+  longer to prefer, and normalisation is irrelevant. This is a fact about the
+  world - a business named after its category and its city invites competitors to
+  adopt that name with an affix - and it is therefore **handled by configuration
+  and not by algorithm**.
+  **The remedy, which requires no code:** enter the colliding trade names as
+  **competitors**. Longest-alias-first then claims the longer span first, the
+  subject cannot match inside it, and the rival is counted as the rival it is. The
+  operator is responsible for supplying them, and this is the one case where a
+  competitor entry is not optional - a client of this shape whose colliding names
+  are absent from the list will be over-reported.
+  *Why the direction matters:* every other measurement choice in this document
+  errs towards under-counting. This one errs towards **over**-counting, which is
+  the direction that flatters a client and is exactly what the category is
+  criticised for. Any tool that does not verify its mentions against the source
+  text reports the inflated figure and cannot know it has. That is differentiator
+  2 stated as a capability, and Phase 9 is where it caught a five-fold error on
+  real data for the first time.
 - **Cited domain** - the host of a stored citation's URL, lower-cased, with a
   trailing dot and a leading `www.` removed. C7 guarantees every stored citation
   URL is absolute and http or https, so every stored citation has exactly one
@@ -374,6 +417,7 @@ next to which competitors, and which sources the model cited.
 
   | Version | Date | What it covers, and what changed | Why |
   |---|---|---|---|
+  | 2 | 2026-08-26 | Average position now carries **the population it was taken over** - the mean `totalRecognised` of the same answers - and `aggregateRun` returns `{ position, outOf }` where it returned a bare number. The position value itself is unchanged for every stored row. | Phase 9 rendered fifteen subject mentions across two brands and two providers and **every one was "1 of 1"**. As a bare "1" that reads as "recommended first"; it means "the only brand on our list that appeared", and in at least one answer the model ranked an unlisted business first and the subject second. The same stored rows now yield a different figure - a pair rather than a scalar - which is inside the boundary, so it is a bump even though no arithmetic changed. Bumping costs nothing that matters: the aggregation version is deliberately **not** an input to `basisHash`, so no series breaks. |
   | 1 | 2026-08-25 | The initial stamped state of every rule inside the boundary above: coverage as successes over planned attempts; mention rate over successful answers; average position over the successful answers that named the subject; competitor frequency and cited-domain frequency counted per **answer**; cited domain as host, lower-cased, trailing dot and leading `www.` removed, with a subdomain as its own source; every order count-descending with ties broken by name ascending compared by code unit. | Stamped when the gap was found rather than when a rule first changed, so that version 1 names a state rather than a change. The exposure was never specific to one figure: every figure computed at read time has always been able to move under a reader without saying so, and C16 was only the first whose rule was interesting enough to make that obvious. |
 
 ## Capabilities (v1) - each has an ID and an EARS criterion
@@ -549,6 +593,19 @@ next to which competitors, and which sources the model cited.
   measurement, SHALL leave other targets unaffected, and SHALL keep the run visible.
   IF every attempt for one prompt against one target failed, THEN the system SHALL
   display that cell as "no data" and SHALL NOT display it as "not mentioned".
+  WHEN the system displays an **average position**, it SHALL display **the
+  population that position was taken over** - the mean number of recognised brands
+  in the answers the position was averaged over - beside it, on the same terms as
+  coverage and N.
+  *Added 2026-08-26, from real data rather than from principle.* Every subject
+  mention in Phase 9 - fifteen of them, two brands, two providers - was position
+  **1 of 1**. Rendered as "1", that reads as "recommended first" and does not mean
+  it: in one answer the model ranked a different business first and the subject
+  second, and the figure still said 1, because that business was on no list. A
+  reader who cannot tell "1 of 1" from "1 of 8" is reading a number that means
+  something other than what it appears to mean. The obligation has the shape
+  CLAUDE.md rule 21 describes, so it lives in the type - `AveragePosition` in
+  `src/lib/aggregate.ts` - with a page test for the half a type cannot reach.
 
 - **C11 - Comparability guard**: IF two runs of the same company differ in
   `basisHash`, THEN the system SHALL NOT present them as one series, and SHALL

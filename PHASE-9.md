@@ -1248,11 +1248,23 @@ vacuous, the second is a strong result. PLAN's criterion for this phase is that
 **every figure on screens 1 to 3 is readable without ambiguity**, and this one is
 not.
 
-*Proposed, not implemented, because it is a display change and the operator
-decides:* average position should carry **the population it was taken over**, the
-way C10 already makes coverage and N travel with every figure - `1 of 1 recognised`
-rather than `1`. The obligation has the exact shape rule 21 describes, so if it is
-adopted it belongs in `Figure<T>` and not in a renderer.
+**Implemented 2026-08-26, the same day, while waiting for the interval.** A
+read-time change that touches no basis and invalidates nothing:
+
+- `aggregateRun` returns `AveragePosition` - `{ position, outOf }` - instead of a
+  bare number, both means taken over the **same** answers so they cannot drift.
+- The page renders `1 of 1 recognised` rather than `1`.
+- C10 gains the clause; `SPEC.md` -> Definitions -> Position says a position is a
+  rank among the brands the run was told to look for and not a rank against the
+  field; `AGGREGATION_SEMANTICS_VERSION` goes **1 -> 2** with a log row, because
+  the same stored rows now yield a different figure. The aggregation version is
+  deliberately not an input to `basisHash`, so no series breaks.
+- Rule 21's two halves are both present and both verified by deletion: strip the
+  population from the renderer and **27 arithmetic tests stay green while the page
+  test goes red**.
+
+What this does **not** do is remove the blindness underneath it - it makes it
+legible. See `PLAN.md` -> Engineering items -> "THE CAPABILITY GAP".
 
 ### 16.6 Cost
 
@@ -1267,3 +1279,62 @@ Remaining 144 calls - Blom run 3, locksmith run 2, Coolblue - project to **$9.62
 phase total **$21.65** against the ~$21.17 the operator confirmed. Still tracking
 the estimator: 66,814 observed against 72,402 projected, the gap still sitting on
 the search count.
+
+---
+
+## 17. The interval, corrected - and a better design than either original
+
+### 17.1 What was wrong
+
+This session reported to the operator that Blom runs 1 and 2 were "about three
+hours" apart. **They were 24 minutes apart** (`16:45:54Z` and `17:10:15Z`, read
+from the stored rows). The operator's locksmith design was then written as "three
+hours apart, matching Blom", so **that instruction was wrong on its own terms** -
+not because the operator misjudged it, but because it was built on a number this
+session reported incorrectly.
+
+**The consequence for the headline result, stated plainly:** the mention Jaccard
+of **1.000** in section 14.2 is a claim about a **24-minute** separation. When it
+was first read it was described as a three-hour result and treated as a much
+larger claim than it is. Twenty-four minutes is more than a determinism check and
+far less than a statement about stability over time. It stands as measured; what
+changes is how much weight it carries.
+
+### 17.2 The replacement, which is better than both originals
+
+Chasing 24 minutes for the locksmith was rejected - that window had passed - and
+so was three hours, which would have confounded interval with market density, the
+one thing P16 exists to isolate.
+
+Instead: **locksmith run 2 runs tomorrow, roughly 24 hours after locksmith run 1,
+alongside Blom run 3.** Locksmith run 1 completed `17:33Z`; Blom run 3 becomes
+legitimate at `16:45:54Z`. Both fit in one session.
+
+That yields **three comparisons instead of one confounded pair**:
+
+| Comparison | Interval | What it isolates |
+|---|---|---|
+| Blom 1 ↔ 2 | ~24 minutes | *(already measured: mention J = 1.000)* |
+| Blom 1 ↔ 3, 2 ↔ 3 | ~24 hours | **the interval effect**, within one market |
+| Locksmith 1 ↔ 2 | ~24 hours | **the density effect**, at an interval matched to Blom's |
+
+Blom-over-a-day against locksmith-over-a-day isolates **density**, because the
+interval is held constant. Blom-over-24-minutes against Blom-over-a-day isolates
+**the interval**, because the market is held constant. Neither was available under
+the original design, and both matter to P16.
+
+### 17.3 Tomorrow, in order
+
+1. **Blom run 3** - not before `2026-08-27T16:45:54Z`, same basis `7c3fec1e65c4`,
+   unchanged. Then all three Blom pairs plus the across-three figures, and the
+   verdict against PLAN's stability criterion.
+2. **Locksmith run 2** - same basis `3121891056ea`, unchanged. Then the locksmith
+   pair, and P16.
+3. **Coolblue** - the control, 24 calls, reported separately.
+
+**The bases must not change before those runs.** In particular the name-collision
+remedy in section 16.3 - adding the rival trade names as competitors - **is not
+applied until after this phase closes**, because locksmith runs 1 and 2 must share
+a basis or there is no churn comparison at all. When it is applied, the right way
+to do it is to **measure the same brand before and after**: the size of the
+correction is itself a demonstration worth having, and this run is the "before".

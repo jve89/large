@@ -178,6 +178,43 @@ describe('C10 on the page - coverage and N beside every figure', () => {
     }
   })
 
+  it('prints the population beside the average position, not the bare number', async () => {
+    // Rule 21's second half, for the pairing added in Phase 9. `Figure<T>` and
+    // `AveragePosition` between them mean a renderer cannot obtain the position
+    // without having the population in hand; nothing but this test makes it print
+    // it. Delete the "of N recognised" from the page and every one of the 27
+    // arithmetic tests stays green while this goes red.
+    //
+    // The harness stamps totalRecognised 2 on a subject-naming answer, so the page
+    // must say "1 of 2 recognised" - never "1", which reads as "recommended first"
+    // and is the misreading this pairing exists to prevent.
+    const blocks = figureBlocks(await renderRun(HEALTHY))
+    const positions = blocks.filter((b) => b.name === 'average-position')
+    expect(positions).toHaveLength(2)
+    for (const block of positions) {
+      expect(block.text).toContain('1 of 2 recognised')
+    }
+  })
+
+  it('still says "not applicable" rather than a population when the brand was never named', async () => {
+    // The pairing must not turn a measured absence into a number. C10's clause is
+    // about a position that exists; there is none here.
+    const html = await renderRun([
+      [0, 0, 'ok', false],
+      [0, 0, 'ok', false],
+      [1, 0, 'ok', false],
+      [1, 0, 'ok', false],
+      [0, 1, 'ok', false],
+      [0, 1, 'ok', false],
+      [1, 1, 'ok', false],
+      [1, 1, 'ok', false],
+    ])
+    for (const block of figureBlocks(html).filter((b) => b.name === 'average-position')) {
+      expect(block.text).toContain('not applicable')
+      expect(block.text).not.toContain('recognised')
+    }
+  })
+
   it('states coverage as successes over PLANNED attempts, not over stored rows', async () => {
     // Half the plan never ran: four stored answers, all ok, eight planned.
     const html = await renderRun([

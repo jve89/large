@@ -77,3 +77,14 @@ export function FigureValue<T>({
 export function formatPercent(ratio: number): string {
   return `${Math.round(ratio * 1000) / 10}%`
 }
+
+/**
+ * A mean, to one decimal place, with a trailing `.0` dropped.
+ *
+ * Used for both halves of an average position, so that "1 of 1" does not render
+ * as "1 of 1.0" and a genuinely fractional population is not rounded into looking
+ * exact.
+ */
+export function formatMean(value: number): string {
+  return (Math.round(value * 10) / 10).toString()
+}
