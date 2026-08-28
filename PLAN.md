@@ -29,7 +29,7 @@
 | 11 | 8 - Comparability guard | C11 | done |
 | 12 | 13 - Mark the client's own cited domain | C16, extended | done |
 | 13 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | done |
-| 14 | 10 - Ship | SPEC "Success = done when" | next |
+| 14 | 10 - Ship | SPEC "Success = done when" | done |
 
 Phases 11 and 12 are new work and therefore take new numbers, but both belong
 after Phase 7. Phase 11 is a read-time aggregate over stored citation rows, so it
@@ -764,6 +764,19 @@ this product's whole risk is a number being misread.
 
 ## Phase 10 - Ship
 
+**Closed 2026-08-28. The checklist, the verdicts, the honest statement of what a
+person can and cannot do with this on the day it ships, and the register in its
+final form are in `SHIP.md`.**
+
+Two notes that belong here rather than there. `SPEC.md`'s success clause was
+**corrected** during this phase, not merely checked: it required "at least one
+citation per successful answer", which Phase 9 falsified with 11 of 354. The
+correction was not made in order to pass - locksmith run 2 satisfied even the
+strict wording - it was made because the clause asserted a property of a model
+rather than of this system. And **a custom domain is not part of Ship**: nothing
+in `SPEC.md` specifies one, the service runs on Railway's own hostname and TLS,
+and pointing DNS at it is an operator task of a few minutes whenever it is wanted.
+
 - Delivers: SPEC's "Success = done when"
 - Done when: `npm run verify` exits 0 against the deployed configuration; all
   nineteen capabilities pass their EARS criteria; the real-brand run from Phase 9
@@ -902,7 +915,30 @@ is never deleted.
 
 ### Engineering items, each with its trigger
 
-- **Per-target cost totals.** *Triggered by:* Phase 9 leaving its own criterion
+- **Retrieval-grounded and parametric answers are different things, and nothing
+  distinguishes them. RECORDED, NOT TO BE BUILT.** *Triggered by:* a product
+  decision about what a customer is shown, not by an engineering need.
+  Phase 9 produced **11 successful answers out of 354 that ran no web search at
+  all** - complete answers given entirely from the model's own parametric
+  knowledge (`PHASE-9.md` -> 22.1). They cluster on questions the model treats as
+  settled: whether an independent garage voids a Mercedes warranty, which shop
+  sells a student laptop.
+  **A brand cannot influence such an answer by changing its website.** No amount of
+  content, schema, reviews or directory presence reaches a question the model never
+  searched for. That makes it a categorically different result from a
+  search-grounded one, and it sits directly under this product's argument: the
+  advice engine at roadmap stage 3 would be recommending interventions that
+  *cannot work* on that share of a client's questions.
+  The data to tell them apart is already stored - `Answer.searchCount` is 0 for
+  exactly these. **Whether a customer should see the distinction is a product
+  question and it is deliberately unanswered here.** Recorded so that it is decided
+  rather than discovered.
+
+- **Per-target cost totals. PARKED, and parked deliberately rather than absent.**
+  Nothing about Ship depends on it and no customer sees it; it becomes real at
+  roadmap stage 2, where per-target cost is what gets priced against. *Trigger:*
+  the first pricing decision, or any question of the form "which provider costs
+  more per answer". *Triggered originally by:* Phase 9 leaving its own criterion
   open. `Answer.costMicros` is stored per answer and `aggregateRun` totals it per
   **run**; nothing exposes a per-**target** total, so "record the mean and the
   spread, per target" could not be computed and the run-level figure was reported
@@ -912,7 +948,15 @@ is never deleted.
   micro-dollars per call across seven runs. The fix is a totals block on
   `TargetAggregate` beside the run-level one, plus an aggregation-version bump.
 
-- **`verify:live` asserts a citation on every successful answer, and real data has
+- ~~**`verify:live` asserts a citation on every successful answer**~~ - **done
+  2026-08-28, before Ship**, because a gate that can fail with no defect present is
+  eventually "fixed" by weakening something real. Two assertions replaced it: an
+  answer that **ran a web search** must carry a citation - the exact signature of
+  the defect the gate exists for - and **at least one** successful answer must
+  carry one, so the first cannot pass vacuously. A successful answer that searched
+  nothing is now **reported and not asserted on**. The original entry, kept because
+  the shape of the mistake is the point:
+  **`verify:live` asserted a citation on every successful answer, and real data
   falsified it.** *Triggered by:* Phase 9, which produced **11 successful answers
   with no citations at all** out of 354 - every one a complete, correct answer the
   model gave from its own knowledge without searching. The gate fails if any
@@ -935,7 +979,17 @@ is never deleted.
   discovery in the capability gap above, so it is downstream of it.
 
 - **THE CAPABILITY GAP: this instrument cannot see a business that is on neither
-  the target list nor the competitor list.** *Triggered by:* nothing yet, and that
+  the target list nor the competitor list. PARKED, with one question now waiting
+  on it.**
+  **The density question cannot be answered until brand discovery exists.** Phase 9
+  tried and failed: the dense urban market produced *smaller* measured sets than
+  the thin rural one, because the businesses that make it dense are on no list
+  (`PHASE-9.md` -> 19.1). That is not a result to be reported as one, and it is
+  parked here rather than left as an absence - **so is the third face of it in
+  `PHASE-9.md` -> 15.3, that a Jaccard over a small closed list is an easy number
+  to hold at 1.000.** Every claim this product makes about *stability across
+  markets* is bounded by this entry until it is done.
+  *Triggered by:* nothing yet, and that
   is the problem - it has been raised as a question, never pursued, and has now
   bitten twice in one phase. Recorded here so it is **found rather than
   rediscovered**. It is not a Phase 9 job and is not scheduled.

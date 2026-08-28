@@ -30,5 +30,9 @@
  * Version 5 was taken on 2026-08-26, immediately before Phase 9's first real
  * client run, for the same reason: a bump costs nothing while no series exists
  * and costs a customer's history once one does.
+ *
+ * Version 6 was taken on 2026-08-28, at the close of Phase 9 and before Ship: the
+ * hyphen fold, which is the apostrophe fold's twin and was found by the same
+ * phase measuring itself.
  */
-export const MEASUREMENT_SEMANTICS_VERSION = 5
+export const MEASUREMENT_SEMANTICS_VERSION = 6

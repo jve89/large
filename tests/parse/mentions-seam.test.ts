@@ -31,7 +31,7 @@ const PREFIX = `test-c8-seam-${process.pid}-`
 const ALIASES = ['Acme', 'Acme Corp']
 // The third competitor carries a straight apostrophe deliberately: the fold that
 // lets it match a model's typographic one is only observable at this seam.
-const COMPETITORS = ['Globex', 'Initech', "Mike's Car Service"]
+const COMPETITORS = ['Globex', 'Initech', "Mike's Car Service", 'Acme-Expert']
 
 let companyId: string
 
@@ -163,6 +163,19 @@ describe('C8 at the seam - what executeRun actually stores', () => {
     // ...while the answer keeps the character the provider actually sent.
     expect(answer.rawText).toContain('Mike\u2019s')
     expect(answer.rawText).not.toContain("Mike's")
+  })
+
+  it('folds the hyphen for the match and stores the answer text unfolded', async () => {
+    // The apostrophe fold's twin (SPEC -> Definitions -> Quote folding). The
+    // operator registers `Acme-Expert`; the model writes "Acme Expert". Both
+    // halves are only observable here: that the spaced prose reaches a stored
+    // mention for a hyphenated competitor, and that `rawText` still holds no
+    // hyphen because none was sent.
+    const answer = await answerFor('For that job I would call Acme Expert instead.')
+
+    expect(answer.mentions.map((m) => m.brand)).toEqual(['Acme-Expert'])
+    expect(answer.rawText).toContain('Acme Expert')
+    expect(answer.rawText).not.toContain('Acme-Expert')
   })
 
   it('matches against the run snapshot, not against the company as it stands now', async () => {

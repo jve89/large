@@ -97,6 +97,27 @@ also tracked the **provider** rather than the market: one model reproduced its s
 exactly in every comparison and the other swapped one member across a day, in both
 markets alike.
 
+*And a second result from the same runs, which is larger than the first.*
+**Citation churn did not grow when the interval grew by a factor of ninety.**
+Jaccard over cited sources was 0.49-0.59 between two runs **twenty-four minutes**
+apart and 0.49-0.59 between runs **thirty-five hours** apart - the same band, on
+the same basis, the same prompts and the same instrument.
+The figures this category advertises - *74 percent of sources replaced weekly, 69
+percent day to day* (as researched 2026-08-24; re-check, don't trust) - are sold
+as evidence that visibility **decays over time** and therefore needs monitoring.
+This data is consistent with those numbers being **almost entirely
+between-query variation rather than change over time**: if churn were driven by
+the passage of time it should have grown with a ninetyfold longer gap, and it did
+not move at all.
+**The comparison is internally controlled** - one instrument, one immutable hashed
+basis, the same prompts, two intervals - which is what makes it worth stating and
+what nobody selling those figures has published. It requires precisely the
+immutable runs and the separated mention-and-citation storage this system has.
+*What it does not support:* nothing about **weeks or months**, since the longest
+gap measured is 35 hours; it rests on **two markets and one instrument**; and it
+says nothing about *why* the sources differ between queries. The honest claim is
+narrow and testable: **over this range, interval did not predict citation churn.**
+
 **3. The causal dataset.** Measure, change something, measure again, on an
 identical basis, across thousands of businesses. Nobody in this category can
 yet say which interventions actually move a recommendation; they say "results
@@ -228,8 +249,21 @@ next to which competitors, and which sources the model cited.
   grounds.
 - **Quote folding** - the typographic apostrophes and quotation marks
   (`‘ ’ ‚ ‛ ʹ ʼ ′ ´` and `“ ” „ ‟ ″ ʺ`) rewritten as the ASCII `'` and
-  `"`, applied to the answer's visible text and to every alias and competitor
-  name **at the moment of comparison and nowhere else**. Stored answer text keeps
+  `"`, **and the hyphens and dashes (`- ‐ ‑ ‒ – — ― −`) rewritten as a space**,
+  applied to the answer's visible text and to every alias and competitor
+  name **at the moment of comparison and nowhere else**.
+  *The dashes were added 2026-08-28 for the same reason and after the same kind of
+  miss.* An operator registers `Slotenmaker-Expert`; a model writes "Slotenmaker
+  Expert Nieuwegein"; one name, two strings, and the business is counted nowhere.
+  A **space** rather than nothing, because whitespace inside a multi-word alias is
+  already elastic, so one alias then matches the hyphenated, the spaced and the
+  line-broken form together. **U+00AD, the soft hyphen, is excluded and remains a
+  known limitation**: it sits inside a word, folding it to a space would not help,
+  and deleting it would change the string's length and move every position after
+  it.
+  *An operator can also list both spellings, and for a name this product cannot
+  anticipate that remains the remedy - but the fold is what makes it work for the
+  client who never thought of it, which is most of them.* Stored answer text keeps
   what the provider sent and a stored mention keeps the name the operator typed.
   It exists because the two characters are not two encodings of one thing:
   Unicode normalisation will never map `'` onto `’`, an operator's keyboard
@@ -404,6 +438,7 @@ next to which competitors, and which sources the model cited.
   | 3 | 2026-08-25 | A domain-shaped link label is removed only when it is that link's **own address**, compared by host after stripping `www.` and allowing a deeper target host. An address-shaped label pointing elsewhere is kept. | Version 2 merged two error classes. `[acme.nl](https://acme.nl)` is an attribution and dropping it is a conservative measurement choice; `[Node.js](https://nodejs.org)` is a brand that merely contains a dot, and dropping it was a parsing artifact with no compensating benefit. Taken the same day as version 2 rather than after Phase 9's count, because each bump invalidates every series recorded under the version before it and production held one run. |
   | 4 | 2026-08-25 | The label-versus-target comparison stopped being symmetric: a label **deeper** than its target, `[blog.acme.nl](https://acme.nl)`, is now kept. | Version 3's code dropped that case and no document described it, so the parser was quietly stricter than its own definition. The rule is that a label is dropped only when shown to be the target's own address, and a subdomain of the target is a different host. Third bump in two days, taken deliberately: every bump invalidates every series recorded under the version before it, production holds nothing, and these are free today and never will be again. |
   | 5 | 2026-08-26 | Typographic apostrophes and quotation marks are folded to their ASCII equivalents on **both sides of the match** - the answer's visible text and the alias alike. Stored text is untouched. | The operator types `Mike's` because a keyboard makes a straight apostrophe; a model writes `Mike’s` because a renderer makes a typographic one. NFC maps neither onto the other, so the alias could never match and nothing would say so. This is not an edge case in Dutch, where `'t Hoekje`, `'s-Hertogenbosch` and `Jan's Autoservice` are ordinary forms - the miss would fall hardest on the most Dutch-sounding businesses. Taken before Phase 9 rather than after it, because Phase 9's numbers are meant to be evidence and measuring them under a rule already known to be wrong would waste the spend. **Demonstrated on real data in the first run it was used for, 2026-08-26:** openai wrote `Mike’s Car Service` with U+2019 in Phase 9's run 1, and **both** of that competitor's mentions exist only because of this fold - matched unfolded, the stored alias finds nothing in either answer. Without it the figure would have read 0 of 30 instead of 2 of 30, with nothing on the page hinting that anything was missing. This row is therefore the one entry in this log that records a rule which has **changed a real measurement**, rather than one argued for from first principles. |
+  | 6 | 2026-08-28 | Hyphens and dashes (`- ‐ ‑ ‒ – — ― −`) are folded to a **space** on both sides of the match, on the same terms as version 5. The soft hyphen U+00AD is excluded and stays a known limitation. | The apostrophe fold's twin, and found by Phase 9 measuring itself: a competitor registered as `Slotenmaker-Expert` was written by a model as "Slotenmaker Expert Nieuwegein" and counted nowhere. Dutch business names carry hyphens constantly, so this recurs with every client whose name has one, and it recurs silently. A space rather than nothing, because `patternSource` already makes whitespace elastic, so one alias then matches the hyphenated, spaced and line-broken forms at once; folding to nothing would match `SlotenmakerExpert` and stop matching `Slotenmaker Expert`, which is the wrong direction of the two. |
 
 - **Aggregation semantics** - how stored rows are summarised into the figures a
   reader sees, as distinct from what was measured. `AGGREGATION_SEMANTICS_VERSION`
@@ -574,8 +609,9 @@ next to which competitors, and which sources the model cited.
   persist, for each, its 1-based position by first occurrence together with the
   total number of recognised brands found.
   Matching SHALL be case-insensitive and Unicode-normalised; SHALL fold
-  typographic apostrophes and quotation marks to their ASCII equivalents on both
-  sides of the comparison, as **Quote folding** defines those; SHALL require a
+  typographic apostrophes and quotation marks to their ASCII equivalents, and
+  hyphens and dashes to a space, on both sides of the comparison, as **Quote
+  folding** defines those; SHALL require a
   non-alphanumeric boundary or a string edge on both sides; SHALL tolerate
   additional whitespace and line breaks inside a multi-word alias; SHALL ignore
   markdown link targets, image targets, fenced code blocks, URLs and email
@@ -948,7 +984,21 @@ considered at all.
 `npm run verify` exits 0 against the deployed configuration, all nineteen
 capabilities pass their EARS criteria, and one real run of a real brand with at
 least ten real prompts has completed with every target at coverage of 80 percent
-or higher, producing at least one citation per successful answer.
+or higher, **with citations stored for every successful answer that ran a web
+search**.
+
+*Corrected 2026-08-28.* This clause previously required "at least one citation per
+successful answer", and Phase 9 falsified the assumption underneath it: **11 of
+354 successful answers carried no citation**, every one a complete answer a model
+gave from its own knowledge without searching at all. That is a fact about how
+models answer settled questions, not a property of this system, and a success
+criterion must not assert something this system does not control.
+**The correction is not being made in order to pass.** Locksmith run 2 - ten real
+prompts, both targets at 100 percent coverage - satisfies even the original strict
+wording, so the clause was met as written. It is corrected because it was wrong,
+and because leaving it would eventually make a legitimate release fail a check that
+would then be weakened under pressure. The same reasoning, and the same day,
+changed the assertion inside `verify:live`.
 
 ## Open questions - each line names its owner
 

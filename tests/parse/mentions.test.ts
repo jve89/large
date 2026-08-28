@@ -383,3 +383,83 @@ describe('findMentions - typographic apostrophes and quotation marks', () => {
     expect(brands('Jan`s Autoservice', tick)).toEqual([])
   })
 })
+
+/**
+ * Hyphen folding (SPEC -> Definitions -> Quote folding; C8; measurement semantics
+ * version 6).
+ *
+ * The apostrophe fold's twin, and found the same way: Phase 9 registered a
+ * competitor as `Slotenmaker-Expert`, a model wrote "Slotenmaker Expert
+ * Nieuwegein" in prose, and the business was named and counted nowhere.
+ */
+describe('findMentions - hyphens and dashes', () => {
+  const EN = '–'
+  const EM = '—'
+
+  it('matches a hyphenated alias against a spaced name in prose', () => {
+    // The case that actually happened, on real data, in Phase 9.
+    const expert = { aliases: ['Acme'], competitors: ['Slotenmaker-Expert'] }
+    expect(
+      brands('Bel **Slotenmaker Expert Nieuwegein** voor spoedhulp.', expert),
+    ).toEqual(['Slotenmaker-Expert'])
+  })
+
+  it('matches a spaced alias against a hyphenated name in prose', () => {
+    // The reverse, because folding one side only trades one silent miss for another.
+    const spaced = { aliases: ['Auto Blom'], competitors: [] }
+    expect(brands('Ga naar Auto-Blom in Enspijk.', spaced)).toEqual(['Auto Blom'])
+  })
+
+  it('folds en dashes and em dashes as well as the ASCII hyphen', () => {
+    const dashed = { aliases: ['Jansen-de Vries'], competitors: [] }
+    expect(brands(`Wij raden Jansen${EN}de Vries aan.`, dashed)).toHaveLength(1)
+    expect(brands(`Wij raden Jansen${EM}de Vries aan.`, dashed)).toHaveLength(1)
+    expect(brands('Wij raden Jansen de Vries aan.', dashed)).toHaveLength(1)
+  })
+
+  it('reports the brand exactly as the operator typed it, hyphen and all', () => {
+    const expert = { aliases: ['Acme'], competitors: ['Slotenmaker-Expert'] }
+    const result = findMentions('Slotenmaker Expert is open.', expert)
+    expect(result[0]?.brand).toBe('Slotenmaker-Expert')
+  })
+
+  it('does not move a position: a brand after a folded dash keeps its rank', () => {
+    const input = { aliases: ['Acme'], competitors: ['Slotenmaker-Expert', 'Globex'] }
+    const hyphen = findMentions('Acme, dan Slotenmaker-Expert, dan Globex.', input)
+    const spaced = findMentions('Acme, dan Slotenmaker Expert, dan Globex.', input)
+    expect(hyphen.map((m) => [m.brand, m.position, m.totalRecognised])).toEqual([
+      ['Acme', 1, 3],
+      ['Slotenmaker-Expert', 2, 3],
+      ['Globex', 3, 3],
+    ])
+    expect(hyphen).toEqual(spaced)
+  })
+
+  it('counts one brand, not two, when both spellings are listed', () => {
+    const both = { aliases: [], competitors: ['Slotenmaker-Expert', 'Slotenmaker Expert'] }
+    const result = findMentions('Slotenmaker Expert is open.', both)
+    expect(result).toHaveLength(1)
+    expect(result[0]?.totalRecognised).toBe(1)
+  })
+
+  it('leaves a soft hyphen inside a word unmatched, which is a known limitation', () => {
+    // U+00AD is an invisible line-break hint sitting *inside* a word. It is not in
+    // the fold set, and folding it to a space would not help either: the alias has
+    // no space there, so "Sloten maker" misses "Slotenmaker" exactly as
+    // "Sloten\u00ADmaker" does. The only fix is to delete the character, which
+    // changes the string's length and would move every position after it - the one
+    // property every fold in this file preserves. So it stays unhandled, and it is
+    // pinned here rather than left to be discovered.
+    const one = { aliases: ['Slotenmaker'], competitors: [] }
+    expect(brands('Sloten\u00ADmaker in Nieuwegein', one)).toEqual([])
+    expect(brands('Slotenmaker in Nieuwegein', one)).toEqual(['Slotenmaker'])
+  })
+
+  it('ignores an alias that is nothing but punctuation', () => {
+    // It folds away to whitespace, and a pattern built from that would match
+    // everywhere.
+    expect(findMentions('Anything at all.', { aliases: ['-', ' - '], competitors: [] })).toEqual(
+      [],
+    )
+  })
+})

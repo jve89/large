@@ -10,8 +10,13 @@
  * It costs two real provider calls each time it runs.
  *
  * Exits non-zero if a key is missing, if the run does not reach `completed`, if
- * fewer than two successful answers were stored, if any stored answer has no
- * citation, or if the parser produced no result.
+ * fewer than two successful answers were stored, if an answer that **ran a web
+ * search** carries no citation, if **no** successful answer carries one, or if the
+ * parser produced no result.
+ *
+ * *The citation assertion was weakened deliberately on 2026-08-28 and the reason
+ * is at the assertion itself: Phase 9 produced 11 successful answers with no
+ * citations at all, none of which was a defect.*
  */
 import path from 'node:path'
 
@@ -125,11 +130,48 @@ async function main(): Promise<void> {
     `at least two successful answers were stored (got ${successful.length} of ${answers.length})`,
   )
 
-  const withoutCitations = successful.filter((a) => a.citations.length === 0)
+  // What this gate is for: an adapter that silently turned a web search error into
+  // a successful answer with zero citations. Until 2026-08-28 the assertion was
+  // "every successful answer carries at least one citation", and Phase 9 falsified
+  // it - **11 of 354 successful answers legitimately carried none**, every one a
+  // complete answer a model gave from its own knowledge without searching at all
+  // (`PHASE-9.md` -> 22.1). The gate had never failed on one only because its
+  // single prompt happens to provoke a search every time, which is luck rather
+  // than design, and a gate that can fail with no defect present is eventually
+  // "fixed" by weakening something real.
+  //
+  // Two assertions replace it, and between them they cover the failure mode
+  // without asserting anything reality has contradicted.
+  const searched = successful.filter((a) => (a.searchCount ?? 0) > 0)
+  const searchedWithoutCitations = searched.filter((a) => a.citations.length === 0)
+
+  // 1. A search that ran and produced no citable source is the exact signature of
+  //    the defect: the adapter reported a successful answer where the provider had
+  //    returned a search error. An answer that never searched is not this.
   check(
-    successful.length > 0 && withoutCitations.length === 0,
-    `every successful answer carries at least one citation (${withoutCitations.length} without)`,
+    searchedWithoutCitations.length === 0,
+    `every successful answer that ran a web search carries a citation ` +
+      `(${searched.length} searched, ${searchedWithoutCitations.length} of them without)`,
   )
+
+  // 2. ...and the pipeline actually stores citations end to end, which assertion 1
+  //    alone would satisfy vacuously if every answer happened to search zero times.
+  const withCitations = successful.filter((a) => a.citations.length > 0)
+  check(
+    withCitations.length > 0,
+    `at least one successful answer carries a citation ` +
+      `(${withCitations.length} of ${successful.length})`,
+  )
+
+  // Reported, never asserted on: a successful answer with no searches and no
+  // citations is a real and legitimate result, and the count is worth seeing.
+  const unsearched = successful.length - searched.length
+  if (unsearched > 0) {
+    console.log(
+      `        note: ${unsearched} successful answer(s) ran no web search — ` +
+        'answered from the model\'s own knowledge, which is legitimate and not asserted on',
+    )
+  }
 
   // "The parser produced a result" — at least one recognised brand was found
   // somewhere in the run. With five well-known chat tools in the basis, a run
