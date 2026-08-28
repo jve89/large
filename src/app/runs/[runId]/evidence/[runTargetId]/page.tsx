@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { plannedAttemptsPerTarget } from '../../../../../core/run/plan.ts'
-import { AGGREGATION_SEMANTICS_VERSION } from '../../../../../lib/aggregate.ts'
+import { AGGREGATION_SEMANTICS_SINCE, AGGREGATION_SEMANTICS_VERSION } from '../../../../../lib/aggregate.ts'
 import { prisma } from '../../../../../lib/db.ts'
 import { contributesTo, scopeFor } from '../../../../../lib/evidence.ts'
 import { formatPercent } from '../../../../../components/figure.tsx'
@@ -74,7 +74,8 @@ export default async function EvidencePage({
         {run.company.name} · <span className="font-medium">{target.provider}</span> ·{' '}
         {target.modelId} · N={run.repetitions} · coverage{' '}
         {formatPercent(planned === 0 ? 0 : successes / planned)} ({successes} of {planned}{' '}
-        planned) · figures computed under aggregation rules v{AGGREGATION_SEMANTICS_VERSION}
+        planned) · figures computed under aggregation rules v{AGGREGATION_SEMANTICS_VERSION},
+        in effect since {AGGREGATION_SEMANTICS_SINCE}
       </p>
 
       {runPromptId !== undefined ? (

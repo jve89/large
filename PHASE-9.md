@@ -1338,3 +1338,456 @@ applied until after this phase closes**, because locksmith runs 1 and 2 must sha
 a basis or there is no churn comparison at all. When it is applied, the right way
 to do it is to **measure the same brand before and after**: the size of the
 correction is itself a demonstration worth having, and this run is the "before".
+
+---
+
+## 18. Blom run 3, and the three-run series
+
+Run `06000d59-af7c-49f8-98c8-8578006571fd`, basis `7c3fec1e65c4`, queued
+`2026-08-28T04:30:18Z` - **35 h 44 m** after run 1, not the 24 hours planned;
+PLAN requires "at least a day later" and this exceeds it. Coverage 100 percent on
+both targets, 60 of 60, $4.12.
+
+| | anth 1 | anth 2 | anth 3 | oai 1 | oai 2 | oai 3 |
+|---|---|---|---|---|---|---|
+| Mention rate | 10% (3) | 10% (3) | **10% (3)** | 16.7% (5) | 13.3% (4) | **16.7% (5)** |
+| Average position | 1 of 1 | 1 of 1 | **1 of 1** | 1 of 1 | 1 of 1 | **1 of 1.2** |
+
+anthropic is identical across all three runs at cell level: 3 of 3 on the Enspijk
+prompt, zero on the other nine, three times, a day and a half apart. openai's
+prompt-1 cell went back to 3 of 3 and its second hit moved from prompt 8 to
+prompts 9 and 10.
+
+**The first `outOf` above 1 in the whole phase** is openai run 3's **1.2**: at
+least one answer finally named a recognised competitor alongside the subject. The
+figure added in section 16.5 is carrying information the day it shipped.
+
+### 18.1 All three pairs
+
+| Target | Pair | Interval | **Mention J** | **Citation J** |
+|---|---|---|---|---|
+| anthropic | 1 ↔ 2 | 24 min | **1.000** | 0.529 |
+| anthropic | 1 ↔ 3 | 35.7 h | **1.000** | 0.508 |
+| anthropic | 2 ↔ 3 | 35.3 h | **1.000** | 0.588 |
+| openai | 1 ↔ 2 | 24 min | **1.000** | 0.525 |
+| openai | 1 ↔ 3 | 35.7 h | **0.667** | 0.491 |
+| openai | 2 ↔ 3 | 35.3 h | **0.667** | 0.566 |
+
+Across all three runs:
+
+| Target | Distinct brands named | Named in **every** run |
+|---|---|---|
+| anthropic | 3 | **3** |
+| openai | **6** | **4** |
+
+openai's change is one substitution: `Van Ooijen Automotive` present in runs 1 and
+2, absent in run 3; `Autobedrijf De Linge` absent in 1 and 2, present in 3. Four
+of six brands appear in all three.
+
+**The interval effect, isolated** (market held constant): openai's mention set is
+**perfectly stable within the hour and moves one member of five across a day and a
+half**. anthropic's does not move at either interval. Citation churn is
+**indifferent to the interval** - 0.49 to 0.59 at 24 minutes and at 35 hours
+alike. So citations churn as fast over lunch as they do over two days, while
+mentions only move over the longer gap.
+
+### 18.2 PLAN's stability criterion: N=3 stands
+
+The criterion is that the results must not differ by **more than one step of N**.
+One step is one answer in thirty, 3.3 points.
+
+- anthropic: 3, 3, 3 answers. **No movement at all.**
+- openai: 5, 4, 5 answers. **Maximum movement one answer** - exactly one step, and
+  the criterion is *more than* one step.
+
+**N=3 stands. No change to `ARCHITECTURE.md` or `SPEC.md` is required**, which
+resolves the open question in `SPEC.md` about whether N=3 is believable. Stated
+with its limit: this establishes N=3 over two days in two markets, not over weeks.
+
+---
+
+## 19. Locksmith run 2, and P16
+
+Run `fa7135cc-18ac-4adc-b0a1-7632e4c14c4d`, basis `3121891056ea`, queued
+**35 h 4 m** after run 1 - matched to the Blom day-interval so that the two
+markets are compared on one clock. Coverage 100 percent, 60 of 60, $4.47.
+
+### 19.1 P16, and it splits
+
+| Target | **Mention J** | **Citation J** | Distinct / in both |
+|---|---|---|---|
+| anthropic | **1.000** | 0.578 | 3 / 3 |
+| openai | **0.667** | 0.500 | 3 / 2 |
+
+**P16 is falsified on anthropic and confirmed on openai** - and the openai value
+is *identical* to openai's own Blom day-pairs (0.667). Set against Blom:
+
+| | Blom (thin) | Locksmith (dense) |
+|---|---|---|
+| anthropic, ~a day | 1.000 | **1.000** |
+| openai, ~a day | 0.667 | **0.667** |
+
+**The mention Jaccard did not move with market density at all. It moved with the
+provider.** Both markets give 1.000 on one model and 0.667 on the other, at a
+matched interval.
+
+**So which of the two worlds are we in?** On this evidence, **neither cleanly, and
+the honest answer is that the density experiment failed rather than returned a
+result** - for exactly the reason recorded in section 15.3 before the run:
+**v1 cannot see a business nobody typed in.** The locksmith's *measured* sets were
+2 and 3 brands, **smaller** than Blom's 3 and 5, in a market that is unquestionably
+denser - because U-Sloten, Locksmith.nl, Slotenmaker Holland, Albina Secure,
+Slotenmakersnel and the rest are on no list and therefore do not exist to this
+instrument. Density arrived as **invisibility**, not as a larger set.
+
+What the evidence *does* support is the weaker and still useful claim:
+**mention-set stability is a property of the provider, and citation churn is not.**
+Anthropic reproduced its recognised set exactly in six of six comparisons across
+two markets and two intervals. OpenAI reproduced it exactly within the hour and
+swapped one member of a small set across a day, in both markets, identically.
+
+### 19.2 P9 measured a second time, independently
+
+All 8 subject mentions in run 2 read individually against the visible text.
+
+| # | Target | What the answer says | Verdict |
+|---|---|---|---|
+| 1 | anth | "Slotenmaker Nieuwegein (24/7 Spoedservice) ... 9,5 op basis van 492 ervaringen" | **TRUE** |
+| 2 | anth | "Slotenmaker Nieuwegein (slotenmaker-nieuwegein.nl) ... 9,5 ... 085 - 76…" | **TRUE** |
+| 3 | anth | "Slotenmaker Nieuwegein 24 uur – 030 7771264" | false |
+| 4 | anth | "Slotenmaker-nieuwegein.nl claimt gemiddeld een 9,5 ... 492 ervaringen" | **TRUE** |
+| 5 | anth | "Slotenmaker Nieuwegein.com, **Slotenmaker-Nieuwegein.nl** en DeBesteSlotenmaker.nl" | **TRUE** |
+| 6 | anth | a search suggestion, `"slotenmaker Nieuwegein 24 uur"`, plus `Slotenmaker-Nieuwegein.com` | false |
+| 7 | anth | "Slotenmaker Nieuwegein (slotenmaker-nieuwegein.nl) De spoedservice is 24/7…" | **TRUE** |
+| 8 | oai | "Slotenmaker Nieuwegein — 030 777 1264" | false |
+
+| | Raw | True | False | **FP rate** | Reported | **Corrected** |
+|---|---|---|---|---|---|---|
+| anthropic | 7 | 5 | 2 | **28.6%** | 23.3% | **16.7%** |
+| openai | 1 | 0 | 1 | **100%** | 3.3% | **0%** |
+| **Run 2** | **8** | **5** | **3** | **37.5%** | | |
+| *Run 1, for comparison* | *7* | *2* | *5* | *71.4%* | | |
+| **Both runs** | **15** | **7** | **8** | **53.3%** | | |
+
+**Two independent measurements: 71.4 percent and 37.5 percent.** They differ by a
+factor of two, which is itself the finding: **the false-positive rate is not a
+stable property of the brand, it is a property of which rival the model happened
+to name that day.** A single measurement of it would have been reported with more
+confidence than it deserves.
+
+Its effect on the headline is not cosmetic. The instrument reports a mention rate
+of **23.3 percent** for anthropic run 2 where the truth is **16.7**, and **3.3
+percent** for openai where the truth is **0** - a client who is not named at all
+in thirty answers would be shown a non-zero figure.
+
+`Slotenmaker Nieuwegein.com` and `Slotenmaker-Nieuwegein.com` also appeared, so
+the merge list of section 16.3 is longer than two names, and the `.com`/`.nl`
+distinction now matters as well as the affix.
+
+### 19.3 Cited but not named, both locksmith runs
+
+| | own domain cited | subject named | **cited but NOT named** |
+|---|---|---|---|
+| Run 1 anthropic | 1 | 5 | **0** |
+| Run 1 openai | 1 | 2 | **0** |
+| Run 2 anthropic | 4 | 7 | **0** |
+| Run 2 openai | 0 | 1 | **0** |
+
+**Zero, reported as required.** Every answer that cited the client's own domain
+also named the client in prose. The register row stays open across the whole
+phase: **354 successful answers and not one instance.**
+
+---
+
+## 20. Coolblue - the healthy-render control
+
+Run `b14c98d1-8465-4c47-adf6-479cb31745f3`, basis `5ebddccd3709`, 24 calls, **$1.38**.
+
+| | anthropic | openai |
+|---|---|---|
+| Coverage | 100% (12/12) | 100% (12/12) |
+| Mention rate | **100%** | 50% |
+| Average position | **1.1 of 3.5 recognised** | **1 of 2.8 recognised** |
+| Competitors | MediaMarkt 11, Bol 9, Expert 5, BCC 4, Amazon.nl 1 | Expert 5, MediaMarkt 4, Bol 2, Amazon.nl 0, BCC 0 |
+| Cited domains | 25, `coolblue.nl` marked **(yours)** | 14, `coolblue.nl` marked **(yours)** |
+
+This is the screen the product is meant to sell, and it is the **counterpart** to
+section 21: a reader holding both can see that a 0 percent and a 100 percent are
+the same kind of measurement, taken the same way, at the same coverage.
+
+It is also where the new position figure finally earns itself: **1.1 of 3.5** is a
+real ranking against real rivals, and it looks nothing like the "1 of 1" that Blom
+and the locksmith produce. Under the old rendering both would have printed "1".
+
+---
+
+## 21. The absent screen - rendered, from real data, for the first time
+
+Run `d96c4d73-1df8-453f-b4bf-ecf1bc7474ef`, basis **`df53c587c2b8`** - a new
+basis. Five prompts, 30 calls, **$2.01**.
+
+**Prompt selection rule, stated because it matters:** of the original ten, exclude
+prompt 1 (names Enspijk, his own village) and prompts 8 and 9 (name a car brand
+rather than a place), then take the five that name **the market town or the
+region**. Prompts 4 and 6 were excluded because they name other villages.
+
+**This is a demonstration of a rendering, not an independent discovery, and the
+distinction is worth keeping.** All five prompts had already returned zero on both
+providers in all three earlier runs, so a zero here was expected. What is real is
+the underlying fact those runs established - on the questions naming the town he
+serves, this garage is named nowhere - and what is new is that the instrument now
+*shows* it.
+
+**What the page renders:**
+
+```
+Status completed · N=3 · 5 prompts × 2 targets = 30 planned attempts
+· basis df53c587c2b8 · figures computed under aggregation rules v2
+
+anthropic · claude-sonnet-5
+Coverage 100% (15 of 15 planned) · evidence
+Mention rate: 0% · coverage 100% (15 of 15 planned) · N=3 · evidence
+Average position: not applicable — the brand was not named in any successful
+                  answer · coverage 100% (15 of 15 planned) · N=3 · evidence
+Competitors: Vakgarage Van der Klij 11 · Autobedrijf Ruud den Hartog 1 · …
+Cited sources: autofirst-rezo.nl 11 · vakgaragevanderklij.nl 7 · …
+```
+
+Both targets identical in shape. **Mention rate is a measured `0%` and not "no
+data". Average position is `not applicable` with its reason, and never "no data".
+Coverage is 100 percent. Every one of the ten cells reads `measured`, 0 of 3.
+Nothing anywhere on the page is labelled unreliable. The cited-domain list is
+full - 29 and 30 domains.**
+
+That is the register row `PLAN.md` records as **never produced by reality**, and
+it is now produced. It is the screen the first customer sees, and it says *"we
+measured you and you are not there"* rather than *"we could not measure you"* -
+the distinction the whole instrument exists to communicate.
+
+### 21.1 C11 fired on real data, also for the first time
+
+The company page now reads:
+
+> **The measurement basis changed.** These 4 runs were measured on 2 different
+> bases and are not one series: a figure from one group cannot be compared with a
+> figure from another, because they did not ask the same questions of the same
+> targets about the same names. Each group below is internally comparable.
+>
+> Series 1 of 2 · basis `7c3fec1e65c4` · 3 runs
+> Series 2 of 2 · basis `df53c587c2b8` · 1 run
+
+Two register rows closed by one $2 run.
+
+**The ten-prompt list was restored immediately afterwards**, so the company's
+stored basis matches section 2 of this document again. The reduced-basis run is
+unaffected - it carries its own snapshot (C18, rule 10).
+
+---
+
+## 22. Phase 9 criteria, walked one by one
+
+Seven runs, **354 successful answers, 0 failed**, $24.00.
+
+| # | Criterion | Verdict |
+|---|---|---|
+| 1 | Every target at ≥80% coverage | **HOLDS.** 14 of 14 target-runs at **100%**, all `reliable` |
+| 1b | A citation on every successful answer | **DOES NOT HOLD - 11 of 354 have none.** See 22.1 |
+| 2 | Screens 1-3 readable without ambiguity | **HOLDS, after two fixes made during the phase.** See 22.2 |
+| 3 | Every figure reaches its evidence in one step, on real answers | **HOLDS.** C17 was the working tool of this phase, not a checkbox |
+| 4 | Link-text-domain false negative counted | **COUNTED, AND IT IS NOT ZERO: 1 in 354.** Comes back to the operator. See 22.3 |
+| 5 | Reader-facing half of aggregation-semantics versioning | **NOW SETTLED.** See 22.4 |
+| 6 | The absent-brand screen | **HOLDS.** Section 21 |
+| 7 | "Cited but not named", reported even at zero | **HOLDS. Zero, in all 354 answers** |
+| 8 | Citation churn and mention churn, separately | **HOLDS.** Sections 18.1, 19.1 |
+| 9 | Per-call cost re-derived, with its spread, **per target** | **PARTLY. Run-level done, per-target impossible.** See 22.5 |
+| 10 | Stability check; does N=3 stand | **HOLDS. N=3 stands.** Section 18.2 |
+| 11 | Three brands: named, absent, ordinary word | **HOLDS.** Coolblue, Blom-reduced, Slotenmaker Nieuwegein |
+
+### 22.1 The criterion that fails: 11 successful answers carry no citation
+
+**All 11 are anthropic.** Every one is a real, complete, successful answer -
+answered from the model's own knowledge without searching. They cluster on
+questions that are **general knowledge rather than local recommendation**:
+
+- *"Kan ik met mijn Mercedes ook naar een gewone garage…"* - **4 answers**, in all
+  three Blom runs. The model explains EU block-exemption law and cites nothing.
+- *"Ik zoek een goede laptop voor mijn studie…"* - **3 answers**, all of Coolblue's
+  anthropic repetitions of that prompt.
+- One each: the Betuwe maintenance question, the broken-key repair question, the
+  next-day-television question.
+
+**This closes a register row.** `PLAN.md` records "a successful answer carrying no
+citations" as **never observed - 0 of the stored ok answers**, with the predicted
+cause "a model answering from what it already knows without searching, plausible
+on a question it considers settled". That is exactly what happened, and the
+prediction was right down to the mechanism.
+
+**It also means `verify:live` asserts something that is not always true.** The gate
+fails if any successful answer lacks a citation. On a question the model considers
+settled, a perfectly good answer has none - so the gate would fail for a reason
+that is not a defect. It has not yet, because its single prompt happens to provoke
+a search every time. **That is luck, not design**, and it is the same shape as the
+defects CLAUDE.md rule 18 lists. Recommended, not done: the gate should assert
+that citations are *stored when the provider returns them*, not that every answer
+has one.
+
+The criterion as written - "at least one citation on every successful answer" -
+therefore **encoded an assumption about model behaviour rather than a requirement
+of the system**, and real data has falsified it. The figures are unaffected: C16
+counts domains per answer, and an answer that cited nothing contributes nothing.
+
+### 22.2 Readability - two things were wrong and both were fixed inside the phase
+
+- **Average position printed a bare number.** Every mention in the phase was "1 of
+  1"; a reader could not tell that from "1 of 8". Fixed (section 16.5), C10 gained
+  the clause, aggregation version 1 → 2. Coolblue's **1.1 of 3.5** is what the fix
+  buys.
+- **The aggregation version had no date.** Fixed in 22.4.
+
+Everything else held on real screens: no percentage without coverage and N, no
+failed cell reading as a zero, "no data" never confused with a measured zero, the
+totals block present and legible on every run, and a changed basis saying so in
+plain language (21.1).
+
+### 22.3 The link-text-domain false negative is 1, not 0 - and it comes back to you
+
+Counted per (answer, brand) over all 354 answers, at **brand** level: a brand
+counts as missed only when **no** alias of it appears in the visible text and some
+alias appears only as the visible text of a link to its own address.
+
+**One occurrence.** Locksmith run 2, openai, the competitor `Slotenmaker-Expert`:
+
+> `- **Slotenmaker Expert Nieuwegein:** **030 230 3078** — adverteert met 24/7`
+> `spoedhulp. ([slotenmaker-expert.nl](https://slotenmaker-expert.nl/…))`
+
+Two things are true at once and both matter:
+
+1. **The link rule behaved as designed.** `slotenmaker-expert.nl` labels a link to
+   itself, so it is an attribution and is dropped. The registered spelling
+   `Slotenmaker-Expert` appears nowhere else.
+2. **The business was named in prose anyway** - as *"Slotenmaker Expert
+   Nieuwegein"*, with a **space instead of the hyphen**. The registered alias is
+   hyphenated, and `patternSource` requires the literal hyphen, so the prose
+   naming did not match either.
+
+So the miss is **only partly** the link rule; the other half is spelling variance
+between what the operator typed and what the model wrote. Both halves have the
+same remedy as the name collision in section 16.3 - **register the variants** -
+which makes this the second finding in one phase pointing at the same conclusion:
+**for local-service brands, alias coverage is the operator's main lever on accuracy,
+and the product should help rather than assume.**
+
+Rate: **1 in 354 answers (0.28%)**, on a competitor rather than a subject. The
+belief behind the rule - a model that recommends a business names it in prose -
+survives as a good approximation and not as a certainty.
+
+### 22.4 The reader-facing half of the aggregation version - settled
+
+The criterion asked for the wording to be decided **against real figures**, and the
+phase produced the real case: runs 1 and 2 were rendered under **v1** on
+2026-08-26 and render under **v2** today, from identical stored rows.
+
+**What was rejected:** a banner reading *"these figures were computed under a
+different rule than the ones you saw before"*. **It cannot be made true** - nothing
+records what any reader saw - and an unverifiable claim is precisely what this
+product exists not to make.
+
+**What shipped:** the version now travels with **the date it took effect**, on the
+run page and the evidence page alike -
+
+> `figures computed under aggregation rules v2, in effect since 2026-08-26`
+
+A customer holding a September screenshot reads a different number and a different
+date, and the Aggregation semantics log in `SPEC.md` says what changed between
+them. It is the strongest statement the system can make **and check**.
+
+### 22.5 The one criterion left open
+
+**Per-call cost with its spread, per target.** The run-level half is done:
+
+| Run | Per call | Searches/call |
+|---|---|---|
+| Coolblue | 57,614 | 1.42 |
+| Blom 1 | 63,347 | 1.62 |
+| Blom reduced | 66,840 | 1.67 |
+| Blom 2 | 67,332 | 1.77 |
+| Blom 3 | 68,647 | 1.78 |
+| Locksmith 1 | 69,763 | 1.68 |
+| Locksmith 2 | 74,483 | 1.82 |
+
+**Weighted mean 67,803 micro-dollars per call** over 354 calls. Run-level spread
+**57,614 to 74,483 - 29 percent**. **Correlation between a run's per-call cost and
+its searches per call: 0.91**, confirming the driver `defaults.ts` hypothesised.
+`FALLBACK_MICROS_PER_CALL` is updated 80,000 → **68,000** on this sample.
+
+The **per-target** half **could not be computed**. `Answer.costMicros` is stored
+per answer and `aggregateRun` totals it **per run**; nothing exposes a per-target
+total, and the production database is not reachable from a developer machine.
+*The fix is small and is not being done inside this phase:* give `TargetAggregate`
+its own totals block beside the run-level one, which is one more `Figure`-shaped
+field and an aggregation-version bump. **Recorded as open rather than quietly
+substituted with the run-level number**, because per-target cost is what roadmap
+stage 2 prices against and the two providers are not interchangeable.
+
+---
+
+## 23. Two judgements
+
+### 23.1 Does the stability result belong in SPEC's Vision? **Yes - narrowly.**
+
+**What the evidence supports.** In **all eight** target-pair comparisons made -
+two markets, two providers, intervals of 24 minutes and ~35 hours - the set of
+**businesses named** was at least as stable as the set of **sources cited**, and
+usually far more so:
+
+| | mention J | citation J |
+|---|---|---|
+| Every anthropic pair (5 of them) | **1.000** | 0.508 - 0.588 |
+| openai, 24 minutes | **1.000** | 0.525 |
+| openai, ~a day, both markets | **0.667** | 0.491 - 0.566 |
+
+Citation churn sat in a **0.49-0.59 band in all eight**, indifferent to market,
+provider and interval. Mention churn was 1.000 in six and 0.667 in two. **No
+comparison had mentions churning faster than citations.**
+
+That is the claim `PLAN.md` says the category has not published, and it is the
+argument for differentiator 3: the published volatility figures measure how fast
+**cited sources** change and are reported as though they measured visibility.
+On this evidence they are **different quantities moving at different rates**.
+
+**What it does not support, and must be written down beside it:**
+
+- **Not a claim about weeks.** Two intervals, 24 minutes and ~35 hours. Nothing
+  here says a set is stable over a month.
+- **Not a claim about markets.** Two of them, and the density comparison
+  **failed** (19.1) rather than returned a result.
+- **Not independent of the instrument.** The measured sets were 2 to 5 brands
+  drawn from lists of 7 to 10. A Jaccard over a small closed list is a much easier
+  number to hold at 1.000 than one over an open field, and **v1 cannot see the
+  open field** (`PLAN.md` -> capability gap). This caveat was committed in section
+  15.3 *before* the runs and it is the one that most constrains the claim.
+- **It is provider-shaped, not market-shaped.** Whatever this measures, one model
+  did it perfectly and the other did not, identically in both markets.
+
+*Proposed wording is in the SPEC edit accompanying this phase; the operator
+approves or rejects it there.*
+
+### 23.2 Is Phase 9 done? **Yes - with one criterion open and one finding referred.**
+
+**Done**, because every capability the phase exists to re-verify has been
+exercised against real output and three register rows that "reality had never
+produced" were produced: the absent-brand screen, C11 firing on a real basis
+change, and a successful answer with no citations. The instrument was also
+**wrong twice and both were caught by using it** - the bare position figure and
+the 71%/37.5% false-positive rate - which is the phase working as intended.
+
+**Genuinely unfinished, and recorded rather than tidied away:**
+
+1. **Per-target cost spread** (22.5) - needs a small aggregate change, named.
+2. **The link-text-domain false negative is 1, not 0** (22.3) - PLAN says this
+   comes back to the operator before Phase 10, and it does.
+3. **`verify:live` asserts a citation on every successful answer** (22.1), which
+   real data has now falsified. The gate is passing on luck.
+
+None of the three blocks Ship. All three are worse if forgotten, which is why they
+are here rather than in a paragraph that reads "phase complete".

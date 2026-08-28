@@ -77,6 +77,26 @@ roughly equal and destroyed the only finding in the data. **A future session
 tempted to "simplify" the per-target breakdown into one headline number should
 read this paragraph as the reason not to.**
 
+*First evidence, Phase 9, 2026-08-28 - and it is narrower than it sounds.* Across
+eight target-pair comparisons - two brands, two providers, intervals of 24 minutes
+and about 35 hours - **the set of businesses named was at least as stable as the
+set of sources cited in every one, and usually far more so**: mention Jaccard
+1.000 in six comparisons and 0.667 in two, against citation Jaccard confined to
+0.49-0.59 in all eight, indifferent to market, provider and interval. **No
+comparison had mentions churning faster than citations.** If that holds at scale,
+the volatility figures this category publishes measure how fast *cited sources*
+change and are being reported as though they measured visibility - two quantities
+moving at different rates.
+It is recorded here with its limits attached, because the limits are load-bearing:
+**two intervals, so nothing is claimed about weeks; two markets, and the
+density comparison failed rather than returned a result; and the measured sets
+were 2 to 5 brands drawn from closed lists of 7 to 10, so a Jaccard of 1.000 is a
+much easier number to reach here than it would be over an open field - which v1
+cannot see** (`PLAN.md` -> Engineering items -> the capability gap). The effect
+also tracked the **provider** rather than the market: one model reproduced its set
+exactly in every comparison and the other swapped one member across a day, in both
+markets alike.
+
 **3. The causal dataset.** Measure, change something, measure again, on an
 identical basis, across thousands of businesses. Nobody in this category can
 yet say which interventions actually move a recommendation; they say "results

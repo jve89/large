@@ -28,8 +28,8 @@
 | 10 | 12 - Traceability to evidence | C17 | done |
 | 11 | 8 - Comparability guard | C11 | done |
 | 12 | 13 - Mark the client's own cited domain | C16, extended | done |
-| 13 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | next |
-| 14 | 10 - Ship | SPEC "Success = done when" | |
+| 13 | 9 - Presentation pass against a real brand | C10, C11, C12, C16, C17 | done |
+| 14 | 10 - Ship | SPEC "Success = done when" | next |
 
 Phases 11 and 12 are new work and therefore take new numbers, but both belong
 after Phase 7. Phase 11 is a read-time aggregate over stored citation rows, so it
@@ -93,6 +93,30 @@ of these behaviours has this instrument only ever performed against fixtures".
 | **C11 firing at all** - two runs of one company differing in basis | Never. Production holds **one** run; no two runs have ever differed in basis outside tests | Nothing in a gate changes a company's prompts, aliases, competitors or targets between runs | An operator editing a company between runs, which is ordinary use and will happen the first week a real client exists |
 | **A series interrupted and resumed** - basis A, then B, then A again, which must be two series and not three | Never | As above, and it needs three runs across two bases | The same operator changing something and changing it back - likelier than it sounds, since a prompt list is edited by re-pasting |
 | **C3's prompt-maximum and C19's planned-call refusals** | Never triggered by a real request | Both refuse before a run exists; no operator has yet asked for one that large | An operator pasting a long list, which is what they are for |
+
+**Phase 9 closed 2026-08-28 over 354 real answers, and three rows above are now
+closed by reality.** Struck through where produced:
+
+- ~~*A successful answer carrying no citations*~~ - **PRODUCED, 11 times**, all
+  anthropic, on questions the model treats as general knowledge rather than local
+  recommendation (the Mercedes warranty question four times, the laptop question
+  three). The predicted cause in the table below - "a model answering from what it
+  already knows without searching" - was right down to the mechanism. It also means
+  `verify:live` asserts something untrue and passes on luck; see `PHASE-9.md` ->
+  22.1.
+- ~~*Average position `not-applicable`*~~ - **PRODUCED.** `PHASE-9.md` -> 21: a
+  real garage, five real questions, coverage 100 percent, mention rate a measured
+  0 percent, average position not applicable, nothing unreliable, a full
+  cited-domain list. The screen the first customer sees, from real data.
+- ~~*C11 firing at all*~~ - **PRODUCED**, by the same run: two bases on one
+  company, drawn as two series with the basis change stated in plain language.
+
+Still never produced, and now measured rather than assumed: **"cited but not
+named" is 0 across all 354 answers**, and the retry, reclaim, `failed`-status,
+partial-coverage, `www.` and long-context rows were untouched by a phase in which
+every one of 354 attempts succeeded on the first HTTP attempt.
+
+The earlier note, from run 1 alone:
 
 **Tested against real data for the first time on 2026-08-26**, in Phase 9's run 1
 (60 real answers, coverage 100 percent on both targets). Three rows above were
@@ -877,6 +901,38 @@ needs no new provider calls against the measured models - which is why raw text
 is never deleted.
 
 ### Engineering items, each with its trigger
+
+- **Per-target cost totals.** *Triggered by:* Phase 9 leaving its own criterion
+  open. `Answer.costMicros` is stored per answer and `aggregateRun` totals it per
+  **run**; nothing exposes a per-**target** total, so "record the mean and the
+  spread, per target" could not be computed and the run-level figure was reported
+  instead, labelled as such (`PHASE-9.md` -> 22.5). It matters because per-target
+  cost is what roadmap stage 2 prices against and the two providers are not
+  interchangeable - in Phase 9 the run-level mean ranged 57,614 to 74,483
+  micro-dollars per call across seven runs. The fix is a totals block on
+  `TargetAggregate` beside the run-level one, plus an aggregation-version bump.
+
+- **`verify:live` asserts a citation on every successful answer, and real data has
+  falsified it.** *Triggered by:* Phase 9, which produced **11 successful answers
+  with no citations at all** out of 354 - every one a complete, correct answer the
+  model gave from its own knowledge without searching. The gate fails if any
+  successful answer lacks a citation, so it would fail on one of those for a reason
+  that is not a defect. It has not yet only because its single prompt happens to
+  provoke a search every time: **the gate is passing on luck**, which is the shape
+  CLAUDE.md rule 18 warns about. Change it to assert that citations are *stored
+  when the provider returns them* rather than that every answer has one - and keep
+  a case that proves the storing, or the assertion becomes vacuous.
+
+- **Help the operator with alias coverage.** *Triggered by:* two independent Phase
+  9 findings pointing at one conclusion. The name collision (`SPEC.md` ->
+  Definitions -> Name collision) over-counts a client whose name is inside a
+  rival's; the link-text miss in `PHASE-9.md` -> 22.3 under-counts a competitor
+  registered as `Slotenmaker-Expert` and written by the model as "Slotenmaker
+  Expert". **For local-service brands, alias coverage is the operator's main lever
+  on accuracy, and today the form assumes they will get it right unaided.** Cheapest
+  useful version: after a run, list the near-miss strings the parser saw and did not
+  match, so the operator can add them before the next one. That needs the brand
+  discovery in the capability gap above, so it is downstream of it.
 
 - **THE CAPABILITY GAP: this instrument cannot see a business that is on neither
   the target list nor the competitor list.** *Triggered by:* nothing yet, and that

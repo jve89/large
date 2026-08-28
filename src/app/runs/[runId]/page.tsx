@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { FigureValue, formatMean, formatPercent } from '../../../components/figure.tsx'
 import { RunProgress } from '../../../components/run-progress.tsx'
 import { plannedAttemptsPerTarget } from '../../../core/run/plan.ts'
-import { aggregateRun, ownHostOf } from '../../../lib/aggregate.ts'
+import { AGGREGATION_SEMANTICS_SINCE, aggregateRun, ownHostOf } from '../../../lib/aggregate.ts'
 import { evidenceHref } from '../../../lib/evidence.ts'
 import { prisma } from '../../../lib/db.ts'
 import { validateEnv } from '../../../lib/env.ts'
@@ -100,7 +100,8 @@ export default async function RunPage({ params }: { params: Promise<{ runId: str
           rather than per figure, because it governs all of them equally.
         */}
         <span data-aggregation-version>
-          figures computed under aggregation rules v{aggregate.aggregationVersion}
+          figures computed under aggregation rules v{aggregate.aggregationVersion}, in
+          effect since {AGGREGATION_SEMANTICS_SINCE}
         </span>
       </p>
       {run.failureReason ? (

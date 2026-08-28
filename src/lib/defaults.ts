@@ -53,28 +53,35 @@ export const MAX_REPETITIONS = 50
  * only to state an estimate in a refusal message. No stored `costMicros` is ever
  * computed from it - those come from `costMicrosFor` and the real usage figures.
  *
- * Measured 2026-08-25 over the 14 successful answers stored to date, all real
- * provider calls: anthropic averaged 78,463 micro-dollars per call (20,081 input
- * tokens, 1,830 output, 2.00 searches) and openai 82,223 (21,565 / 1,472 / 2.14).
- * 80,000 is the round figure between them; re-check, don't trust - it moves with
+ * **Re-derived 2026-08-28 over Phase 9's 354 real answers** - seven runs, three
+ * brands, two providers, two days: the weighted mean is **67,803** micro-dollars
+ * per call, and 68,000 is the round figure. Re-check, don't trust; it moves with
  * answer length and with each provider's prices.
  *
- * It supersedes the 71,540 figure this file previously carried, which came from
- * only six calls in Phase 4's browser pass.
+ * It supersedes 80,000 (14 answers, 2026-08-25), which itself superseded 71,540
+ * (6 answers, Phase 4). The direction of travel is worth noting: every larger
+ * sample has come in **lower** than the one before, so the earlier figures were
+ * over-stating cost rather than hiding it.
  *
- * **Treat 80,000 as provisional.** Fourteen answers is not a sample, and the
- * figure has a driver that has not been characterised: how many web searches a
- * question provokes. "Who is the best plumber in Amsterdam" plausibly triggers
- * more searches than a factual question, which would mean this product's unit cost
- * varies with the kind of question a customer asks - and that matters for pricing
- * later, where the spread matters as much as the mean. Phase 9 re-derives it
- * against a real sample and records the spread, not only the mean.
+ * **The spread, which matters as much as the mean for pricing.** Run-level means
+ * ranged **57,614 to 74,483** - a 29 percent spread across seven runs - and the
+ * driver is confirmed rather than hypothesised: **correlation between a run's
+ * per-call cost and its searches per call is 0.91**, over a search rate that
+ * varied from 1.42 to 1.82 per call. The Phase 9 hypothesis that buying-moment
+ * questions provoke *more* searches than factual ones was **not** supported: the
+ * cheapest run in the phase was Coolblue's consumer-purchase set at 1.42 searches
+ * per call.
+ *
+ * What is **not** established: the spread **per target**, which `PLAN.md` -> Phase
+ * 9 asked for and which could not be computed, because `Answer.costMicros` is
+ * stored per answer and aggregated only per run - nothing exposes a per-target
+ * total. See `PHASE-9.md` -> 22 for the open criterion and the one-line fix.
  *
  * Nothing shown to an operator uses this constant while stored answers exist:
  * `src/core/run/estimate.ts` computes the figure from them, precisely so that no
  * displayed dollar amount is a literal that can rot.
  */
-export const FALLBACK_MICROS_PER_CALL = 80_000n
+export const FALLBACK_MICROS_PER_CALL = 68_000n
 
 /**
  * The largest number of provider calls a single run may plan.
@@ -116,6 +123,11 @@ export const FALLBACK_MICROS_PER_CALL = 80_000n
  *
  * Raising it is one edit here. Do that in preference to weakening the check.
  *
+ * **Was temporarily 100 for Phase 9** and restored to 300 on 2026-08-28 when the
+ * phase closed, exactly as the note below required. The record of why is kept
+ * rather than deleted, because the next phase that wants a temporary ceiling
+ * should be able to see how the last one was handled and undone.
+ *
  * **Temporarily 100 for Phase 9, 2026-08-26, on the operator's instruction.**
  * Every run Phase 9 plans is 60 calls - ten prompts x two targets x N=3 - so
  * nothing legitimate is refused, while a mis-click that would have cost three
@@ -131,7 +143,7 @@ export const FALLBACK_MICROS_PER_CALL = 80_000n
  * calls, the ordinary case this ceiling was sized for - is refused too. That
  * second one is why this is temporary and not a decision.
  */
-export const MAX_PLANNED_CALLS = 100
+export const MAX_PLANNED_CALLS = 300
 
 /**
  * The largest prompt list a run may be queued against.

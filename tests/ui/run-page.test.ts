@@ -24,7 +24,10 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { AnswerStatus, RunStatus } from '@prisma/client'
-import { AGGREGATION_SEMANTICS_VERSION } from '../../src/lib/aggregate.ts'
+import {
+  AGGREGATION_SEMANTICS_SINCE,
+  AGGREGATION_SEMANTICS_VERSION,
+} from '../../src/lib/aggregate.ts'
 import { prisma } from '../../src/lib/db.ts'
 import { sweepByPrefix } from '../helpers/cleanup.ts'
 
@@ -213,6 +216,19 @@ describe('C10 on the page - coverage and N beside every figure', () => {
       expect(block.text).toContain('not applicable')
       expect(block.text).not.toContain('recognised')
     }
+  })
+
+  it('prints the date the aggregation rules took effect, not only their number', async () => {
+    // The reader-facing half of C9's version, settled in Phase 9 against real
+    // figures. The system cannot say "these figures changed since you last looked"
+    // - nothing records what anybody saw - so it states when the rule in force
+    // began, and a customer holding a screenshot compares two dates and two
+    // numbers against the log in SPEC.
+    const html = await renderRun(HEALTHY)
+    expect(html).toContain(`aggregation rules v${AGGREGATION_SEMANTICS_VERSION}`)
+    expect(html.replace(/<!-- -->/g, '')).toContain(
+      `in effect since ${AGGREGATION_SEMANTICS_SINCE}`,
+    )
   })
 
   it('states coverage as successes over PLANNED attempts, not over stored rows', async () => {

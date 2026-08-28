@@ -74,6 +74,29 @@ import { formatMicrosAsUsd } from './money.ts'
  */
 export const AGGREGATION_SEMANTICS_VERSION = 2
 
+/**
+ * The date the current aggregation semantics took effect, printed beside the
+ * version.
+ *
+ * **This is the reader-facing half of the version**, and Phase 9 is where it was
+ * settled against real figures rather than in the abstract (`PLAN.md` -> Phase 9).
+ * The system cannot know what a reader saw last time - nothing records who read
+ * what - so it cannot say "these figures changed since you last looked". What it
+ * can do is state **when the rule in force began**, which is enough: a customer
+ * holding a screenshot compares two dates and two version numbers, and the
+ * Aggregation semantics log in `SPEC.md` says what changed between them.
+ *
+ * The alternative considered and rejected was a banner reading "these figures were
+ * computed under a different rule than the ones you saw before". It cannot be
+ * made true - the system has no idea what anybody saw before - and a claim that
+ * cannot be checked is exactly what this product exists not to make.
+ *
+ * Update it in the same edit as the version. A date that has drifted from its
+ * version is worse than no date.
+ */
+export const AGGREGATION_SEMANTICS_SINCE = '2026-08-26'
+
+
 /** How much of one target's plan actually came back. */
 export interface Coverage {
   /** Answers with status `ok` for this target. */
